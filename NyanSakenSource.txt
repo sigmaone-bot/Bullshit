@@ -115,7 +115,7 @@ game:GetService("RunService").Stepped:Connect(function()
 		task.spawn(function()
 			for _, gen in ipairs(workspace.Map.Ingame:WaitForChild("Map"):GetChildren()) do
 				if gen.Name == "Generator" and gen:FindFirstChild("Remotes") then
-                    task.wait(genInterval)
+                    --task.wait(genInterval)
 					gen.Remotes.RE:FireServer()
 				end
 			end
@@ -1066,9 +1066,9 @@ getgenv().AimbotConfig.TrueShoot = getgenv().AimbotConfig.TrueShoot or { Enabled
 getgenv().AimbotConfig.ThrowPizza = getgenv().AimbotConfig.ThrowPizza or { Enabled = false, Smoothness = 1, Prediction = 0.25, Duration = 1.5 }
 getgenv().AimbotConfig.Killers = getgenv().AimbotConfig.Killers or { Enabled = false, Duration = 3 }
 getgenv().AimbotConfig.SelectedSkills = getgenv().AimbotConfig.SelectedSkills or {
-    "Slash", "Punch", "Stab", "Nova", "VoidRush", 
+    "Punch", "Stab", "Nova", 
     "WalkspeedOverride", "Behead", "GashingWound", 
-    "CorruptNature", "CorruptEnergy", "MassInfection", "Entanglement"
+    "CorruptNature", "CorruptEnergy"
 }
 getgenv().AimbotConfig.Mode = getgenv().AimbotConfig.Mode or "Aimlock" -- default
 
