@@ -1066,7 +1066,7 @@ getgenv().AimbotConfig.TrueShoot = getgenv().AimbotConfig.TrueShoot or { Enabled
 getgenv().AimbotConfig.ThrowPizza = getgenv().AimbotConfig.ThrowPizza or { Enabled = false, Smoothness = 1, Prediction = 0.25, Duration = 1.5 }
 getgenv().AimbotConfig.Killers = getgenv().AimbotConfig.Killers or { Enabled = false, Duration = 3 }
 getgenv().AimbotConfig.SelectedSkills = getgenv().AimbotConfig.SelectedSkills or {
-    "Stab", "Nova", "Slash", "VoidRush",
+    "Stab", "Punch", "Slash", "VoidRush",
     "WalkspeedOverride", "Behead", "RagingPace",
     "CorruptNature"
 }
@@ -1281,7 +1281,7 @@ Aimbot:CreateDropdown({
 -- Hàm kiểm tra skill Killers
 local function isKillerSkill(skillName)
     for _, v in ipairs(getgenv().AimbotConfig.SelectedSkills) do
-        if v == skillName and game.Players.LocalPlayer.Character.Parent == workspace.Players.Killers then return true end
+        if v == skillName then return true end
     end
     return false
 end
@@ -1907,7 +1907,7 @@ function VoidRushController:Stop()
     self.IsActive = false
 
     if self.Humanoid then
-        self.Humanoid.WalkSpeed = 16
+        self.Humanoid.WalkSpeed = 70
         self.Humanoid.AutoRotate = true
         self.Humanoid:Move(Vector3.new(0,0,0))
     end
@@ -2236,7 +2236,7 @@ local lp = Players.LocalPlayer
 local isChargeActive = false
 local connection = nil
 local DEFAULT_WALK_SPEED = 16 -- tốc độ mặc định (có thể update sau khi lấy humanoid)
-local ORIGINAL_DASH_SPEED = 60 -- tốc độ dash
+local ORIGINAL_DASH_SPEED = 70 -- tốc độ dash
 local chargecontrol = true -- bật/tắt dash
 
 -- Functions
