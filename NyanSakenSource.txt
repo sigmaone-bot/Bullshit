@@ -1066,8 +1066,8 @@ getgenv().AimbotConfig.TrueShoot = getgenv().AimbotConfig.TrueShoot or { Enabled
 getgenv().AimbotConfig.ThrowPizza = getgenv().AimbotConfig.ThrowPizza or { Enabled = false, Smoothness = 1, Prediction = 0.25, Duration = 1.5 }
 getgenv().AimbotConfig.Killers = getgenv().AimbotConfig.Killers or { Enabled = false, Duration = 3 }
 getgenv().AimbotConfig.SelectedSkills = getgenv().AimbotConfig.SelectedSkills or {
-    "Punch", "Stab", "Nova", "Slash", "VoidRush",
-    "WalkspeedOverride", "Behead", "GashingWound", 
+    "Stab", "Nova", "Slash", "VoidRush",
+    "WalkspeedOverride", "Behead", "RagingPace",
     "CorruptNature"
 }
 getgenv().AimbotConfig.Mode = getgenv().AimbotConfig.Mode or "Aimlock" -- default
