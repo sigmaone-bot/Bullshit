@@ -1281,7 +1281,7 @@ Aimbot:CreateDropdown({
 -- Hàm kiểm tra skill Killers
 local function isKillerSkill(skillName)
     for _, v in ipairs(getgenv().AimbotConfig.SelectedSkills) do
-        if v == skillName then return true end
+        if v == skillName and game.Players.LocalPlayer.Character.Parent == workspace.Players.Killers then return true end
     end
     return false
 end
@@ -1324,7 +1324,7 @@ local function aimrootpart(target, duration, prediction, smoothness)
     local myChar = LocalPlayer.Character
     local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
     if not target or not target.Character then return end
-    local root = target.Character:FindFirstChild("HumanoidRootPart")
+    local root = target.Character:FindFirstChild("Torso")
     if not root or not myRoot then return end
 
     task.spawn(function()
@@ -1581,7 +1581,7 @@ local function startAntiSlow(config)
         handleAntiSlow(survivor, config)
     end
     Survivors.ChildAdded:Connect(function(child)
-        task.wait(0.1)
+        task.wait()
         handleAntiSlow(child, config)
     end)
 end
@@ -1861,7 +1861,7 @@ local VoidRushController = {}
 
 -- Biến
 VoidRushController.Toggle = false
-VoidRushController.OriginalDashSpeed = 60
+VoidRushController.OriginalDashSpeed = 70
 VoidRushController.IsActive = false
 VoidRushController.DashConnection = nil
 VoidRushController.CheckThread = nil
@@ -2236,7 +2236,7 @@ local lp = Players.LocalPlayer
 local isChargeActive = false
 local connection = nil
 local DEFAULT_WALK_SPEED = 16 -- tốc độ mặc định (có thể update sau khi lấy humanoid)
-local ORIGINAL_DASH_SPEED = 50 -- tốc độ dash
+local ORIGINAL_DASH_SPEED = 60 -- tốc độ dash
 local chargecontrol = true -- bật/tắt dash
 
 -- Functions
