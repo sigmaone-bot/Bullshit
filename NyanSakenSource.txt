@@ -1872,6 +1872,32 @@ RunService.RenderStepped:Connect(function()
 	end
 end)
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local NetworkRemote = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent")
+
+local running = false
+
+Tabs.Misc:Toggle({
+    Title = "Loop SkateTrick (not too efficient XP & Money farm(",
+    Default = false,
+    Callback = function(state)
+        running = state
+    end
+})
+
+RunService.RenderStepped:Connect(function()
+    if running then
+        local args = {
+            [1] = "fasere26altSkateTrick",
+            [2] = {}
+        }
+        pcall(function()
+            NetworkRemote:FireServer(unpack(args))
+        end)
+    end
+end)
+
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
