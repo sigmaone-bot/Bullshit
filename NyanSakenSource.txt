@@ -17,7 +17,7 @@ local Window = WindUI:CreateWindow({
 })
 
 Window:EditOpenButton({
-    Title = "Open The Script",
+    Title = "Open",
     Icon = "monitor",
     CornerRadius = UDim.new(0, 6),
     StrokeThickness = 2,
@@ -26,15 +26,15 @@ Window:EditOpenButton({
 })
 
 local Tabs = {
-    Stamina_Settings = Window:Tab({ Title = "Stamina_Settings", Icon = "footprints" }),
-    Esp = Window:Tab({ Title = "Esp", Icon = "eye" }),
+    Stamina_Settings = Window:Tab({ Title = "Stamina tools", Icon = "footprints" }),
+    Esp = Window:Tab({ Title = "ESP", Icon = "eye" }),
     AutoBlock = Window:Tab({ Title = "Auto Block", Icon = "shield" }),
-    Misc = Window:Tab({ Title = "Misc", Icon = "gift" }),
+    Misc = Window:Tab({ Title = "Other", Icon = "gift" }),
     Auto_Stun = Window:Tab({ Title = "Auto_Stun", Icon = "spline-pointer" }),
-    Random = Window:Tab({ Title = "Random", Icon = "crosshair" }),
-    Hitbox_expander = Window:Tab({ Title = "Hitbox_expander", Icon = "target" }),
-    Generator = Window:Tab({ Title = "Generator", Icon = "battery-charging" }),
-    Teleport = Window:Tab({Title = "Teleport", Icon = "cable" }),
+    Random = Window:Tab({ Title = "Extra", Icon = "crosshair" }),
+    Hitbox_expander = Window:Tab({ Title = "Hitbox tools", Icon = "target" }),
+    Generator = Window:Tab({ Title = "Generators", Icon = "battery-charging" }),
+    Teleport = Window:Tab({Title = "TP-Places", Icon = "cable" }),
     Credits = Window:Tab({ Title = "Credits", Icon = "award" })
 }
 
