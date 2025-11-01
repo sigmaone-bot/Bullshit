@@ -13,7 +13,7 @@ local Window = WindUI:CreateWindow({
     Author = "Mr. Skid god",
     Theme = "Dark",
     Size = UDim2.fromOffset(500, 420),
-    HasOutline = true,
+    HasOutline = true
 })
 
 Window:EditOpenButton({
@@ -22,7 +22,7 @@ Window:EditOpenButton({
     CornerRadius = UDim.new(0, 6),
     StrokeThickness = 2,
     Color = ColorSequence.new(Color3.fromRGB(30, 30, 30), Color3.fromRGB(255, 255, 255)),
-    Draggable = true,
+    Draggable = true
 })
 
 local Tabs = {
@@ -1787,89 +1787,6 @@ RunService.RenderStepped:Connect(function()
     else
         stopOverride()
     end
-end)
-
-local RunService = game:GetService("RunService")
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-
-local controlOn = false
-local humanoid, root
-local skateboard
-
--- Configuración del personaje
-local function setupCharacter(char)
-	humanoid = char:WaitForChild("Humanoid")
-	root = char:WaitForChild("HumanoidRootPart")
-end
-
-if LocalPlayer.Character then
-	setupCharacter(LocalPlayer.Character)
-end
-LocalPlayer.CharacterAdded:Connect(setupCharacter)
-
--- Toggle para activar/desactivar control
-Tabs.Misc:Toggle({
-	Title = "Skateboard full control (Veeronica)",
-	Default = false,
-	Callback = function(state)
-		controlOn = state
-		if not state and humanoid then
-			humanoid.AutoRotate = true
-		end
-	end
-})
-
--- Función para obtener o esperar el Skateboard
-local function getSkateboard()
-	if skateboard and skateboard.Parent then
-		return skateboard
-	end
-
-	while LocalPlayer.Character do
-		for _, obj in ipairs(LocalPlayer.Character:GetDescendants()) do
-			if obj:IsA("BasePart") or obj:IsA("Mesh") and string.find(string.lower(obj.Name), "skateboard") then
-				skateboard = obj
-				return skateboard
-			end
-		end
-		skateboard = nil
-		task.wait(0.1) -- esperar un poco antes de volver a buscar
-	end
-
-	return nil
-end
-
--- RenderStepped principal
-RunService.RenderStepped:Connect(function()
-	if not controlOn or not humanoid or not root then
-		if humanoid then
-			humanoid.AutoRotate = true
-		end
-		return
-	end
-
-	local board = getSkateboard()
-	if not board then
-		if humanoid then
-			humanoid.AutoRotate = true
-		end
-		return
-	end
-
-	-- Esperar hasta que la transparencia sea 0
-	if board.Transparency ~= 0 then
-		humanoid.AutoRotate = true
-		return
-	end
-
-	-- Control activo
-	humanoid.AutoRotate = false
-	local dir = root.CFrame.LookVector
-	local move = Vector3.new(dir.X, 0, dir.Z)
-	if move.Magnitude > 0 then
-		humanoid:Move(move.Unit)
-	end
 end)
 
 local Players = game:GetService("Players")
