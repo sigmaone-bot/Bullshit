@@ -61,10 +61,10 @@ local infinityStaminaActive = false
 local staminaThread = nil
 
 local function EnableInfinityStamina()
-    infinityStaminaActive = true
+    --infinityStaminaActive = true
     staminaThread = task.spawn(function()
-        while infinityStaminaActive do
-            task.wait(0.005)
+        while true do
+            task.wait()
             sprintModule.MaxStamina = maxStaminaValue
             sprintModule.SprintSpeed = sprintSpeedValue
             sprintModule.StaminaGain = staminaGainValue
@@ -103,6 +103,7 @@ Tabs.Stamina_Settings:Toggle({
     Default = false,
     Callback = function(state)
         if state then
+           infinityStaminaActive = true
             EnableInfinityStamina()
         else
             DisableInfinityStamina()
@@ -1689,13 +1690,24 @@ Tabs.Misc:Toggle({
     end
 })
 
+local ORIGINAL_DASH_SPEED = 60
+
+Tabs.Misc:Slider({
+    Title = "Noli Rush Speed:",
+    Step = 5,
+    Value = {Min = 30, Max = 85, Default = 60},
+    Suffix = "%",
+    Callback = function(val)
+        ORIGINAL_DASH_SPEED = (tonumber(val) or 75) / 100
+    end
+})
+
 --NOLI FULL VOID CONTROL 
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
 local voidrushcontrol = false
-local ORIGINAL_DASH_SPEED = 65
 local isOverrideActive = false
 local connection
 
