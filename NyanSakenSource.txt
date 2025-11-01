@@ -97,6 +97,13 @@ local function ResetStaminaSettings()
     sprintModule.StaminaRegenDelay = regenDelayValue
 end
 
+Tabs.Stamina_Settings:Button({
+    Title = "Inject stamina",
+    Callback = function()
+        EnableInfinityStamina()
+    end
+})
+
 -- GUI
 Tabs.Stamina_Settings:Toggle({
     Title = "Infinity Stamina",
@@ -104,7 +111,7 @@ Tabs.Stamina_Settings:Toggle({
     Callback = function(state)
         if state then
            infinityStaminaActive = true
-            EnableInfinityStamina()
+            --EnableInfinityStamina()
         else
             DisableInfinityStamina()
         end
@@ -114,7 +121,7 @@ Tabs.Stamina_Settings:Toggle({
 Tabs.Stamina_Settings:Slider({
     Title = "Max Stamina",
     Step = 1,
-    Value = {Min = 1, Max = 500, Default = maxStaminaValue},
+    Value = {Min = 50, Max = 500, Default = maxStaminaValue},
     Suffix = " Max",
     Callback = function(val)
         maxStaminaValue = tonumber(val) or defaultMaxStamina
@@ -128,7 +135,7 @@ Tabs.Stamina_Settings:Slider({
 Tabs.Stamina_Settings:Slider({
     Title = "Sprint Speed",
     Step = 1,
-    Value = {Min = 1, Max = 40, Default = sprintSpeedValue},
+    Value = {Min = 15, Max = 40, Default = sprintSpeedValue},
     Suffix = " S",
     Callback = function(val)
         sprintSpeedValue = tonumber(val) or defaultSprintSpeed
