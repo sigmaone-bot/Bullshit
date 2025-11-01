@@ -1792,6 +1792,7 @@ end)
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
 
 local controlOn = false
 local humanoid, root
@@ -1828,13 +1829,13 @@ local function getSkateboard()
 
 	while LocalPlayer.Character do
 		for _, obj in ipairs(LocalPlayer.Character:GetDescendants()) do
-			if obj:IsA("BasePart") and string.find(string.lower(obj.Name), "skateboard") then
+			if string.find(string.lower(obj.Name), "skateboard") then
 				skateboard = obj
 				return skateboard
 			end
 		end
 		skateboard = nil
-		task.wait(0.1) -- esperar un poco antes de volver a buscar
+		task.wait(0.1)
 	end
 
 	return nil
@@ -1851,21 +1852,20 @@ RunService.RenderStepped:Connect(function()
 
 	local board = getSkateboard()
 	if not board then
-		if humanoid then
-			humanoid.AutoRotate = true
-		end
-		return
-	end
-
-	-- Esperar hasta que la transparencia sea 0
-	if board.Transparency ~= 0 then
 		humanoid.AutoRotate = true
 		return
 	end
 
-	-- Control activo
+	-- Esperar hasta que la transparencia sea 0
+	local visiblePart = board:IsA("BasePart") and board or board:FindFirstChildWhichIsA("BasePart")
+	if not visiblePart or visiblePart.Transparency ~= 0 then
+		humanoid.AutoRotate = true
+		return
+	end
+
+	-- Control activo (sigue la cámara)
 	humanoid.AutoRotate = false
-	local dir = root.CFrame.LookVector
+	local dir = Camera.CFrame.LookVector
 	local move = Vector3.new(dir.X, 0, dir.Z)
 	if move.Magnitude > 0 then
 		humanoid:Move(move.Unit)
