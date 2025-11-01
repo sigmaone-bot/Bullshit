@@ -1834,13 +1834,9 @@ local function startControl()
 		if not controlOn or not humanoid or not root then return end
 
 		local board = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Skateboard", true)
-		if not board or not board:IsA("BasePart") then
-			humanoid.AutoRotate = true
-			return
-		end
 
 		-- Solo si la transparencia es 0 o 1
-		if board.Transparency ~= 0 and board.Transparency ~= 1 then
+		if board.Transparency == 0 then
 			humanoid.AutoRotate = true
 			return
 		end
@@ -1871,7 +1867,7 @@ RunService.RenderStepped:Connect(function()
 		return
 	end
 
-	if humanoid and root then
+	if humanoid and root and Skateboard and Skateboard.Transparecy == 0 then
 		startControl()
 	end
 end)
