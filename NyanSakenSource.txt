@@ -1789,6 +1789,94 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local controlOn = false
+local active = false
+local conn
+
+local humanoid, root
+
+local function setupCharacter(char)
+	humanoid = char:WaitForChild("Humanoid")
+	root = char:WaitForChild("HumanoidRootPart")
+end
+
+if LocalPlayer.Character then
+	setupCharacter(LocalPlayer.Character)
+end
+LocalPlayer.CharacterAdded:Connect(setupCharacter)
+
+Tabs.Misc:Toggle({
+	Title = "Skateboard full control (Veeronica)",
+	Default = false,
+	Callback = function(state)
+		controlOn = state
+		if not state and active then
+			if conn then
+				conn:Disconnect()
+				conn = nil
+			end
+			active = false
+			if humanoid then
+				humanoid.AutoRotate = true
+			end
+		end
+	end
+})
+
+local function startControl()
+	if active then return end
+	active = true
+	conn = RunService.RenderStepped:Connect(function()
+		if not controlOn or not humanoid or not root then return end
+
+		local board = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Skateboard", true)
+		if not board or not board:IsA("BasePart") then
+			humanoid.AutoRotate = true
+			return
+		end
+
+		-- Solo si la transparencia es 0 o 1
+		if board.Transparency ~= 0 and board.Transparency ~= 1 then
+			humanoid.AutoRotate = true
+			return
+		end
+
+		humanoid.AutoRotate = false
+
+		local dir = root.CFrame.LookVector
+		local move = Vector3.new(dir.X, 0, dir.Z)
+		if move.Magnitude > 0 then
+			humanoid:Move(move.Unit)
+		end
+	end)
+end
+
+-- Loop principal: solo inicia o detiene control según toggle y existencia de humanoid
+RunService.RenderStepped:Connect(function()
+	if not controlOn then
+		if active then
+			if conn then
+				conn:Disconnect()
+				conn = nil
+			end
+			active = false
+			if humanoid then
+				humanoid.AutoRotate = true
+			end
+		end
+		return
+	end
+
+	if humanoid and root then
+		startControl()
+	end
+end)
+
+
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
