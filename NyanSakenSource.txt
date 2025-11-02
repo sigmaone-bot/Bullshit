@@ -1794,18 +1794,16 @@ end)
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
 
-local controlOn = false
-local humanoid, root
-local skateboard = nil
-local lastCheck = 0
+local controlEnabled = false
+local active = false
+local connection
+local humanoid, rootPart, skateboard
 
 -- Configuración del personaje
 local function setupCharacter(char)
 	humanoid = char:WaitForChild("Humanoid")
-	root = char:WaitForChild("HumanoidRootPart")
-	skateboard = nil -- reiniciar cuando cambie de personaje
+	rootPart = char:WaitForChild("HumanoidRootPart")
 end
 
 if LocalPlayer.Character then
@@ -1813,65 +1811,92 @@ if LocalPlayer.Character then
 end
 LocalPlayer.CharacterAdded:Connect(setupCharacter)
 
--- Toggle para activar/desactivar control
+-- Toggle principal
 Tabs.Misc:Toggle({
 	Title = "Skateboard full control (Veeronica)",
 	Default = false,
 	Callback = function(state)
-		controlOn = state
-		if not state and humanoid then
-			humanoid.AutoRotate = true
+		controlEnabled = state
+		if not state then
+			if humanoid then
+				humanoid.AutoRotate = true
+				humanoid:Move(Vector3.zero)
+			end
+			if connection then
+				connection:Disconnect()
+				connection = nil
+			end
+			active = false
 		end
 	end
 })
 
--- Busca el Skateboard dentro del personaje
-local function findSkateboard()
-	if not LocalPlayer.Character then return nil end
-	for _, obj in ipairs(LocalPlayer.Character:GetDescendants()) do
-		if string.find(string.lower(obj.Name), "skateboard") then
-			return obj
-		end
+-- Buscar el objeto "Skateboard" aunque no sea BasePart
+local function getSkateboard()
+	if skateboard and skateboard.Parent then
+		return skateboard
 	end
-	return nil
+
+	while LocalPlayer.Character do
+		for _, obj in ipairs(LocalPlayer.Character:GetDescendants()) do
+			if string.find(string.lower(obj.Name), "skateboard") then
+				skateboard = obj
+				return obj
+			end
+		end
+		task.wait(0.1)
+	end
 end
 
--- Bucle principal
-RunService.RenderStepped:Connect(function(dt)
-	if not controlOn or not humanoid or not root then
-		if humanoid then
+-- Activar el control de movimiento
+local function startControl()
+	if active then return end
+	active = true
+
+	connection = RunService.RenderStepped:Connect(function()
+		if not controlEnabled or not humanoid or not rootPart then return end
+
+		local board = getSkateboard()
+		if not board then
 			humanoid.AutoRotate = true
+			return
 		end
-		return
-	end
 
-	-- Rebuscar Skateboard cada 0.5 segundos
-	lastCheck += dt
-	if lastCheck > 0.5 then
-		lastCheck = 0
-		if not skateboard or not skateboard.Parent then
-			skateboard = findSkateboard()
+		-- Solo activo cuando el skateboard tiene transparencia 0
+		if board:IsA("BasePart") then
+			if board.Transparency ~= 0 then
+				humanoid.AutoRotate = true
+				return
+			end
+		elseif board:FindFirstChildWhichIsA("BasePart") then
+			local bp = board:FindFirstChildWhichIsA("BasePart")
+			if bp.Transparency ~= 0 then
+				humanoid.AutoRotate = true
+				return
+			end
+		else
+			return
 		end
-	end
 
-	if not skateboard then
-		humanoid.AutoRotate = true
-		return
-	end
+		humanoid.AutoRotate = false
 
-	-- Buscar una parte visible dentro del modelo
-	local part = skateboard:IsA("BasePart") and skateboard or skateboard:FindFirstChildWhichIsA("BasePart")
-	if not part or part.Transparency ~= 0 then
-		humanoid.AutoRotate = true
-		return
-	end
+		-- Rotación tipo VoidRush (siguiendo el movimiento)
+		local direction = rootPart.CFrame.LookVector
+		local move = Vector3.new(direction.X, 0, direction.Z)
 
-	-- Movimiento fluido siguiendo la cámara
-	humanoid.AutoRotate = false
-	local camDir = Camera.CFrame.LookVector
-	local moveDir = Vector3.new(camDir.X, 0, camDir.Z)
-	if moveDir.Magnitude > 0 then
-		humanoid:Move(moveDir.Unit)
+		if move.Magnitude > 0 then
+			humanoid:Move(move.Unit)
+			-- Gira el cuerpo en la dirección actual de movimiento
+			local targetCFrame = CFrame.new(rootPart.Position, rootPart.Position + move)
+			rootPart.CFrame = rootPart.CFrame:Lerp(targetCFrame, 0.3)
+		end
+	end)
+end
+
+-- Loop principal
+RunService.RenderStepped:Connect(function()
+	if controlEnabled and humanoid and rootPart then
+		startControl()
 	end
 end)
 
