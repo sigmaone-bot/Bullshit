@@ -64,7 +64,7 @@ local function EnableInfinityStamina()
     --infinityStaminaActive = true
     staminaThread = task.spawn(function()
         while true do
-            task.wait()
+            task.wait(0.1)
             sprintModule.MaxStamina = maxStaminaValue
             sprintModule.SprintSpeed = sprintSpeedValue
             sprintModule.StaminaGain = staminaGainValue
@@ -1659,6 +1659,8 @@ Tabs.Misc:Toggle({
 
 end
 })
+
+
 
 --NOLI ANTI WALL CRUSH 
 local Players = game:GetService("Players")
