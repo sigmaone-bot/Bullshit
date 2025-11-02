@@ -1796,12 +1796,14 @@ local Camera = workspace.CurrentCamera
 
 local controlOn = false
 local humanoid, root
-local skateboard
+local skateboard = nil
+local lastCheck = 0
 
 -- Configuración del personaje
 local function setupCharacter(char)
 	humanoid = char:WaitForChild("Humanoid")
 	root = char:WaitForChild("HumanoidRootPart")
+	skateboard = nil -- reiniciar cuando cambie de personaje
 end
 
 if LocalPlayer.Character then
@@ -1821,28 +1823,19 @@ Tabs.Misc:Toggle({
 	end
 })
 
--- Función para obtener o esperar el Skateboard
-local function getSkateboard()
-	if skateboard and skateboard.Parent then
-		return skateboard
-	end
-
-	while LocalPlayer.Character do
-		for _, obj in ipairs(LocalPlayer.Character:GetDescendants()) do
-			if string.find(string.lower(obj.Name), "skateboard") then
-				skateboard = obj
-				return skateboard
-			end
+-- Busca el Skateboard dentro del personaje
+local function findSkateboard()
+	if not LocalPlayer.Character then return nil end
+	for _, obj in ipairs(LocalPlayer.Character:GetDescendants()) do
+		if string.find(string.lower(obj.Name), "skateboard") then
+			return obj
 		end
-		skateboard = nil
-		task.wait(0.1)
 	end
-
 	return nil
 end
 
--- RenderStepped principal
-RunService.RenderStepped:Connect(function()
+-- Bucle principal
+RunService.RenderStepped:Connect(function(dt)
 	if not controlOn or not humanoid or not root then
 		if humanoid then
 			humanoid.AutoRotate = true
@@ -1850,25 +1843,33 @@ RunService.RenderStepped:Connect(function()
 		return
 	end
 
-	local board = getSkateboard()
-	if not board then
+	-- Rebuscar Skateboard cada 0.5 segundos
+	lastCheck += dt
+	if lastCheck > 0.5 then
+		lastCheck = 0
+		if not skateboard or not skateboard.Parent then
+			skateboard = findSkateboard()
+		end
+	end
+
+	if not skateboard then
 		humanoid.AutoRotate = true
 		return
 	end
 
-	-- Esperar hasta que la transparencia sea 0
-	local visiblePart = board:IsA("BasePart") and board or board:FindFirstChildWhichIsA("BasePart")
-	if not visiblePart or visiblePart.Transparency ~= 0 then
+	-- Buscar una parte visible dentro del modelo
+	local part = skateboard:IsA("BasePart") and skateboard or skateboard:FindFirstChildWhichIsA("BasePart")
+	if not part or part.Transparency ~= 0 then
 		humanoid.AutoRotate = true
 		return
 	end
 
-	-- Control activo (sigue la cámara)
+	-- Movimiento fluido siguiendo la cámara
 	humanoid.AutoRotate = false
-	local dir = Camera.CFrame.LookVector
-	local move = Vector3.new(dir.X, 0, dir.Z)
-	if move.Magnitude > 0 then
-		humanoid:Move(move.Unit)
+	local camDir = Camera.CFrame.LookVector
+	local moveDir = Vector3.new(camDir.X, 0, camDir.Z)
+	if moveDir.Magnitude > 0 then
+		humanoid:Move(moveDir.Unit)
 	end
 end)
 
