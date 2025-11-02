@@ -1662,7 +1662,7 @@ end
 
 local sk8module = require(game:GetService("ReplicatedStorage").Assets.Survivors.Veeronica.Config)
 
-local Enabled = false
+--local Enabled = false
 
 Tabs.Misc:Slider({
     Title = "Sk8 turn speed:",
@@ -1670,24 +1670,9 @@ Tabs.Misc:Slider({
     Value = {Min = 0, Max = 1, Default = 0.10},
     Suffix = " studs",
     Callback = function(val)
-        if Enabled then
+        
             sk8module.Sk8TurnControl = val
-        end
-    end
-})
-
-Tabs.Misc:Toggle({
-    Title = "Sk8 controller",
-    Default = false,
-    Callback = function(state)
-        if state then 
-            Enabled = true
-            --sk8module.Sk8TurnControl = 0.65
-            --DisableInfinityStamina()
-        else
-            Enabled = false
-            --sk8module.Sk8TurnControl =
-        end
+        
     end
 })
 
