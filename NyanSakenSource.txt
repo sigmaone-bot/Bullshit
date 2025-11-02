@@ -1560,7 +1560,7 @@ local function startAntiSlow(config)
         handleAntiSlow(survivor, config)
     end
     Survivors.ChildAdded:Connect(function(child)
-        task.wait(0.1)
+        task.wait()
         handleAntiSlow(child, config)
     end)
 end
@@ -3138,7 +3138,7 @@ Tabs.Hitbox_expander:Button({
 
         -- === Настройки (GUI) ===
         local VELOCITY_ENABLED = false
-        local VELOCITY_STRENGTH = 50
+        local VELOCITY_STRENGTH = 10
 
         Tabs.Hitbox_expander:Toggle({
             Title = "hitbox  expander V17",
@@ -3747,7 +3747,7 @@ local loopty = false
 local running = true
 local BypassCooldown = true
 local Dogens = true
-local SkibidiWait = 1
+local SkibidiWait = 3
 local SkibidiRandomness = 0.5
 local LopticaWaitTime = 1
 
