@@ -3747,7 +3747,7 @@ local loopty = false
 local running = true
 local BypassCooldown = true
 local Dogens = true
-local SkibidiWait = 3
+local SkibidiWait = 1.5
 local SkibidiRandomness = 0.5
 local LopticaWaitTime = 1
 
