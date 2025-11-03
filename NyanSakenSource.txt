@@ -1664,13 +1664,15 @@ local sk8module = require(game:GetService("ReplicatedStorage").Assets.Survivors.
 
 --local Enabled = false
 
-Tabs.Misc:Button({
-    Title = "Better Sk8",
-    Callback = function()
-        sk8module.Sk8TurnControl = 1
-        WindUI:Notify({ Title = "Veeronica so hot", Content = "So you can make better turns while Sk8 as veeronica now. (hopefully)", Duration = 2 })
+Tabs.Misc:Slider({
+    Title = "Sk8 turn speed",
+    Step = 1,
+    Value = {Min = 0, Max = 20, Default = 1},
+    Callback = function(val)
+        sk8module.Sk8TurnControl = val
     end
 })
+
 --NOLI ANTI WALL CRUSH 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
