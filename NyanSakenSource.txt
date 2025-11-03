@@ -1667,8 +1667,8 @@ local sk8module = require(game:GetService("ReplicatedStorage").Assets.Survivors.
 Tabs.Misc:Button({
     Title = "Better Sk8",
     Callback = function()
-        sk8module.Sk8TurnControl.Value = 1
-        WindUI:Notify({ Title = "Hiii", Content = "So you can make better turns while Sk8 as veeronica now. (hopefully)", Duration = 2 })
+        sk8module.Sk8TurnControl = 1
+        WindUI:Notify({ Title = "Veeronica so hot", Content = "So you can make better turns while Sk8 as veeronica now. (hopefully)", Duration = 2 })
     end
 })
 --NOLI ANTI WALL CRUSH 
