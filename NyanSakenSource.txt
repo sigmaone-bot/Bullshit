@@ -1710,6 +1710,42 @@ Tabs.Misc:Toggle({
     end
 })
 
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Remote = game:GetService("ReplicatedStorage").Modules.Network.RemoteEvent
+
+-- Р“Р»РѕР±Р°Р»СЊРЅС‹Рµ РїРµСЂРµРјРµРЅРЅС‹Рµ
+getgenv()._oldFireServer = getgenv()._oldFireServer or nil
+getgenv()._Sk8Bypass = getgenv()._Sk8Bypass or false -- toggle СЃРѕСЃС‚РѕСЏРЅРёРµ
+
+-- РҐСѓРє СЃС‚Р°РІРёРј С‚РѕР»СЊРєРѕ РѕРґРёРЅ СЂР°Р·
+if not getgenv()._oldFireServer then
+    local old
+    old = hookmetamethod(game, "__namecall", function(self, ...)
+        local method = getnamecallmethod()
+        local args = {...}
+        if self == Remote and method == "FireServer" then
+            if args[1] == LocalPlayer.Name .. "SkateRebound" then
+                if getgenv()._Sk8Bypass then
+                    return -- Р±Р»РѕРєРёСЂСѓРµРј С‚РѕР»СЊРєРѕ РµСЃР»Рё toggle РІРєР»СЋС‡С‘РЅ
+                end
+            end
+        end
+        return old(self, ...)
+    end)
+
+    getgenv()._oldFireServer = old
+end
+
+-- Р”РѕР±Р°РІР»СЏРµРј Toggle РІ GUI
+Tabs.Misc:Toggle({
+    Title = "Sk8 no rebound",
+    Default = false,
+    Callback = function(state)
+        getgenv()._Sk8Bypass = state
+    end
+})
+
 local ORIGINAL_DASH_SPEED = 60
 
 Tabs.Misc:Slider({
@@ -1749,6 +1785,14 @@ Tabs.Misc:Toggle({
     Default = false,
     Callback = function(state)
         voidrushcontrol = state
+    end
+})
+
+Tabs.Misc:Toggle({
+    Title = "Sk8 Auto Trick",
+    Default = false,
+    Callback = function(state)
+loadstring(game:HttpGet("https://raw.githubusercontent.com/skibidi399/Veronica-stuff/refs/heads/main/Auto%20trick"))()
     end
 })
 
