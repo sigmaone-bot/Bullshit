@@ -63,7 +63,7 @@ local staminaThread = nil
 local function EnableInfinityStamina()
     --infinityStaminaActive = true
     staminaThread = task.spawn(function()
-        while true do
+        --while true do
             task.wait(0.1)
             sprintModule.MaxStamina = maxStaminaValue
             sprintModule.SprintSpeed = sprintSpeedValue
@@ -71,7 +71,7 @@ local function EnableInfinityStamina()
             sprintModule.StaminaDrain = staminaDrainValue
             sprintModule.StaminaRegenDelay = regenDelayValue
             sprintModule.Stamina = sprintModule.MaxStamina
-        end
+        --end
     end)
 end
 
