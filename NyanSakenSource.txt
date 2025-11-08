@@ -145,8 +145,8 @@ Tabs.Stamina_Settings:Slider({
 
 Tabs.Stamina_Settings:Slider({
     Title = "Stamina Gain",
-    Step = 1,
-    Value = {Min = 1, Max = 500, Default = staminaGainValue},
+    Step = 0.5,
+    Value = {Min = 1, Max = 50, Default = staminaGainValue},
     Suffix = " per sec",
     Callback = function(val)
         staminaGainValue = tonumber(val) or defaultStaminaGain
@@ -157,7 +157,7 @@ Tabs.Stamina_Settings:Slider({
 Tabs.Stamina_Settings:Slider({
     Title = "Stamina Drain",
     Step = 1,
-    Value = {Min = 0, Max = 100, Default = staminaDrainValue},
+    Value = {Min = 0, Max = 10, Default = staminaDrainValue},
     Suffix = " per sec",
     Callback = function(val)
         staminaDrainValue = tonumber(val) or defaultStaminaDrain
