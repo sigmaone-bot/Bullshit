@@ -1322,7 +1322,7 @@ Tabs.Misc:Slider({
 
 Tabs.Misc:Slider({
     Title = "Sk8 speed",
-    Step = 0.1,
+    Step = 0.25,
     Value = {Min = 1, Max = 2, Default = 1.15},
     Callback = function(val)
         sk8module.Sk8Speed = val
@@ -1331,7 +1331,7 @@ Tabs.Misc:Slider({
 
 Tabs.Misc:Slider({
     Title = "Sk8 trick jump height",
-    Step = 0.1,
+    Step = 0.25,
     Value = {Min = 0, Max = 1, Default = 0.35},
     Callback = function(val)
         sk8module.Sk8TrickJump = val
