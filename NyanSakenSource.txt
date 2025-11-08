@@ -1753,7 +1753,7 @@ local RS = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 local behavior = RS.Assets.Survivors.Veeronica.Behavior
-local device = "Mobile"
+--local device = "Mobile"
 
 local function getSprintButton()
 	return player:WaitForChild("PlayerGui"):WaitForChild("MainUI"):WaitForChild("SprintingButton")
@@ -1763,7 +1763,7 @@ local enabled = false
 local con
 
 local function triggerSprint()
-	if device ~= "Mobile" then return end
+	--if device ~= "Mobile" then return end
 	local ok, btn = pcall(getSprintButton)
 	if not ok or not btn then return end
 	for _, v in pairs(getconnections(btn.MouseButton1Down)) do
@@ -1848,7 +1848,7 @@ Tabs.Misc:Slider({
     Value = {Min = 0, Max = 5, Default = 5},
     Suffix = "%",
     Callback = function(val)
-        interval = tonumber(val)
+        interval = val
     end
 })
 
