@@ -1239,6 +1239,15 @@ local sk8module = require(game:GetService("ReplicatedStorage").Assets.Survivors.
 --local Enabled = false
 
 Tabs.Misc:Slider({
+    Title = "Sk8 phase rebound damage (why)",
+    Step = 0.5,
+    Value = {Min = 0, Max = 15, Default = 4},
+    Callback = function(val)
+        sk8module.Sk8PhaseReboundDamage = val
+    end
+})
+
+Tabs.Misc:Slider({
     Title = "Sk8 turn speed",
     Step = 0.5,
     Value = {Min = 0, Max = 15, Default = 1},
@@ -1250,7 +1259,7 @@ Tabs.Misc:Slider({
 Tabs.Misc:Slider({
     Title = "Sk8 speed",
     Step = 0.01,
-    Value = {Min = 1, Max = 2, Default = 1.30},
+    Value = {Min = 0, Max = 2, Default = 1.30},
     Callback = function(val)
         sk8module.Sk8Speed = val
     end
@@ -1268,7 +1277,7 @@ Tabs.Misc:Slider({
 Tabs.Misc:Slider({
     Title = "Sk8 Trick Turn Control",
     Step = 0.01,
-    Value = {Min = 1, Max = 15, Default = 1},
+    Value = {Min = 0, Max = 15, Default = 1},
     Callback = function(val)
         sk8module.Sk8TrickTurnControl = val
     end
@@ -1277,7 +1286,7 @@ Tabs.Misc:Slider({
 Tabs.Misc:Slider({
     Title = "Sk8 bump power",
     Step = 0.01,
-    Value = {Min = 0.75, Max = 10, Default = 0.75},
+    Value = {Min = 0.0, Max = 100, Default = 0.75},
     Callback = function(val)
         sk8module.Sk8BumpPower = val
     end
