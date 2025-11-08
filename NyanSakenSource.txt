@@ -1804,6 +1804,53 @@ player.CharacterAdded:Connect(function()
 	if enabled then start() end
 end)
 
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local player = Players.LocalPlayer
+local Remote = ReplicatedStorage.Modules.Network.RemoteEvent
+
+local interval = 0.5 -- segundos entre cada envío
+local running = false
+
+local function Sk8FarmStart()
+	running = true
+	task.spawn(function()
+		while running do
+			local args = {
+				[1] = player.Name .. "SkateTrick",
+				[2] = {}
+			}
+			Remote:FireServer(unpack(args))
+			task.wait(interval)
+		end
+	end)
+end
+
+local function Sk8FarmStop()
+	running = false
+end
+
+Tabs.Misc:Toggle({
+	Title = "Sk8 Farm",
+	Default = false,
+	Callback = function(state)
+		if state then
+			Sk8FarmStart()
+		else
+			Sk8FarmStop()
+		end
+	end
+})
+
+Tabs.Misc:Slider({
+    Title = "Sk8 farm speed:",
+    Step = 0.1,
+    Value = {Min = 0, Max = 5, Default = 5},
+    Suffix = "%",
+    Callback = function(val)
+        interval = (tonumber(val) of 0.1) / 1
+    end
+})
 
 local ORIGINAL_DASH_SPEED = 60
 
