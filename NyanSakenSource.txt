@@ -1217,55 +1217,131 @@ Tabs.Misc:Slider({
     end
 })
 
-local RS = game:GetService("ReplicatedStorage")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
-local behavior = RS.Assets.Survivors.Veeronica.Behavior
---local device = "Mobile"
+local RunService = game:GetService("RunService")
+local RemoteEvent = ReplicatedStorage.Modules.Network.RemoteEvent
+local UIS = game:GetService("UserInputService")
+local device = "Mobile"
 
-local function getSprintButton()
-	return player:WaitForChild("PlayerGui"):WaitForChild("MainUI"):WaitForChild("SprintingButton")
+local function getBehaviorFolder()
+	return ReplicatedStorage:WaitForChild("Assets")
+		:WaitForChild("Survivors")
+		:WaitForChild("Veeronica")
+		:WaitForChild("Behavior")
 end
 
-local enabled = false
-local con
+local function getSprintingButton()
+	return player.PlayerGui:WaitForChild("MainUI"):WaitForChild("SprintingButton")
+end
 
-local function triggerSprint()
-	--if device ~= "Mobile" then return end
-	local ok, btn = pcall(getSprintButton)
-	if not ok or not btn then return end
-	for _, v in pairs(getconnections(btn.MouseButton1Down)) do
-		pcall(function() v:Fire() end)
-		pcall(function() if v.Function then v:Function() end end)
+local behaviorFolder = getBehaviorFolder()
+
+-- Safe connection helper
+local function safeConnectPropertyChanged(instance, prop, fn)
+	local ok, signal = pcall(function() return instance:GetPropertyChangedSignal(prop) end)
+	if ok and signal then
+		return signal:Connect(fn)
 	end
+	return nil
 end
 
-local function onHighlightAdded(h)
-	if not h:IsA("Highlight") then return end
-	h:GetPropertyChangedSignal("Adornee"):Connect(function()
-		if enabled and h.Adornee and h.Adornee:IsDescendantOf(player.Character) then
-			triggerSprint()
+-- Manager state
+local enabled = false
+local activeMonitors = {}
+local descendantAddedConn = nil
+
+-- === Internal Functions ===
+
+local function monitorHighlight(h)
+	if not h or activeMonitors[h] then return end
+	local connections = {}
+	local prevState = false
+
+	local function cleanup()
+		for _, conn in ipairs(connections) do
+			if conn and conn.Connected then conn:Disconnect() end
 		end
+		activeMonitors[h] = nil
+	end
+
+	local function adorneeIsPlayerCharacter(h)
+		local adornee = h and h.Adornee
+		local char = player.Character
+		if not adornee or not char then return false end
+		return adornee == char or adornee:IsDescendantOf(char)
+	end
+
+	local function onChanged()
+		if not enabled then return end
+		if not h or not h.Parent then cleanup(); return end
+
+		local currState = adorneeIsPlayerCharacter(h)
+		if prevState ~= currState then
+			if currState and device == "Mobile" then
+				local ok, btn = pcall(getSprintingButton)
+				if ok and btn then
+					for _, v in pairs(getconnections(btn.MouseButton1Down)) do
+						pcall(function() v:Fire() end)
+						pcall(function() if v.Function then v:Function() end end)
+					end
+				end
+			end
+		end
+		prevState = currState
+	end
+
+	table.insert(connections, safeConnectPropertyChanged(h, "Adornee", onChanged))
+	table.insert(connections, h.AncestryChanged:Connect(function(_, parent)
+		if not parent then cleanup() else onChanged() end
+	end))
+	table.insert(connections, player.CharacterAdded:Connect(onChanged))
+	table.insert(connections, player.CharacterRemoving:Connect(onChanged))
+
+	activeMonitors[h] = cleanup
+	task.spawn(onChanged)
+end
+
+local function startManager()
+	if descendantAddedConn then return end
+	for _, desc in ipairs(behaviorFolder:GetDescendants()) do
+		if desc:IsA("Highlight") then monitorHighlight(desc) end
+	end
+	descendantAddedConn = behaviorFolder.DescendantAdded:Connect(function(child)
+		if child:IsA("Highlight") then monitorHighlight(child) end
 	end)
 end
 
-local function start()
-	for _, h in ipairs(behavior:GetDescendants()) do onHighlightAdded(h) end
-	con = behavior.DescendantAdded:Connect(onHighlightAdded)
+local function stopManager()
+	if descendantAddedConn and descendantAddedConn.Connected then
+		descendantAddedConn:Disconnect()
+	end
+	descendantAddedConn = nil
+
+	for _, cleanup in pairs(activeMonitors) do
+		if type(cleanup) == "function" then pcall(cleanup) end
+	end
+	activeMonitors = {}
 end
 
-local function stop()
-	if con then con:Disconnect() con = nil end
+local function setEnabled(v)
+	if enabled == v then return end
+	enabled = v
+	if enabled then startManager() else stopManager() end
 end
+
+-- === Exposed Function (para toggle externo) ===
+getgenv().AutoSprintToggle = setEnabled
 
 Tabs.Misc:Toggle({
-	Title = "Sk8 Auto Trick",
-	Default = false,
-	Callback = function(state)
-		enabled = state
-		if state then start() else stop() end
-	end
+    Title = "Sk8 auto trick",
+    Default = false,
+    Callback = function(state)
+        AutoSprintToggle(state)
+    end
 })
+
 
 player.CharacterAdded:Connect(function()
 	task.wait(0.3)
