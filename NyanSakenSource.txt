@@ -1233,79 +1233,6 @@ Tabs.Misc:Toggle({
     end
 })
 
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local Remote = game:GetService("ReplicatedStorage").Modules.Network.RemoteEvent
-
--- Variables globales
-getgenv()._oldFireServer = getgenv()._oldFireServer or nil
-getgenv()._Sk8Bypass = getgenv()._Sk8Bypass or false -- toggle de estado
-
--- Hook solo una vez con manejo de errores
-if not getgenv()._oldFireServer then
-    local success, result = pcall(function()
-        if hookmetamethod then
-            local old
-            old = hookmetamethod(game, "__namecall", function(self, ...)
-                local method = getnamecallmethod()
-                local args = {...}
-
-                if self == Remote and method == "FireServer" then
-                    if args[1] == LocalPlayer.Name .. "SkateRebound" then
-                        if getgenv()._Sk8Bypass then
-                            return -- bloquea si el toggle está activado
-                        end
-                    end
-                end
-
-                return old(self, ...)
-            end)
-            return old
-        else
-            warn("hookmetamethod no disponible en este entorno")
-            return nil
-        end
-    end)
-    
-    if success and result then
-        getgenv()._oldFireServer = result
-        print("[Sk8 Bypass] Hook establecido exitosamente")
-    else
-        warn("[Sk8 Bypass] Error al establecer hook: " .. tostring(result))
-        getgenv()._oldFireServer = nil
-    end
-end
-
--- Alternative method if hookmetamethod fails
-if not getgenv()._oldFireServer then
-    local success, result = pcall(function()
-        local originalFire = Remote.FireServer
-        Remote.FireServer = function(self, ...)
-            local args = {...}
-            if getgenv()._Sk8Bypass and args[1] == LocalPlayer.Name .. "SkateRebound" then
-                return
-            end
-            return originalFire(self, ...)
-        end
-        return originalFire
-    end)
-    
-    if success then
-        print("[Sk8 Bypass] Alternative hook establecido")
-    else
-        warn("[Sk8 Bypass] Alternative hook falló: " .. tostring(result))
-    end
-end
-
--- Añadir Toggle en GUI
-Tabs.Misc:Toggle({
-    Title = "Sk8 no rebound",
-    Default = false,
-    Callback = function(state)
-        getgenv()._Sk8Bypass = state
-        print("[Sk8 Bypass] " .. (state and "Activado" or "Desactivado"))
-    end
-})
 
 local sk8module = require(game:GetService("ReplicatedStorage").Assets.Survivors.Veeronica.Config)
 
@@ -1322,7 +1249,7 @@ Tabs.Misc:Slider({
 
 Tabs.Misc:Slider({
     Title = "Sk8 speed",
-    Step = 0.05,
+    Step = 0.01,
     Value = {Min = 1, Max = 2, Default = 1.30},
     Callback = function(val)
         sk8module.Sk8Speed = val
@@ -1331,10 +1258,28 @@ Tabs.Misc:Slider({
 
 Tabs.Misc:Slider({
     Title = "Sk8 trick jump height",
-    Step = 0.05,
+    Step = 0.01,
     Value = {Min = 0, Max = 1, Default = 0.525},
     Callback = function(val)
         sk8module.Sk8TrickJump = val
+    end
+})
+
+Tabs.Misc:Slider({
+    Title = "Sk8 Trick Turn Control",
+    Step = 0.01,
+    Value = {Min = 1, Max = 15, Default = 1},
+    Callback = function(val)
+        sk8module.Sk8TrickTurnControl = val
+    end
+})
+
+Tabs.Misc:Slider({
+    Title = "Sk8 bump power",
+    Step = 0.01,
+    Value = {Min = 0.75, Max = 10, Default = 0.75},
+    Callback = function(val)
+        sk8module.Sk8BumpPower = val
     end
 })
 
@@ -1462,6 +1407,7 @@ Tabs.Misc:Toggle({
         AutoSprintToggle(state)
     end
 })
+
 
 
 player.CharacterAdded:Connect(function()
