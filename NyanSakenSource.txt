@@ -1848,7 +1848,7 @@ Tabs.Misc:Slider({
     Value = {Min = 0, Max = 5, Default = 5},
     Suffix = "%",
     Callback = function(val)
-        interval = (tonumber(val) of 0.1) / 1
+        interval = tonumber(val)
     end
 })
 
