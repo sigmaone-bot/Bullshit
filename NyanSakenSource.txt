@@ -26,10 +26,10 @@ Window:EditOpenButton({
 })
 
 local Tabs = {
-    Stamina_Settings = Window:Tab({ Title = "Stamina tools", Icon = "footprints" }),
+    Stamina_Settings = Window:Tab({ Title = "Stamina settings", Icon = "footprints" }),
     Esp = Window:Tab({ Title = "ESP", Icon = "eye" }),
-    AutoBlock = Window:Tab({ Title = "Auto Block", Icon = "shield" }),
-    Misc = Window:Tab({ Title = "Other", Icon = "gift" }),
+    AutoBlock = Window:Tab({ Title = "Punch & similar", Icon = "shield" }),
+    Misc = Window:Tab({ Title = "Main", Icon = "gift" }),
     Auto_Stun = Window:Tab({ Title = "Auto_Stun", Icon = "spline-pointer" }),
     Random = Window:Tab({ Title = "Extra", Icon = "crosshair" }),
     Hitbox_expander = Window:Tab({ Title = "Hitbox tools", Icon = "target" }),
@@ -820,6 +820,74 @@ end
 })
 
 local TextChatService = game:GetService("TextChatService")
+
+if not game:IsLoaded() then game.Loaded:Wait() end
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+getgenv().AntiBanEnabled = false
+
+local function ApplyProtection()
+    -- Hook Kick / Ban
+    local mt = getrawmetatable(game)
+    setreadonly(mt, false)
+    local old = mt.__namecall
+    mt.__namecall = newcclosure(function(self, ...)
+        local m = getnamecallmethod()
+        if m == "Kick" or m == "kick" or tostring(self):lower():find("ban") then
+            return
+        end
+        return old(self, ...)
+    end)
+    setreadonly(mt, true)
+
+    -- Hook suspicious remotes
+    for _, n in ipairs({"BanRemote", "KickRemote", "LogRemote", "ExploitRemote"}) do
+        local r = ReplicatedStorage:FindFirstChild(n, true)
+        if r then
+            if r:IsA("RemoteEvent") then
+                hookfunction(r.FireServer, function() end)
+            elseif r:IsA("RemoteFunction") then
+                hookfunction(r.InvokeServer, function() end)
+            end
+        end
+    end
+
+    -- Anti-AFK
+    pcall(function()
+        for _, c in pairs(getconnections(LocalPlayer.Idled)) do
+            if c.Disable then c:Disable() elseif c.disconnect then c:disconnect() end
+        end
+    end)
+end
+
+-- Auto-check cada 5 segundos
+task.spawn(function()
+    while task.wait(5) do
+        if AntiBanEnabled then
+            for _, n in ipairs({"BanRemote", "KickRemote"}) do
+                if not ReplicatedStorage:FindFirstChild(n, true) then
+                    ApplyProtection()
+                end
+            end
+        end
+    end
+end)
+
+-- Toggle
+Tabs.Misc:Toggle({
+    Title = "Anti-Ban",
+    Default = false,
+    Callback = function(state)
+        AntiBanEnabled = state
+        if state then
+            ApplyProtection()
+        end
+    end
+})
 
 Tabs.Misc:Button({
     Title = "Chat visibility",
