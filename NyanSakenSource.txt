@@ -1749,13 +1749,61 @@ Tabs.Misc:Slider({
     end
 })
 
+local RS = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local behavior = RS.Assets.Survivors.Veeronica.Behavior
+local device = "Mobile"
+
+local function getSprintButton()
+	return player:WaitForChild("PlayerGui"):WaitForChild("MainUI"):WaitForChild("SprintingButton")
+end
+
+local enabled = false
+local con
+
+local function triggerSprint()
+	if device ~= "Mobile" then return end
+	local ok, btn = pcall(getSprintButton)
+	if not ok or not btn then return end
+	for _, v in pairs(getconnections(btn.MouseButton1Down)) do
+		pcall(function() v:Fire() end)
+		pcall(function() if v.Function then v:Function() end end)
+	end
+end
+
+local function onHighlightAdded(h)
+	if not h:IsA("Highlight") then return end
+	h:GetPropertyChangedSignal("Adornee"):Connect(function()
+		if enabled and h.Adornee and h.Adornee:IsDescendantOf(player.Character) then
+			triggerSprint()
+		end
+	end)
+end
+
+local function start()
+	for _, h in ipairs(behavior:GetDescendants()) do onHighlightAdded(h) end
+	con = behavior.DescendantAdded:Connect(onHighlightAdded)
+end
+
+local function stop()
+	if con then con:Disconnect() con = nil end
+end
+
 Tabs.Misc:Toggle({
-    Title = "Sk8 Auto Trick",
-    Default = false,
-    Callback = function(state)
-loadstring(game:HttpGet("https://raw.githubusercontent.com/skibidi399/Veronica-stuff/refs/heads/main/Auto%20trick"))()
-    end
+	Title = "Sk8 Auto Trick",
+	Default = false,
+	Callback = function(state)
+		enabled = state
+		if state then start() else stop() end
+	end
 })
+
+player.CharacterAdded:Connect(function()
+	task.wait(0.3)
+	if enabled then start() end
+end)
+
 
 local ORIGINAL_DASH_SPEED = 60
 
