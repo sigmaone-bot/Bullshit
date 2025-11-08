@@ -1701,28 +1701,31 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Remote = game:GetService("ReplicatedStorage").Modules.Network.RemoteEvent
 
--- Р“Р»РѕР±Р°Р»СЊРЅС‹Рµ РїРµСЂРµРјРµРЅРЅС‹Рµ
-getgenv()._oldFireServer = getgenv()._olddFireServer or nil
-getgenv()._Sk8Bypass = getgenv()._Sk8Bypass or false -- toggle СЃРѕСЃС‚РѕСЏРЅРёРµ
+-- Variables globales
+getgenv()._oldFireServer = getgenv()._oldFireServer or nil
+getgenv()._Sk8Bypass = getgenv()._Sk8Bypass or false -- toggle de estado
 
--- РҐСѓРє СЃС‚Р°РІРёРј С‚РѕР»СЊРєРѕ РѕРґРёРЅ СЂР°Р·
+-- Hook solo una vez
 if not getgenv()._oldFireServer then
     local old
     old = hookmetamethod(game, "__namecall", function(self, ...)
         local method = getnamecallmethod()
         local args = {...}
+
         if self == Remote and method == "FireServer" then
             if args[1] == LocalPlayer.Name .. "SkateRebound" then
                 if getgenv()._Sk8Bypass then
-                    return -- Р±Р»РѕРєРёСЂСѓРµРј С‚РѕР»СЊРєРѕ РµСЃР»Рё toggle РІРєР»СЋС‡С‘РЅ
+                    return -- bloquea si el toggle está activado
                 end
             end
         end
+
         return old(self, ...)
     end)
 
     getgenv()._oldFireServer = old
 end
+
 
 -- Р”РѕР±Р°РІР»СЏРµРј Toggle РІ GUI
 Tabs.Misc:Toggle({
