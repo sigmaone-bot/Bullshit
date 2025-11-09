@@ -50,7 +50,7 @@ local Tabs = {
     Sk8T = Veeronica:Tab({ Title = "Sk8", Icon = "gift" }),
     Auto_Stun = Window:Tab({ Title = "Auto_Stun", Icon = "spline-pointer" }),
     Random = Window:Tab({ Title = "Extra", Icon = "crosshair" }),
-    Hitbox_expander = Window:Tab({ Title = "Hitbox tools", Icon = "target" }),
+    Hitbox = otherthing:Tab({ Title = "Hitbox", Icon = "target" }),
     Generator = Window:Tab({ Title = "Generators", Icon = "battery-charging" }),
     Teleport = Window:Tab({Title = "TP-Places", Icon = "cable" }),
     Credits = Window:Tab({ Title = "Credits", Icon = "award" })
@@ -2850,6 +2850,116 @@ DragButton.MouseButton1Click:Connect(function()
 end)
 
 end
+})
+
+--// 🔪 Jason Hitbox Toggle (por distancia)
+--// Autor: Sniffycat
+
+_G.JasonHitbox = _G.JasonHitbox or false
+_G.hitboxnearestdist = 20
+
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local hitboxcode = nil
+
+local AttackAnimations = loadstring(game:HttpGet("https://raw.githubusercontent.com/gopnikjovana/probable-meme/refs/heads/main/hitboxanimations"))()
+
+--// Generar texto aleatorio
+local function randomtext()
+    local characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
+    local length = math.random(5, 12)
+    local result = ""
+    for i = 1, length do
+        local randIndex = math.random(1, #characters)
+        result = result .. characters:sub(randIndex, randIndex)
+    end
+    return result
+end
+
+--// Hitbox principal
+local function spawnhitbox(code)
+    hitboxcode = code
+    local mycode = code
+    local connection
+
+    connection = RunService.Heartbeat:Connect(function()
+        if not _G.JasonHitbox then return end
+        if not hitboxcode or hitboxcode ~= mycode then connection:Disconnect() end
+
+        local char = LocalPlayer.Character
+        if not char then return end
+
+        local humanoid = char:FindFirstChild("Humanoid")
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if not humanoid or not hrp then return end
+
+        -- Detectar si está atacando
+        local isAttacking = false
+        for _, v in humanoid:GetPlayingAnimationTracks() do
+            if AttackAnimations[v.Animation.AnimationId] and (v.TimePosition / v.Length < 0.75) then
+                isAttacking = true
+                break
+            end
+        end
+        if not isAttacking then return end
+
+        -- Buscar el jugador más cercano
+        local nearestTarget
+        local nearestDistance = math.huge
+
+        local function findNearest(folder)
+            if not folder then return end
+            for _, v in pairs(folder:GetChildren()) do
+                local hrp2 = v:FindFirstChild("HumanoidRootPart")
+                if hrp2 then
+                    local dist = (hrp2.Position - hrp.Position).Magnitude
+                    if dist < nearestDistance then
+                        nearestDistance = dist
+                        nearestTarget = v
+                    end
+                end
+            end
+        end
+
+        -- Según si sos Killer o Survivor
+        if char.Parent and char.Parent.Name == "Killers" then
+            findNearest(workspace.Players:FindFirstChild("Survivors"))
+            findNearest(workspace.Map:FindFirstChild("NPCs", true))
+        else
+            findNearest(workspace.Players:FindFirstChild("Killers"))
+            findNearest(workspace.Map:FindFirstChild("NPCs", true))
+        end
+
+        if not nearestTarget then return end
+        if nearestDistance > _G.hitboxnearestdist then return end
+
+        -- Mover hacia el objetivo
+        local oldVel = hrp.Velocity
+        local targetPos = nearestTarget.HumanoidRootPart.Position
+        local neededVel = (targetPos - hrp.Position) * 12
+
+        hrp.Velocity = neededVel
+        RunService.RenderStepped:Wait()
+        hrp.Velocity = oldVel
+    end)
+end
+
+--// Auto re-spawn
+LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(1)
+    spawnhitbox(randomtext())
+end)
+
+spawnhitbox(randomtext())
+
+--// Toggle (con tu UI)
+Tabs.Hitbox:Toggle({
+    Title = "Reach",
+    Default = false,
+    Callback = function(state)
+        _G.JasonHitbox = state
+    end
 })
 
 Tabs.Generator:Button({
