@@ -38,6 +38,7 @@ local Tabs = {
     Esp = Main4:Tab({ Title = "ESP", Icon = "eye" }),
     AutoBlock = Window:Tab({ Title = "Punch & similar", Icon = "shield" }),
     Misc = Window:Tab({ Title = "Main", Icon = "gift" }),
+    Sk8T = Veeronica:Tab({ Title = "Sk8", Icon = "gift" }),
     Auto_Stun = Window:Tab({ Title = "Auto_Stun", Icon = "spline-pointer" }),
     Random = Window:Tab({ Title = "Extra", Icon = "crosshair" }),
     Hitbox_expander = Window:Tab({ Title = "Hitbox tools", Icon = "target" }),
@@ -1246,7 +1247,7 @@ local sk8module = require(game:GetService("ReplicatedStorage").Assets.Survivors.
 
 --local Enabled = false
 
-Veeronica:Slider({
+Tabs.Sk8T:Slider({
     Title = "Sk8 turn speed",
     Step = 0.5,
     Value = {Min = 0, Max = 15, Default = 1},
@@ -1255,7 +1256,7 @@ Veeronica:Slider({
     end
 })
 
-Veeronica:Slider({
+Tabs.Sk8T:Slider({
     Title = "Sk8 Speed",
     Step = 0.01,
     Value = {Min = 0, Max = 2, Default = 1.30},
@@ -1264,7 +1265,7 @@ Veeronica:Slider({
     end
 })
 
-Veeronica:Slider({
+Tabs.Sk8T:Slider({
     Title = "Sk8 Trick Jump Height (>0.60 = may kick)",
     Step = 0.01,
     Value = {Min = 0, Max = 1, Default = 0.525},
@@ -1273,7 +1274,7 @@ Veeronica:Slider({
     end
 })
 
-Veeronica:Slider({
+Tabs.Sk8T:Slider({
     Title = "Sk8 Trick Turn Control",
     Step = 0.01,
     Value = {Min = 0, Max = 15, Default = 1},
@@ -1399,7 +1400,7 @@ end
 -- === Exposed Function (para toggle externo) ===
 getgenv().AutoSprintToggle = setEnabled
 
-Veeronica:Toggle({
+Tabs.Sk8T:Toggle({
     Title = "Sk8 Auto Trick",
     Default = false,
     Callback = function(state)
@@ -1440,7 +1441,7 @@ local function Sk8FarmStop()
 	running = false
 end
 
-Veeronica:Toggle({
+Tabs.Sk8T:Toggle({
 	Title = "Sk8 Farm",
 	Default = false,
 	Callback = function(state)
@@ -1452,7 +1453,7 @@ Veeronica:Toggle({
 	end
 })
 
-Tabs.Misc:Slider({
+Tabs.Sk8T:Slider({
     Title = "Sk8 farm speed:",
     Step = 0.1,
     Value = {Min = 0, Max = 5, Default = 5},
