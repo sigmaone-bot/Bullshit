@@ -7,10 +7,10 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Window = WindUI:CreateWindow({
-    Folder = "SkiddedThint",
-    Title = "WHY SO SKIDDED?",
+    Folder = "SKAATTIIINNGGG Hub",
+    Title = "Veeronica, so good.",
     Icon = "star",
-    Author = "Mr. Skid god",
+    Author = "FaZ.. Is that you?",
     Theme = "Dark",
     Size = UDim2.fromOffset(500, 420),
     HasOutline = true
@@ -30,13 +30,17 @@ local Main4 = Window:Section({
 })
 
 local Veeronica = Window:Section({
-    Title = "Veeronica stuff",
+    Title = "Skating",
+})
+
+local stunning = Window:Section({
+    Title = "Sentinels",
 })
 
 local Tabs = {
     Stamina_Settings = Main4:Tab({ Title = "Stamina settings", Icon = "footprints" }),
     Esp = Main4:Tab({ Title = "ESP", Icon = "eye" }),
-    AutoBlock = Window:Tab({ Title = "Punch & similar", Icon = "shield" }),
+    istun = stunning:Tab({ Title = "Melee and fists", Icon = "shield" }),
     Misc = Window:Tab({ Title = "Main", Icon = "gift" }),
     Sk8T = Veeronica:Tab({ Title = "Sk8", Icon = "gift" }),
     Auto_Stun = Window:Tab({ Title = "Auto_Stun", Icon = "spline-pointer" }),
@@ -618,7 +622,7 @@ local function stopAutoPunch()
 end
 
 -- === Toggle ===
-Tabs.AutoBlock:Toggle({
+Tabs.istun:Toggle({
     Title = "Auto Punch+fling(doesn't work when shiwtlock)",
     Default = false,
     Callback = function(state)
@@ -632,7 +636,7 @@ Tabs.AutoBlock:Toggle({
 })
 
 -- === Slider для flingPower ===
-Tabs.AutoBlock:Slider({
+Tabs.istun:Slider({
     Title = "Fling Power",
     Step = 100000,
     Value = {Min = 100000, Max = 20000000, Default = flingPower},
@@ -645,7 +649,7 @@ Tabs.AutoBlock:Slider({
 
 --  AUTO CLON 
 
-Tabs.AutoBlock:Button({
+Tabs.istun:Button({
     Title = "Load Auto Clon (Auto Clon 007n7)",
     Callback = function()
     
@@ -806,7 +810,7 @@ game.DescendantAdded:Connect(function(desc)
     if desc:IsA("Sound") then pcall(hookSound, desc) end
 end)
 
-Tabs.AutoBlock:Toggle({
+Tabs.istun:Toggle({
     Title = "Auto Clon (Auto Clon 007n7)",
     Default = autoBlockAudioOn,
     Callback = function(state)
@@ -814,7 +818,7 @@ Tabs.AutoBlock:Toggle({
     end
 })
 
-Tabs.AutoBlock:Slider({
+Tabs.istun:Slider({
     Title = "Detection Range (Auto Clon 007n7)",
     Step = 1,
     Value = {Min = 1, Max = 100, Default = detectionRange},
