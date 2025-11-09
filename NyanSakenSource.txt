@@ -34,14 +34,19 @@ local Veeronica = Window:Section({
 })
 
 local stunning = Window:Section({
-    Title = "Sentinels",
+    Title = "Fight & Flight",
 })
+
+local otherthing = Window:Section({
+    Title = "Other",
+})
+
 
 local Tabs = {
     Stamina_Settings = Main4:Tab({ Title = "Stamina settings", Icon = "footprints" }),
     Esp = Main4:Tab({ Title = "ESP", Icon = "eye" }),
-    istun = stunning:Tab({ Title = "Melee and fists", Icon = "shield" }),
-    Misc = Window:Tab({ Title = "Main", Icon = "gift" }),
+    istun = stunning:Tab({ Title = "Sentinel & Survival", Icon = "shield" }),
+    Misc = otherthing:Tab({ Title = "Misc", Icon = "gift" }),
     Sk8T = Veeronica:Tab({ Title = "Sk8", Icon = "gift" }),
     Auto_Stun = Window:Tab({ Title = "Auto_Stun", Icon = "spline-pointer" }),
     Random = Window:Tab({ Title = "Extra", Icon = "crosshair" }),
@@ -119,7 +124,7 @@ Tabs.Stamina_Settings:Button({
 
 -- GUI
 Tabs.Stamina_Settings:Toggle({
-    Title = "Infinity Stamina",
+    Title = "Inf Stamina",
     Default = false,
     Callback = function(state)
         if state then
@@ -337,7 +342,7 @@ local function updateESP()
                 highlight.OutlineColor = Color3.fromRGB(255, 105, 180)
                 highlight.FillTransparency = 0.5
                 highlight.OutlineTransparency = 0
-                highlight.Adornee = part:IsA("Model") and item or part
+                
                 highlight.Parent = part
             elseif item.Name == "BloxyCola" and espEnabledBloxy and not part:FindFirstChild("ItemHighlight") then
                 local highlight = Instance.new("Highlight")
@@ -345,8 +350,7 @@ local function updateESP()
                 highlight.FillColor = Color3.fromRGB(0, 150, 255) -- СЃРёРЅРёР№
                 highlight.OutlineColor = Color3.fromRGB(0, 150, 255)
                 highlight.FillTransparency = 0.5
-                highlight.OutlineTransparency = 0
-                highlight.Adornee = part:IsA("Model") and item or part
+                highlight.OutlineTransparency = 0.2
                 highlight.Parent = part
             end
         end
@@ -834,6 +838,19 @@ end
 
 local TextChatService = game:GetService("TextChatService")
 
+Tabs.Misc:Button({
+    Title = "Chat visibility",
+    Callback = function()
+        if TextChatService:FindFirstChild("ChatWindowConfiguration") and TextChatService:FindFirstChild("ChatInputBarConfiguration") then
+            TextChatService.ChatWindowConfiguration.Enabled = true
+            TextChatService.ChatInputBarConfiguration.Enabled = true
+            print("Р§Р°С‚ РІРєР»СЋС‡С‘РЅ!")
+        else
+            warn("ChatWindowConfiguration РёР»Рё ChatInputBarConfiguration РЅРµ РЅР°Р№РґРµРЅС‹!")
+        end
+    end
+})
+
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local Players = game:GetService("Players")
@@ -892,25 +909,12 @@ end)
 
 -- Toggle
 Tabs.Misc:Toggle({
-    Title = "Anti-Ban",
+    Title = "Anti-Kick (Fly & Noclip may not work and Laggy)",
     Default = false,
     Callback = function(state)
         AntiBanEnabled = state
         if state then
             ApplyProtection()
-        end
-    end
-})
-
-Tabs.Misc:Button({
-    Title = "Chat visibility",
-    Callback = function()
-        if TextChatService:FindFirstChild("ChatWindowConfiguration") and TextChatService:FindFirstChild("ChatInputBarConfiguration") then
-            TextChatService.ChatWindowConfiguration.Enabled = true
-            TextChatService.ChatInputBarConfiguration.Enabled = true
-            print("Р§Р°С‚ РІРєР»СЋС‡С‘РЅ!")
-        else
-            warn("ChatWindowConfiguration РёР»Рё ChatInputBarConfiguration РЅРµ РЅР°Р№РґРµРЅС‹!")
         end
     end
 })
