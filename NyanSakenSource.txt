@@ -25,9 +25,17 @@ Window:EditOpenButton({
     Draggable = true
 })
 
+local Main4 = Window:Section({
+    Title = "Main",
+})
+
+local Veeronica = Window:Section({
+    Title = "Veeronica stuff",
+})
+
 local Tabs = {
-    Stamina_Settings = Window:Tab({ Title = "Stamina settings", Icon = "footprints" }),
-    Esp = Window:Tab({ Title = "ESP", Icon = "eye" }),
+    Stamina_Settings = Main4:Tab({ Title = "Stamina settings", Icon = "footprints" }),
+    Esp = Main4:Tab({ Title = "ESP", Icon = "eye" }),
     AutoBlock = Window:Tab({ Title = "Punch & similar", Icon = "shield" }),
     Misc = Window:Tab({ Title = "Main", Icon = "gift" }),
     Auto_Stun = Window:Tab({ Title = "Auto_Stun", Icon = "spline-pointer" }),
@@ -1238,16 +1246,7 @@ local sk8module = require(game:GetService("ReplicatedStorage").Assets.Survivors.
 
 --local Enabled = false
 
-Tabs.Misc:Slider({
-    Title = "Sk8 phase rebound damage (why)",
-    Step = 0.5,
-    Value = {Min = 0, Max = 15, Default = 4},
-    Callback = function(val)
-        sk8module.Sk8PhaseReboundDamage = val
-    end
-})
-
-Tabs.Misc:Slider({
+Veeronica:Slider({
     Title = "Sk8 turn speed",
     Step = 0.5,
     Value = {Min = 0, Max = 15, Default = 1},
@@ -1256,8 +1255,8 @@ Tabs.Misc:Slider({
     end
 })
 
-Tabs.Misc:Slider({
-    Title = "Sk8 speed",
+Veeronica:Slider({
+    Title = "Sk8 Speed",
     Step = 0.01,
     Value = {Min = 0, Max = 2, Default = 1.30},
     Callback = function(val)
@@ -1265,8 +1264,8 @@ Tabs.Misc:Slider({
     end
 })
 
-Tabs.Misc:Slider({
-    Title = "Sk8 trick jump height",
+Veeronica:Slider({
+    Title = "Sk8 Trick Jump Height (>0.60 = may kick)",
     Step = 0.01,
     Value = {Min = 0, Max = 1, Default = 0.525},
     Callback = function(val)
@@ -1274,21 +1273,12 @@ Tabs.Misc:Slider({
     end
 })
 
-Tabs.Misc:Slider({
+Veeronica:Slider({
     Title = "Sk8 Trick Turn Control",
     Step = 0.01,
     Value = {Min = 0, Max = 15, Default = 1},
     Callback = function(val)
         sk8module.Sk8TrickTurnControl = val
-    end
-})
-
-Tabs.Misc:Slider({
-    Title = "Sk8 bump power",
-    Step = 0.01,
-    Value = {Min = 0.0, Max = 100, Default = 0.75},
-    Callback = function(val)
-        sk8module.Sk8BumpPower = val
     end
 })
 
@@ -1409,8 +1399,8 @@ end
 -- === Exposed Function (para toggle externo) ===
 getgenv().AutoSprintToggle = setEnabled
 
-Tabs.Misc:Toggle({
-    Title = "Sk8 auto trick",
+Veeronica:Toggle({
+    Title = "Sk8 Auto Trick",
     Default = false,
     Callback = function(state)
         AutoSprintToggle(state)
@@ -1450,7 +1440,7 @@ local function Sk8FarmStop()
 	running = false
 end
 
-Tabs.Misc:Toggle({
+Veeronica:Toggle({
 	Title = "Sk8 Farm",
 	Default = false,
 	Callback = function(state)
