@@ -159,38 +159,152 @@ Tabs.Stamina_Settings:Slider({
         sprintSpeedValue = tonumber(val) or defaultSprintSpeed
         sprintModule.SprintSpeed = sprintSpeedValue
     end
+--// Defaults
+local defaults = {
+    MaxStamina = sprintModule.MaxStamina,
+    SprintSpeed = sprintModule.SprintSpeed,
+    StaminaGain = sprintModule.StaminaGain,
+    StaminaDrain = sprintModule.StaminaDrain or 1,
+    RegenDelay = sprintModule.StaminaRegenDelay or 0.5
+}
+
+--// Current values
+local settings = table.clone(defaults)
+
+local infinityActive = false
+local infinityThread
+local savedDrainValue -- guardará el drain real temporalmente
+
+------------------------------------------------------------
+--// Función 1: Infinite Stamina (loop + drain = 0)
+------------------------------------------------------------
+local function EnableInfinityStamina()
+    if infinityThread then task.cancel(infinityThread) end
+    infinityActive = true
+
+    -- guarda el drain original y lo pone en 0
+    savedDrainValue = sprintModule.StaminaDrain
+    sprintModule.StaminaDrain = 0
+
+    infinityThread = task.spawn(function()
+        while infinityActive do
+            sprintModule.Stamina = sprintModule.MaxStamina
+            sprintModule.MaxStamina = settings.MaxStamina
+            sprintModule.SprintSpeed = settings.SprintSpeed
+            task.wait(0.1)
+        end
+    end)
+end
+
+local function DisableInfinityStamina()
+    infinityActive = false
+    if infinityThread then
+        task.cancel(infinityThread)
+        infinityThread = nil
+    end
+
+    -- restaura el drain original
+    sprintModule.StaminaDrain = savedDrainValue or settings.StaminaDrain
+end
+
+------------------------------------------------------------
+--// Función 2: Aplicar valores sin loop
+------------------------------------------------------------
+local function ApplyStaminaSettings()
+    sprintModule.MaxStamina = settings.MaxStamina
+    sprintModule.SprintSpeed = settings.SprintSpeed
+    sprintModule.StaminaGain = settings.StaminaGain
+    sprintModule.StaminaDrain = settings.StaminaDrain
+    sprintModule.StaminaRegenDelay = settings.RegenDelay
+end
+
+local function ResetStaminaSettings()
+    for k, v in pairs(defaults) do
+        settings[k] = v
+    end
+    ApplyStaminaSettings()
+end
+
+------------------------------------------------------------
+--// UI
+------------------------------------------------------------
+Tabs.Stamina_Settings:Toggle({
+    Title = "Infinite Stamina",
+    Default = false,
+    Callback = function(state)
+        if state then
+            EnableInfinityStamina()
+        else
+            DisableInfinityStamina()
+        end
+    end
+})
+
+Tabs.Stamina_Settings:Button({
+    Title = "Apply Settings",
+    Callback = ApplyStaminaSettings
+})
+
+Tabs.Stamina_Settings:Button({
+    Title = "Reset to Default",
+    Callback = ResetStaminaSettings
+})
+
+------------------------------------------------------------
+--// Sliders
+------------------------------------------------------------
+Tabs.Stamina_Settings:Slider({
+    Title = "Max Stamina",
+    Step = 1,
+    Value = {Min = 50, Max = 500, Default = defaults.MaxStamina},
+    Suffix = " Max",
+    Callback = function(val)
+        settings.MaxStamina = tonumber(val) or defaults.MaxStamina
+        ApplyStaminaSettings()
+    end
+})
+
+Tabs.Stamina_Settings:Slider({
+    Title = "Sprint Speed",
+    Step = 1,
+    Value = {Min = 15, Max = 40, Default = defaults.SprintSpeed},
+    Suffix = " S",
+    Callback = function(val)
+        settings.SprintSpeed = tonumber(val) or defaults.SprintSpeed
+        ApplyStaminaSettings()
+    end
 })
 
 Tabs.Stamina_Settings:Slider({
     Title = "Stamina Gain",
     Step = 0.5,
-    Value = {Min = 1, Max = 50, Default = staminaGainValue},
+    Value = {Min = 1, Max = 50, Default = defaults.StaminaGain},
     Suffix = " per sec",
     Callback = function(val)
-        staminaGainValue = tonumber(val) or defaultStaminaGain
-        sprintModule.StaminaGain = staminaGainValue
+        settings.StaminaGain = tonumber(val) or defaults.StaminaGain
+        ApplyStaminaSettings()
     end
 })
 
 Tabs.Stamina_Settings:Slider({
     Title = "Stamina Drain",
-    Step = 1,
-    Value = {Min = 0, Max = 10, Default = staminaDrainValue},
+    Step = 0.1,
+    Value = {Min = 0, Max = 10, Default = defaults.StaminaDrain},
     Suffix = " per sec",
     Callback = function(val)
-        staminaDrainValue = tonumber(val) or defaultStaminaDrain
-        sprintModule.StaminaDrain = staminaDrainValue
+        settings.StaminaDrain = tonumber(val) or defaults.StaminaDrain
+        ApplyStaminaSettings()
     end
 })
 
 Tabs.Stamina_Settings:Slider({
     Title = "Regen Delay",
     Step = 0.1,
-    Value = {Min = 0, Max = 5, Default = regenDelayValue},
+    Value = {Min = 0, Max = 5, Default = defaults.RegenDelay},
     Suffix = " sec",
     Callback = function(val)
-        regenDelayValue = tonumber(val) or defaultRegenDelay
-        sprintModule.StaminaRegenDelay = regenDelayValue
+        settings.RegenDelay = tonumber(val) or defaults.RegenDelay
+        ApplyStaminaSettings()
     end
 })
 
