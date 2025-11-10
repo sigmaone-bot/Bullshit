@@ -42,6 +42,7 @@ local otherthing = Window:Section({
 })
 
 
+
 local Tabs = {
     Stamina_Settings = Main4:Tab({ Title = "Stamina settings", Icon = "footprints" }),
     Esp = Main4:Tab({ Title = "ESP", Icon = "eye" }),
@@ -60,36 +61,47 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local sprintModule = require(game.ReplicatedStorage.Systems.Character.Game.Sprinting)
 
--- сохраняем стандартные значения
 local defaultMaxStamina = sprintModule.MaxStamina
 local defaultSprintSpeed = sprintModule.SprintSpeed
 local defaultStaminaGain = sprintModule.StaminaGain
 local defaultStaminaDrain = sprintModule.StaminaDrain or 1
 local defaultRegenDelay = sprintModule.StaminaRegenDelay or 0.5
 
--- текущие значения
+-- valores actuales
 local maxStaminaValue = sprintModule.MaxStamina
 local sprintSpeedValue = sprintModule.SprintSpeed
 local staminaGainValue = sprintModule.StaminaGain
 local staminaDrainValue = sprintModule.StaminaDrain or 1
 local regenDelayValue = sprintModule.StaminaRegenDelay or 0.5
 
--- Infinity Stamina
+-- control
 local infinityStaminaActive = false
 local staminaThread = nil
 
+----------------------------------------------------
+-- // FUNCIONES DE AJUSTE
+----------------------------------------------------
+
+local function ApplyNormalStaminaSettings()
+    sprintModule.MaxStamina = maxStaminaValue
+    sprintModule.SprintSpeed = sprintSpeedValue
+    sprintModule.StaminaGain = staminaGainValue
+    sprintModule.StaminaDrain = staminaDrainValue
+    sprintModule.StaminaRegenDelay = regenDelayValue
+end
+
 local function EnableInfinityStamina()
-    --infinityStaminaActive = true
+    if staminaThread then task.cancel(staminaThread) end
     staminaThread = task.spawn(function()
-        --while true do
+        while infinityStaminaActive do
             task.wait(0.1)
             sprintModule.MaxStamina = maxStaminaValue
             sprintModule.SprintSpeed = sprintSpeedValue
             sprintModule.StaminaGain = staminaGainValue
-            sprintModule.StaminaDrain = staminaDrainValue
+            sprintModule.StaminaDrain = 0 -- 🔹 sin gasto
             sprintModule.StaminaRegenDelay = regenDelayValue
             sprintModule.Stamina = sprintModule.MaxStamina
-        --end
+        end
     end)
 end
 
@@ -99,6 +111,7 @@ local function DisableInfinityStamina()
         task.cancel(staminaThread)
         staminaThread = nil
     end
+    sprintModule.StaminaDrain = staminaDrainValue -- 🔹 vuelve al valor anterior
 end
 
 local function ResetStaminaSettings()
@@ -107,29 +120,27 @@ local function ResetStaminaSettings()
     staminaGainValue = defaultStaminaGain
     staminaDrainValue = defaultStaminaDrain
     regenDelayValue = defaultRegenDelay
-
-    sprintModule.MaxStamina = maxStaminaValue
-    sprintModule.SprintSpeed = sprintSpeedValue
-    sprintModule.StaminaGain = staminaGainValue
-    sprintModule.StaminaDrain = staminaDrainValue
-    sprintModule.StaminaRegenDelay = regenDelayValue
+    ApplyNormalStaminaSettings()
 end
+
+----------------------------------------------------
+-- // GUI
+----------------------------------------------------
 
 Tabs.Stamina_Settings:Button({
     Title = "Inject stamina",
     Callback = function()
-        EnableInfinityStamina()
+        ApplyNormalStaminaSettings()
     end
 })
 
--- GUI
 Tabs.Stamina_Settings:Toggle({
     Title = "Inf Stamina",
     Default = false,
     Callback = function(state)
+        infinityStaminaActive = state
         if state then
-           infinityStaminaActive = true
-            --EnableInfinityStamina()
+            EnableInfinityStamina()
         else
             DisableInfinityStamina()
         end
@@ -147,133 +158,6 @@ Tabs.Stamina_Settings:Slider({
         if not infinityStaminaActive and sprintModule.Stamina > maxStaminaValue then
             sprintModule.Stamina = maxStaminaValue
         end
-    end
-})
-
-Tabs.Stamina_Settings:Slider({
-    Title = "Sprint Speed",
-    Step = 1,
-    Value = {Min = 15, Max = 40, Default = sprintSpeedValue},
-    Suffix = " S",
-    Callback = function(val)
-        sprintSpeedValue = tonumber(val) or defaultSprintSpeed
-        sprintModule.SprintSpeed = sprintSpeedValue
-    end
---// Defaults
-local defaults = {
-    MaxStamina = sprintModule.MaxStamina,
-    SprintSpeed = sprintModule.SprintSpeed,
-    StaminaGain = sprintModule.StaminaGain,
-    StaminaDrain = sprintModule.StaminaDrain or 1,
-    RegenDelay = sprintModule.StaminaRegenDelay or 0.5
-}
-
---// Current values
-local settings = table.clone(defaults)
-
-local infinityActive = false
-local infinityThread
-local savedDrainValue -- guardará el drain real temporalmente
-
-------------------------------------------------------------
---// Función 1: Infinite Stamina (loop + drain = 0)
-------------------------------------------------------------
-local function EnableInfinityStamina()
-    if infinityThread then task.cancel(infinityThread) end
-    infinityActive = true
-
-    -- guarda el drain original y lo pone en 0
-    savedDrainValue = sprintModule.StaminaDrain
-    sprintModule.StaminaDrain = 0
--- Variables principales
-local defaultMaxStamina = sprintModule.MaxStamina
-local defaultSprintSpeed = sprintModule.SprintSpeed
-local defaultStaminaGain = sprintModule.StaminaGain
-local defaultStaminaDrain = sprintModule.StaminaDrain or 1
-local defaultRegenDelay = sprintModule.StaminaRegenDelay or 0.5
-
-local maxStaminaValue = defaultMaxStamina
-local sprintSpeedValue = defaultSprintSpeed
-local staminaGainValue = defaultStaminaGain
-local staminaDrainValue = defaultStaminaDrain
-local regenDelayValue = defaultRegenDelay
-
-local infinityStaminaActive = false
-local staminaThread = nil
-local savedDrain = nil
-
---// Infinite stamina
-local function EnableInfinityStamina()
-    if infinityStaminaActive then return end
-    infinityStaminaActive = true
-    savedDrain = sprintModule.StaminaDrain
-    sprintModule.StaminaDrain = 0
-
-    staminaThread = task.spawn(function()
-        while infinityStaminaActive do
-            sprintModule.Stamina = sprintModule.MaxStamina
-            sprintModule.MaxStamina = maxStaminaValue
-            sprintModule.SprintSpeed = sprintSpeedValue
-            task.wait(0.1)
-        end
-    end)
-end
-
-local function DisableInfinityStamina()
-    infinityStaminaActive = false
-    if staminaThread then
-        task.cancel(staminaThread)
-        staminaThread = nil
-    end
-    sprintModule.StaminaDrain = savedDrain or staminaDrainValue
-end
-
---// Cambiar valores normales (sin inf stamina)
-local function ApplyStaminaSettings()
-    sprintModule.MaxStamina = maxStaminaValue
-    sprintModule.SprintSpeed = sprintSpeedValue
-    sprintModule.StaminaGain = staminaGainValue
-    sprintModule.StaminaDrain = staminaDrainValue
-    sprintModule.StaminaRegenDelay = regenDelayValue
-end
-
-local function ResetStaminaSettings()
-    maxStaminaValue = defaultMaxStamina
-    sprintSpeedValue = defaultSprintSpeed
-    staminaGainValue = defaultStaminaGain
-    staminaDrainValue = defaultStaminaDrain
-    regenDelayValue = defaultRegenDelay
-    ApplyStaminaSettings()
-end
-
---// UI (idéntico al tuyo)
-Tabs.Stamina_Settings:Button({
-    Title = "Inject stamina",
-    Callback = function()
-        ApplyStaminaSettings()
-    end
-})
-
-Tabs.Stamina_Settings:Toggle({
-    Title = "Inf Stamina",
-    Default = false,
-    Callback = function(state)
-        if state then
-            EnableInfinityStamina()
-        else
-            DisableInfinityStamina()
-        end
-    end
-})
-
-Tabs.Stamina_Settings:Slider({
-    Title = "Max Stamina",
-    Step = 1,
-    Value = {Min = 50, Max = 500, Default = maxStaminaValue},
-    Suffix = " Max",
-    Callback = function(val)
-        maxStaminaValue = tonumber(val) or defaultMaxStamina
-        sprintModule.MaxStamina = maxStaminaValue
     end
 })
 
