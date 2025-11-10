@@ -94,13 +94,13 @@ local function EnableInfinityStamina()
     if staminaThread then task.cancel(staminaThread) end
     staminaThread = task.spawn(function()
         while infinityStaminaActive do
-            task.wait(0.1)
-            sprintModule.MaxStamina = maxStaminaValue
-            sprintModule.SprintSpeed = sprintSpeedValue
-            sprintModule.StaminaGain = staminaGainValue
+            task.wait()
+            --sprintModule.MaxStamina = maxStaminaValue
+            --sprintModule.SprintSpeed = sprintSpeedValue
+            --sprintModule.StaminaGain = staminaGainValue
             sprintModule.StaminaDrain = 0 -- 🔹 sin gasto
-            sprintModule.StaminaRegenDelay = regenDelayValue
-            sprintModule.Stamina = sprintModule.MaxStamina
+            --sprintModule.StaminaRegenDelay = regenDelayValue
+            --sprintModule.Stamina = sprintModule.MaxStamina
         end
     end)
 end
@@ -185,7 +185,7 @@ Tabs.Stamina_Settings:Slider({
 
 Tabs.Stamina_Settings:Slider({
     Title = "Stamina Drain",
-    Step = 1,
+    Step = 0.5,
     Value = {Min = 0, Max = 10, Default = staminaDrainValue},
     Suffix = " per sec",
     Callback = function(val)
