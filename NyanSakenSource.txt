@@ -7,8 +7,8 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Window = WindUI:CreateWindow({
-    Folder = "SKAATTIIINNGGG Hub",
-    Title = "Veeronica, so good.",
+    Folder = "Veeronica",
+    Title = "SKATTIIINNNGGGG Hub.",
     Icon = "star",
     Author = "FaZ.. Is that you?",
     Theme = "Dark",
@@ -2856,7 +2856,7 @@ end
 --// Autor: Sniffycat
 
 _G.JasonHitbox = _G.JasonHitbox or false
-_G.hitboxnearestdist = 20
+_G.hitboxnearestdist = 11
 
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
@@ -2959,6 +2959,15 @@ Tabs.Hitbox:Toggle({
     Default = false,
     Callback = function(state)
         _G.JasonHitbox = state
+    end
+})
+
+Tabs.Hitbox:Slider({
+    Title = "Reach distance",
+    Step = 0.01,
+    Value = {Min = 1, Max = 100, Default = 10},
+    Callback = function(val)
+        _G.hitboxnearestdist = val
     end
 })
 
