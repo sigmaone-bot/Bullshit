@@ -98,6 +98,7 @@ local function EnableInfinityStamina()
             --sprintModule.MaxStamina = maxStaminaValue
             --sprintModule.SprintSpeed = sprintSpeedValue
             --sprintModule.StaminaGain = staminaGainValue
+            sprintModule.Stamina = sprintModule.MaxStamina
             sprintModule.StaminaDrain = 0 -- 🔹 sin gasto
             --sprintModule.StaminaRegenDelay = regenDelayValue
             --sprintModule.Stamina = sprintModule.MaxStamina
@@ -112,6 +113,7 @@ local function DisableInfinityStamina()
         staminaThread = nil
     end
     sprintModule.StaminaDrain = staminaDrainValue -- 🔹 vuelve al valor anterior
+    sprintModule.Stamina = sprintModule.Stamina
 end
 
 local function ResetStaminaSettings()
