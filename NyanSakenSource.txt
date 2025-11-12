@@ -49,11 +49,11 @@ local Tabs = {
     istun = stunning:Tab({ Title = "Sentinel & Survival", Icon = "shield" }),
     Misc = otherthing:Tab({ Title = "Misc", Icon = "gift" }),
     Sk8T = Veeronica:Tab({ Title = "Sk8", Icon = "gift" }),
-    Auto_Stun = Window:Tab({ Title = "Auto_Stun", Icon = "spline-pointer" }),
-    Random = Window:Tab({ Title = "Extra", Icon = "crosshair" }),
+    Auto_Stun = stunning:Tab({ Title = "Stun & Aimbot Related", Icon = "spline-pointer" }),
+    Random = otherthing:Tab({ Title = "Extra", Icon = "crosshair" }),
     Hitbox = otherthing:Tab({ Title = "Hitbox", Icon = "target" }),
-    Generator = Window:Tab({ Title = "Generators", Icon = "battery-charging" }),
-    Teleport = Window:Tab({Title = "TP-Places", Icon = "cable" }),
+    Generator = Main4:Tab({ Title = "Generators", Icon = "battery-charging" }),
+    Teleport = otherthing:Tab({Title = "TP-Places", Icon = "cable" }),
     Credits = Window:Tab({ Title = "Credits", Icon = "award" })
 }
 
@@ -175,10 +175,116 @@ Tabs.Stamina_Settings:Slider({
 })
 
 Tabs.Stamina_Settings:Slider({
+--// Forsaken Sprint Settings with Sliders and Infinite Toggle
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+--// Sprint module (require)
+local sprintModule = require(ReplicatedStorage.Systems.Character.Game.Sprinting)
+if not sprintModule.DefaultsSet then
+    sprintModule.Init()
+end
+
+--// Default values
+local defaultMaxStamina = sprintModule.MaxStamina or 100
+local defaultSprintSpeed = sprintModule.StaminaSpeed or 26
+local defaultStaminaGain = sprintModule.StaminaGain or 20
+local defaultStaminaLoss = sprintModule.StaminaLoss or 10
+
+--// Current editable values
+local maxStaminaValue = sprintModule.MaxStamina
+local sprintSpeedValue = sprintModule.StaminaSpeed
+local staminaGainValue = sprintModule.StaminaGain
+local staminaLossValue = sprintModule.StaminaLoss
+
+--// Infinite stamina
+local infActive = false
+local infThread = nil
+
+local function EnableInfStamina()
+    infActive = true
+    if infThread then task.cancel(infThread) end
+    infThread = task.spawn(function()
+        while infActive do
+            task.wait(0.2)
+            sprintModule.StaminaLoss = 0
+            sprintModule.Stamina = sprintModule.MaxStamina
+            if sprintModule.__staminaChangedEvent then
+                sprintModule.__staminaChangedEvent:Fire()
+            end
+        end
+    end)
+end
+
+local function DisableInfStamina()
+    infActive = false
+    if infThread then
+        task.cancel(infThread)
+        infThread = nil
+    end
+    sprintModule.StaminaLoss = staminaLossValue
+end
+
+--// Reset values
+local function ResetToDefaults()
+    sprintModule.MaxStamina = defaultMaxStamina
+    sprintModule.StaminaSpeed = defaultSprintSpeed
+    sprintModule.StaminaGain = defaultStaminaGain
+    sprintModule.StaminaLoss = defaultStaminaLoss
+    sprintModule.Stamina = sprintModule.MaxStamina
+    if sprintModule.__staminaChangedEvent then
+        sprintModule.__staminaChangedEvent:Fire()
+    end
+end
+
+--// GUI controls (adapt to your Tabs system)
+Tabs.Stamina_Settings:Button({
+    Title = "Inject Stamina",
+    Callback = function()
+        ResetToDefaults()
+    end
+})
+
+Tabs.Stamina_Settings:Toggle({
+    Title = "Infinite Stamina",
+    Default = false,
+    Callback = function(state)
+        if state then
+            EnableInfStamina()
+        else
+            DisableInfStamina()
+        end
+    end
+})
+
+Tabs.Stamina_Settings:Slider({
+    Title = "Max Stamina",
+    Step = 1,
+    Value = {Min = 50, Max = 500, Default = maxStaminaValue},
+    Callback = function(val)
+        maxStaminaValue = tonumber(val) or defaultMaxStamina
+        sprintModule.MaxStamina = maxStaminaValue
+        sprintModule.Stamina = sprintModule.MaxStamina
+    end
+})
+
+Tabs.Stamina_Settings:Slider({
+    Title = "Sprint Speed",
+    Step = 1,
+    Value = {Min = 15, Max = 40, Default = sprintSpeedValue},
+    Callback = function(val)
+        sprintSpeedValue = tonumber(val) or defaultSprintSpeed
+        sprintModule.StaminaSpeed = sprintSpeedValue
+    end
+})
+
+Tabs.Stamina_Settings:Slider({
     Title = "Stamina Gain",
     Step = 0.5,
-    Value = {Min = 1, Max = 50, Default = staminaGainValue},
-    Suffix = " per sec",
+    Value = {Min = 1, Max = 125, Default = staminaGainValue},
     Callback = function(val)
         staminaGainValue = tonumber(val) or defaultStaminaGain
         sprintModule.StaminaGain = staminaGainValue
@@ -188,31 +294,19 @@ Tabs.Stamina_Settings:Slider({
 Tabs.Stamina_Settings:Slider({
     Title = "Stamina Drain",
     Step = 0.5,
-    Value = {Min = 0, Max = 10, Default = staminaDrainValue},
-    Suffix = " per sec",
+    Value = {Min = 0, Max = 20, Default = staminaLossValue},
     Callback = function(val)
-        staminaDrainValue = tonumber(val) or defaultStaminaDrain
-        if not infinityStaminaActive then
-            sprintModule.StaminaDrain = staminaDrainValue
+        staminaLossValue = tonumber(val) or defaultStaminaLoss
+        if not infActive then
+            sprintModule.StaminaLoss = staminaLossValue
         end
-    end
-})
-
-Tabs.Stamina_Settings:Slider({
-    Title = "Regen Delay",
-    Step = 0.1,
-    Value = {Min = 0, Max = 5, Default = regenDelayValue},
-    Suffix = " sec",
-    Callback = function(val)
-        regenDelayValue = tonumber(val) or defaultRegenDelay
-        sprintModule.StaminaRegenDelay = regenDelayValue
     end
 })
 
 Tabs.Stamina_Settings:Button({
     Title = "Reset to Default",
     Callback = function()
-        ResetStaminaSettings()
+        ResetToDefaults()
     end
 })
 
