@@ -34,7 +34,7 @@ local Veeronica = Window:Section({
 })
 
 local stunning = Window:Section({
-    Title = "Fight & Flight",
+    Title = "Fight or Flight",
 })
 
 local otherthing = Window:Section({
@@ -49,7 +49,7 @@ local Tabs = {
     istun = stunning:Tab({ Title = "Sentinel & Survival", Icon = "shield" }),
     Misc = otherthing:Tab({ Title = "Misc", Icon = "gift" }),
     Sk8T = Veeronica:Tab({ Title = "Sk8", Icon = "gift" }),
-    Auto_Stun = stunning:Tab({ Title = "Stun & Aimbot Related", Icon = "spline-pointer" }),
+    Auto_Stun = stunning:Tab({ Title = "Stun & Aimbot", Icon = "spline-pointer" }),
     Random = otherthing:Tab({ Title = "Extra", Icon = "crosshair" }),
     Hitbox = otherthing:Tab({ Title = "Hitbox", Icon = "target" }),
     Generator = Main4:Tab({ Title = "Generators", Icon = "battery-charging" }),
@@ -2180,6 +2180,138 @@ Tabs.Misc:Toggle({
 
 
 -- AAAAA
+
+--// Servicios
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+--// Configuración
+local aimDuration = 1.2
+local aimTargets = { "Jason", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli", "Guest666"}
+local trackedAnimations = {
+    ["103601716322988"] = true,
+    ["133491532453922"] = true,
+    ["86371356500204"] = true,
+    ["76649505662612"] = true,
+    ["81698196845041"] = true
+}
+
+--// Variables
+local enableChanceAimbot = false
+local chancePredict = 4
+local Humanoid, HRP
+local lastTriggerTime = 0
+local aiming = false
+local originalAutoRotate
+
+--// UI Toggles y Sliders
+Tabs.Auto_Stun:Toggle({
+    Title = "Enable Chance Aimbot",
+    Default = false,
+    Callback = function(state)
+        enableChanceAimbot = state
+    end
+})
+
+Tabs.Auto_Stun:Slider({
+    Title = "Chance Predict",
+    Step = 0.1,
+    Value = {Min = 0, Max = 20, Default = 4},
+    Callback = function(val)
+        chancePredict = tonumber(val) or 4
+    end
+})
+
+--// Funciones
+local function setupCharacter(char)
+    Humanoid = char:WaitForChild("Humanoid")
+    HRP = char:WaitForChild("HumanoidRootPart")
+end
+
+local function getValidTarget()
+    local killersFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Killers")
+    if killersFolder then
+        for _, name in ipairs(aimTargets) do
+            local target = killersFolder:FindFirstChild(name)
+            if target and target:FindFirstChild("HumanoidRootPart") then
+                return target.HumanoidRootPart
+            end
+        end
+    end
+    return nil
+end
+
+local function getPlayingAnimationIds()
+    local ids = {}
+    if Humanoid then
+        for _, track in ipairs(Humanoid:GetPlayingAnimationTracks()) do
+            if track.Animation and track.Animation.AnimationId then
+                local id = track.Animation.AnimationId:match("%d+")
+                if id then
+                    ids[id] = true
+                end
+            end
+        end
+    end
+    return ids
+end
+
+local function smoothLookAt(hrp, targetPos, dt)
+    local dir = (targetPos - hrp.Position)
+    if dir.Magnitude <= 0.001 then return end
+    local desiredCF = CFrame.new(hrp.Position, hrp.Position + dir.Unit)
+    hrp.CFrame = hrp.CFrame:Lerp(desiredCF, math.clamp(8 * dt, 0, 1))
+end
+
+--// Setup inicial
+if LocalPlayer.Character then
+    setupCharacter(LocalPlayer.Character)
+end
+LocalPlayer.CharacterAdded:Connect(setupCharacter)
+
+--// Lógica principal
+RunService.RenderStepped:Connect(function(dt)
+    if not enableChanceAimbot or not Humanoid or not HRP then return end
+
+    local playing = getPlayingAnimationIds()
+    local triggered = false
+    for id in pairs(trackedAnimations) do
+        if playing[id] then
+            triggered = true
+            break
+        end
+    end
+
+    if triggered then
+        lastTriggerTime = tick()
+        aiming = true
+    end
+
+    if aiming and tick() - lastTriggerTime <= aimDuration then
+        if originalAutoRotate == nil then
+            originalAutoRotate = Humanoid.AutoRotate
+        end
+
+        Humanoid.AutoRotate = false
+        HRP.AssemblyAngularVelocity = Vector3.zero
+
+        local targetHRP = getValidTarget()
+        if targetHRP then
+            local dist = (targetHRP.Position - HRP.Position).Magnitude
+            local finalPred = chancePredict * (1 + dist / 80)
+            local predictedPos = targetHRP.Position + (targetHRP.Velocity * finalPred)
+            smoothLookAt(HRP, predictedPos, dt)
+        end
+    elseif aiming then
+        aiming = false
+        if originalAutoRotate ~= nil then
+            Humanoid.AutoRotate = originalAutoRotate
+            originalAutoRotate = nil
+        end
+    end
+end)
+
 
 Tabs.Auto_Stun:Button({
     Title = "Load Auto Invisibility",
