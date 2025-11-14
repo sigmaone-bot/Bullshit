@@ -17,8 +17,8 @@ local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.
 
 -- Tạo cửa sổ Fluent chính
 local Window = Fluent:CreateWindow({
-    Title = "Hutao Hub [Premium] | Forsaken |",
-    SubTitle = "Version 5.1.3",
+    Title = "Skatinnggh Hub | Forsaken |",
+    SubTitle = "Skidded",
     Search = true,
     Icon = "rbxassetid://121302760641013",
     TabWidth = 160,
@@ -30,7 +30,7 @@ local Window = Fluent:CreateWindow({
     UserInfo = true,
     UserInfoTop = false,
     UserInfoTitle = game:GetService("Players").LocalPlayer.DisplayName,
-    UserInfoSubtitle = "I Love Hutao",
+    UserInfoSubtitle = "skidded from hutao",
     UserInfoSubtitleColor = Color3.fromRGB(71, 123, 255)
 })
 
