@@ -5,6 +5,7 @@ local Workspace = game:GetService("Workspace")
 local Lighting = game:GetService("Lighting")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local lp = Players.LocalPlayer
 
 local Window = WindUI:CreateWindow({
     Folder = "Veeronica",
@@ -57,8 +58,6 @@ local Tabs = {
     Credits = Window:Tab({ Title = "Credits", Icon = "award" })
 }
 
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
 local sprintModule = require(game.ReplicatedStorage.Systems.Character.Game.Sprinting)
 
 local defaultMaxStamina = sprintModule.MaxStamina
@@ -99,7 +98,7 @@ local function EnableInfinityStamina()
             --sprintModule.SprintSpeed = sprintSpeedValue
             --sprintModule.StaminaGain = staminaGainValue
             sprintModule.Stamina = sprintModule.MaxStamina
-            sprintModule.StaminaDrain = 0 -- 🔹 sin gasto
+            sprintModule.StaminaDrain = 0 -- ðŸ”¹ sin gasto
             --sprintModule.StaminaRegenDelay = regenDelayValue
             --sprintModule.Stamina = sprintModule.MaxStamina
         end
@@ -112,7 +111,7 @@ local function DisableInfinityStamina()
         task.cancel(staminaThread)
         staminaThread = nil
     end
-    sprintModule.StaminaDrain = staminaDrainValue -- 🔹 vuelve al valor anterior
+    sprintModule.StaminaDrain = staminaDrainValue -- ðŸ”¹ vuelve al valor anterior
     sprintModule.Stamina = sprintModule.Stamina
 end
 
@@ -310,11 +309,11 @@ Tabs.Esp:Toggle({
 })
 
 -- ESP ITEMS 
--- // РќР°СЃС‚СЂРѕР№РєРё
+-- // Ð ÑœÐ Â°Ð¡ÐƒÐ¡â€šÐ¡Ð‚Ð Ñ•Ð â„–Ð Ñ”Ð Ñ‘
 local espEnabledMedkit = false
 local espEnabledBloxy = false
 
--- // Р¤СѓРЅРєС†РёРё РѕС‡РёСЃС‚РєРё
+-- // Ð Â¤Ð¡Ñ“Ð Ð…Ð Ñ”Ð¡â€ Ð Ñ‘Ð Ñ‘ Ð Ñ•Ð¡â€¡Ð Ñ‘Ð¡ÐƒÐ¡â€šÐ Ñ”Ð Ñ‘
 local function clearESP(name)
     for _, item in ipairs(workspace:GetDescendants()) do
         if item.Name == name and (item:IsA("BasePart") or item:IsA("Model")) then
@@ -326,7 +325,7 @@ local function clearESP(name)
     end
 end
 
--- // РћСЃРЅРѕРІРЅРѕР№ ESP Р°РїРґРµР№С‚РµСЂ
+-- // Ð Ñ›Ð¡ÐƒÐ Ð…Ð Ñ•Ð Ð†Ð Ð…Ð Ñ•Ð â„– ESP Ð Â°Ð Ñ—Ð Ò‘Ð ÂµÐ â„–Ð¡â€šÐ ÂµÐ¡Ð‚
 local function updateESP()
     for _, item in ipairs(workspace:GetDescendants()) do
         local part = nil
@@ -340,7 +339,7 @@ local function updateESP()
             if item.Name == "Medkit" and espEnabledMedkit and not part:FindFirstChild("ItemHighlight") then
                 local highlight = Instance.new("Highlight")
                 highlight.Name = "ItemHighlight"
-                highlight.FillColor = Color3.fromRGB(255, 105, 180) -- СЂРѕР·РѕРІС‹Р№
+                highlight.FillColor = Color3.fromRGB(255, 105, 180) -- Ð¡Ð‚Ð Ñ•Ð Â·Ð Ñ•Ð Ð†Ð¡â€¹Ð â„–
                 highlight.OutlineColor = Color3.fromRGB(255, 105, 180)
                 highlight.FillTransparency = 0.5
                 highlight.OutlineTransparency = 0
@@ -349,7 +348,7 @@ local function updateESP()
             elseif item.Name == "BloxyCola" and espEnabledBloxy and not part:FindFirstChild("ItemHighlight") then
                 local highlight = Instance.new("Highlight")
                 highlight.Name = "ItemHighlight"
-                highlight.FillColor = Color3.fromRGB(0, 150, 255) -- СЃРёРЅРёР№
+                highlight.FillColor = Color3.fromRGB(0, 150, 255) -- Ð¡ÐƒÐ Ñ‘Ð Ð…Ð Ñ‘Ð â„–
                 highlight.OutlineColor = Color3.fromRGB(0, 150, 255)
                 highlight.FillTransparency = 0.5
                 highlight.OutlineTransparency = 0.2
@@ -359,11 +358,11 @@ local function updateESP()
     end
 end
 
--- // РџРѕС‚РѕРєРё
+-- // Ð ÑŸÐ Ñ•Ð¡â€šÐ Ñ•Ð Ñ”Ð Ñ‘
 local medkitEspThread = nil
 local bloxyEspThread = nil
 
--- // РЎРѕР·РґР°РЅРёРµ Toggles С‡РµСЂРµР· WindUI
+-- // Ð ÐŽÐ Ñ•Ð Â·Ð Ò‘Ð Â°Ð Ð…Ð Ñ‘Ð Âµ Toggles Ð¡â€¡Ð ÂµÐ¡Ð‚Ð ÂµÐ Â· WindUI
 Tabs.Esp:Toggle({
     Title = "ESP Medkit",
     Default = false,
@@ -442,9 +441,9 @@ end
 
 local function updateGeneratorESP()
     clearGeneratorHighlights()
-    -- РС‰РµРј РІРѕ РІСЃРµР№ РёРіСЂРѕРІРѕР№ РѕР±Р»Р°СЃС‚Рё, Р° РЅРµ РїРѕ РєРѕРЅРєСЂРµС‚РЅРѕРјСѓ РїСѓС‚Рё
+    -- Ð Â˜Ð¡â€°Ð ÂµÐ Ñ˜ Ð Ð†Ð Ñ• Ð Ð†Ð¡ÐƒÐ ÂµÐ â„– Ð Ñ‘Ð Ñ–Ð¡Ð‚Ð Ñ•Ð Ð†Ð Ñ•Ð â„– Ð Ñ•Ð Â±Ð Â»Ð Â°Ð¡ÐƒÐ¡â€šÐ Ñ‘, Ð Â° Ð Ð…Ð Âµ Ð Ñ—Ð Ñ• Ð Ñ”Ð Ñ•Ð Ð…Ð Ñ”Ð¡Ð‚Ð ÂµÐ¡â€šÐ Ð…Ð Ñ•Ð Ñ˜Ð¡Ñ“ Ð Ñ—Ð¡Ñ“Ð¡â€šÐ Ñ‘
     for _, item in ipairs(Workspace:GetDescendants()) do
-        -- РСЃРїРѕР»СЊР·СѓРµРј string.find РґР»СЏ РїРѕРёСЃРєР° РїРѕ С‡Р°СЃС‚Рё РёРјРµРЅРё
+        -- Ð Â˜Ð¡ÐƒÐ Ñ—Ð Ñ•Ð Â»Ð¡ÐŠÐ Â·Ð¡Ñ“Ð ÂµÐ Ñ˜ string.find Ð Ò‘Ð Â»Ð¡Ð Ð Ñ—Ð Ñ•Ð Ñ‘Ð¡ÐƒÐ Ñ”Ð Â° Ð Ñ—Ð Ñ• Ð¡â€¡Ð Â°Ð¡ÐƒÐ¡â€šÐ Ñ‘ Ð Ñ‘Ð Ñ˜Ð ÂµÐ Ð…Ð Ñ‘
         if item.Name:find("Generator") then
             if (item:IsA("Model") and item.PrimaryPart) or item:IsA("BasePart") then
                 createGeneratorHighlight(item)
@@ -473,11 +472,11 @@ Tabs.Esp:Toggle({
 })
 
 Players.PlayerAdded:Connect(function()
-    Tabs.Main:SetDropdownValues("Р’С‹Р±РѕСЂ РёРіСЂРѕРєР° РґР»СЏ Orbit", getPlayerNames())
+    Tabs.Main:SetDropdownValues("Ð â€™Ð¡â€¹Ð Â±Ð Ñ•Ð¡Ð‚ Ð Ñ‘Ð Ñ–Ð¡Ð‚Ð Ñ•Ð Ñ”Ð Â° Ð Ò‘Ð Â»Ð¡Ð Orbit", getPlayerNames())
 end)
 
 Players.PlayerRemoving:Connect(function()
-    Tabs.Main:SetDropdownValues("Р’С‹Р±РѕСЂ РёРіСЂРѕРєР° РґР»СЏ Orbit", getPlayerNames())
+    Tabs.Main:SetDropdownValues("Ð â€™Ð¡â€¹Ð Â±Ð Ñ•Ð¡Ð‚ Ð Ñ‘Ð Ñ–Ð¡Ð‚Ð Ñ•Ð Ñ”Ð Â° Ð Ò‘Ð Â»Ð¡Ð Orbit", getPlayerNames())
 end)
 
 
@@ -490,7 +489,7 @@ local LocalPlayer = Players.LocalPlayer
 local autoPunchOn = false
 local flingPunchOn = false
 local flingPower = 5000000
-local aimPunch = true -- включи предиктивный поворот
+local aimPunch = true -- Ð²ÐºÐ»ÑŽÑ‡Ð¸ Ð¿Ñ€ÐµÐ´Ð¸ÐºÑ‚Ð¸Ð²Ð½Ñ‹Ð¹ Ð¿Ð¾Ð²Ð¾Ñ€Ð¾Ñ‚
 local hiddenfling = false
 
 local punchConnection = nil
@@ -522,7 +521,7 @@ local function stopFlingLoop()
     end
 end
 
--- fling цикл: 3 сек вкл, 1 сек выкл
+-- fling Ñ†Ð¸ÐºÐ»: 3 ÑÐµÐº Ð²ÐºÐ», 1 ÑÐµÐº Ð²Ñ‹ÐºÐ»
 local function punchFlingCycle()
     task.spawn(function()
         while flingPunchOn do
@@ -534,11 +533,11 @@ local function punchFlingCycle()
     end)
 end
 
--- === Функция предсказания позиции ===
+-- === Ð¤ÑƒÐ½ÐºÑ†Ð¸Ñ Ð¿Ñ€ÐµÐ´ÑÐºÐ°Ð·Ð°Ð½Ð¸Ñ Ð¿Ð¾Ð·Ð¸Ñ†Ð¸Ð¸ ===
 local function predictPosition(targetRoot, myPing)
     local velocity = targetRoot.Velocity
-    local latency = myPing / 1000 -- перевод мс в сек
-    local lookVec = targetRoot.CFrame.LookVector * 5 -- влияние направления (5 – множитель)
+    local latency = myPing / 1000 -- Ð¿ÐµÑ€ÐµÐ²Ð¾Ð´ Ð¼Ñ Ð² ÑÐµÐº
+    local lookVec = targetRoot.CFrame.LookVector * 5 -- Ð²Ð»Ð¸ÑÐ½Ð¸Ðµ Ð½Ð°Ð¿Ñ€Ð°Ð²Ð»ÐµÐ½Ð¸Ñ (5 â€“ Ð¼Ð½Ð¾Ð¶Ð¸Ñ‚ÐµÐ»ÑŒ)
     local predicted = targetRoot.Position + (velocity * latency) + lookVec
     return predicted
 end
@@ -562,17 +561,17 @@ local function startAutoPunch()
 
         if not (punchBtn and charges and charges.Text == "1") then return end
 
-        -- === Сначала Killers ===
+        -- === Ð¡Ð½Ð°Ñ‡Ð°Ð»Ð° Killers ===
         local killersFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Killers")
         if killersFolder then
             for _, killer in ipairs(killersFolder:GetChildren()) do
                 local root = killer:FindFirstChild("HumanoidRootPart")
                 if root and (root.Position - myRoot.Position).Magnitude <= 12 then
                     if aimPunch then
-                        local ping = math.max(LocalPlayer:GetNetworkPing() * 1000, 50) -- в мс
+                        local ping = math.max(LocalPlayer:GetNetworkPing() * 1000, 50) -- Ð² Ð¼Ñ
                         local predictedPos = predictPosition(root, ping)
 
-                        -- моментально поворачиваем игрока
+                        -- Ð¼Ð¾Ð¼ÐµÐ½Ñ‚Ð°Ð»ÑŒÐ½Ð¾ Ð¿Ð¾Ð²Ð¾Ñ€Ð°Ñ‡Ð¸Ð²Ð°ÐµÐ¼ Ð¸Ð³Ñ€Ð¾ÐºÐ°
                         myRoot.CFrame = CFrame.lookAt(myRoot.Position, predictedPos)
                         task.delay(1, function()
                             if myChar and myChar:FindFirstChild("HumanoidRootPart") then
@@ -585,12 +584,12 @@ local function startAutoPunch()
                     for _, conn in ipairs(getconnections(punchBtn.MouseButton1Click)) do
                         pcall(function() conn:Fire() end)
                     end
-                    return -- ударили Killers, выходим
+                    return -- ÑƒÐ´Ð°Ñ€Ð¸Ð»Ð¸ Killers, Ð²Ñ‹Ñ…Ð¾Ð´Ð¸Ð¼
                 end
             end
         end
 
-        -- === Если Killers нет, ищем игроков ===
+        -- === Ð•ÑÐ»Ð¸ Killers Ð½ÐµÑ‚, Ð¸Ñ‰ÐµÐ¼ Ð¸Ð³Ñ€Ð¾ÐºÐ¾Ð² ===
         for _, player in ipairs(Players:GetPlayers()) do
             if player ~= LocalPlayer and player.Character then
                 local root = player.Character:FindFirstChild("HumanoidRootPart")
@@ -641,7 +640,7 @@ Tabs.istun:Toggle({
     end
 })
 
--- === Slider для flingPower ===
+-- === Slider Ð´Ð»Ñ flingPower ===
 Tabs.istun:Slider({
     Title = "Fling Power",
     Step = 100000,
@@ -684,7 +683,7 @@ local autoBlockTriggerSounds = {
 local soundHooks = {}
 local soundBlockedUntil = {}
 
--- 🔥 Новый RemoteEvent вызов
+-- ðŸ”¥ ÐÐ¾Ð²Ñ‹Ð¹ RemoteEvent Ð²Ñ‹Ð·Ð¾Ð²
 local function fireRemoteBlock()
     local remote = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent")
     local args = {
@@ -846,9 +845,9 @@ Tabs.Misc:Button({
         if TextChatService:FindFirstChild("ChatWindowConfiguration") and TextChatService:FindFirstChild("ChatInputBarConfiguration") then
             TextChatService.ChatWindowConfiguration.Enabled = true
             TextChatService.ChatInputBarConfiguration.Enabled = true
-            print("Р§Р°С‚ РІРєР»СЋС‡С‘РЅ!")
+            print("Ð Â§Ð Â°Ð¡â€š Ð Ð†Ð Ñ”Ð Â»Ð¡Ð‹Ð¡â€¡Ð¡â€˜Ð Ð…!")
         else
-            warn("ChatWindowConfiguration РёР»Рё ChatInputBarConfiguration РЅРµ РЅР°Р№РґРµРЅС‹!")
+            warn("ChatWindowConfiguration Ð Ñ‘Ð Â»Ð Ñ‘ ChatInputBarConfiguration Ð Ð…Ð Âµ Ð Ð…Ð Â°Ð â„–Ð Ò‘Ð ÂµÐ Ð…Ð¡â€¹!")
         end
     end
 })
@@ -995,7 +994,7 @@ local PlayerGui = LP:WaitForChild("PlayerGui")
 local ActiveRemoveEffects = false
 local removeEffectsLoop
 
--- РЎРїРёСЃРѕРє РёР·РІРµСЃС‚РЅС‹С… СЌС„С„РµРєС‚РѕРІ
+-- Ð ÐŽÐ Ñ—Ð Ñ‘Ð¡ÐƒÐ Ñ•Ð Ñ” Ð Ñ‘Ð Â·Ð Ð†Ð ÂµÐ¡ÐƒÐ¡â€šÐ Ð…Ð¡â€¹Ð¡â€¦ Ð¡ÐŒÐ¡â€žÐ¡â€žÐ ÂµÐ Ñ”Ð¡â€šÐ Ñ•Ð Ð†
 local effectNames = {
     "BlurEffect", "ColorCorrectionEffect", "BloomEffect", "SunRaysEffect", 
     "DepthOfFieldEffect", "ScreenFlash", "HitEffect", "DamageOverlay", 
@@ -1012,14 +1011,14 @@ local effectClasses = {
 }
 
 local function removeEffects()
-    -- РЈР±РёСЂР°РµРј СЌС„С„РµРєС‚С‹ РёР· Lighting
+    -- Ð ÐˆÐ Â±Ð Ñ‘Ð¡Ð‚Ð Â°Ð ÂµÐ Ñ˜ Ð¡ÐŒÐ¡â€žÐ¡â€žÐ ÂµÐ Ñ”Ð¡â€šÐ¡â€¹ Ð Ñ‘Ð Â· Lighting
     for _, obj in pairs(Lighting:GetDescendants()) do
         if table.find(effectNames, obj.Name) or table.find(effectClasses, obj.ClassName) then
             obj:Destroy()
         end
     end
 
-    -- РЈР±РёСЂР°РµРј GUI-РѕРІРµСЂР»РµРё
+    -- Ð ÐˆÐ Â±Ð Ñ‘Ð¡Ð‚Ð Â°Ð ÂµÐ Ñ˜ GUI-Ð Ñ•Ð Ð†Ð ÂµÐ¡Ð‚Ð Â»Ð ÂµÐ Ñ‘
     for _, obj in pairs(PlayerGui:GetDescendants()) do
         if table.find(effectNames, obj.Name) then
             obj:Destroy()
@@ -1220,11 +1219,11 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Remote = game:GetService("ReplicatedStorage").Modules.Network.RemoteEvent
 
--- Р“Р»РѕР±Р°Р»СЊРЅС‹Рµ РїРµСЂРµРјРµРЅРЅС‹Рµ
+-- Ð â€œÐ Â»Ð Ñ•Ð Â±Ð Â°Ð Â»Ð¡ÐŠÐ Ð…Ð¡â€¹Ð Âµ Ð Ñ—Ð ÂµÐ¡Ð‚Ð ÂµÐ Ñ˜Ð ÂµÐ Ð…Ð Ð…Ð¡â€¹Ð Âµ
 getgenv()._oldFireServer = getgenv()._oldFireServer or nil
-getgenv()._VoidRushBypass = getgenv()._VoidRushBypass or false -- toggle СЃРѕСЃС‚РѕСЏРЅРёРµ
+getgenv()._VoidRushBypass = getgenv()._VoidRushBypass or false -- toggle Ð¡ÐƒÐ Ñ•Ð¡ÐƒÐ¡â€šÐ Ñ•Ð¡ÐÐ Ð…Ð Ñ‘Ð Âµ
 
--- РҐСѓРє СЃС‚Р°РІРёРј С‚РѕР»СЊРєРѕ РѕРґРёРЅ СЂР°Р·
+-- Ð ÒÐ¡Ñ“Ð Ñ” Ð¡ÐƒÐ¡â€šÐ Â°Ð Ð†Ð Ñ‘Ð Ñ˜ Ð¡â€šÐ Ñ•Ð Â»Ð¡ÐŠÐ Ñ”Ð Ñ• Ð Ñ•Ð Ò‘Ð Ñ‘Ð Ð… Ð¡Ð‚Ð Â°Ð Â·
 if not getgenv()._oldFireServer then
     local old
     old = hookmetamethod(game, "__namecall", function(self, ...)
@@ -1233,7 +1232,7 @@ if not getgenv()._oldFireServer then
         if self == Remote and method == "FireServer" then
             if args[1] == LocalPlayer.Name .. "VoidRushCollision" then
                 if getgenv()._VoidRushBypass then
-                    return -- Р±Р»РѕРєРёСЂСѓРµРј С‚РѕР»СЊРєРѕ РµСЃР»Рё toggle РІРєР»СЋС‡С‘РЅ
+                    return -- Ð Â±Ð Â»Ð Ñ•Ð Ñ”Ð Ñ‘Ð¡Ð‚Ð¡Ñ“Ð ÂµÐ Ñ˜ Ð¡â€šÐ Ñ•Ð Â»Ð¡ÐŠÐ Ñ”Ð Ñ• Ð ÂµÐ¡ÐƒÐ Â»Ð Ñ‘ toggle Ð Ð†Ð Ñ”Ð Â»Ð¡Ð‹Ð¡â€¡Ð¡â€˜Ð Ð…
                 end
             end
         end
@@ -1243,7 +1242,7 @@ if not getgenv()._oldFireServer then
     getgenv()._oldFireServer = old
 end
 
--- Р”РѕР±Р°РІР»СЏРµРј Toggle РІ GUI
+-- Ð â€Ð Ñ•Ð Â±Ð Â°Ð Ð†Ð Â»Ð¡ÐÐ ÂµÐ Ñ˜ Toggle Ð Ð† GUI
 Tabs.Misc:Toggle({
     Title = "VoidRush No-Crash",
     Default = false,
@@ -1430,7 +1429,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer
 local Remote = ReplicatedStorage.Modules.Network.RemoteEvent
 
-local interval = 0.5 -- segundos entre cada envío
+local interval = 0.5 -- segundos entre cada envÃ­o
 local running = false
 
 local function Sk8FarmStart()
@@ -1494,7 +1493,7 @@ local voidrushcontrol = false
 local isOverrideActive = false
 local connection
 
--- РџРµСЂРµРјРµРЅРЅС‹Рµ РїРµСЂСЃРѕРЅР°Р¶Р°
+-- Ð ÑŸÐ ÂµÐ¡Ð‚Ð ÂµÐ Ñ˜Ð ÂµÐ Ð…Ð Ð…Ð¡â€¹Ð Âµ Ð Ñ—Ð ÂµÐ¡Ð‚Ð¡ÐƒÐ Ñ•Ð Ð…Ð Â°Ð Â¶Ð Â°
 local humanoid, rootPart
 local function setupCharacter(character)
     humanoid = character:WaitForChild("Humanoid")
@@ -1515,7 +1514,7 @@ Tabs.Misc:Toggle({
     end
 })
 
--- Р¤СѓРЅРєС†РёСЏ СЃС‚Р°СЂС‚Р° РѕРІРµСЂСЂР°Р№РґР°
+-- Ð Â¤Ð¡Ñ“Ð Ð…Ð Ñ”Ð¡â€ Ð Ñ‘Ð¡Ð Ð¡ÐƒÐ¡â€šÐ Â°Ð¡Ð‚Ð¡â€šÐ Â° Ð Ñ•Ð Ð†Ð ÂµÐ¡Ð‚Ð¡Ð‚Ð Â°Ð â„–Ð Ò‘Ð Â°
 local function startOverride()
     if isOverrideActive then return end
     isOverrideActive = true
@@ -1534,13 +1533,13 @@ local function startOverride()
     end)
 end
 
--- Р¤СѓРЅРєС†РёСЏ РѕСЃС‚Р°РЅРѕРІРєРё РѕРІРµСЂСЂР°Р№РґР°
+-- Ð Â¤Ð¡Ñ“Ð Ð…Ð Ñ”Ð¡â€ Ð Ñ‘Ð¡Ð Ð Ñ•Ð¡ÐƒÐ¡â€šÐ Â°Ð Ð…Ð Ñ•Ð Ð†Ð Ñ”Ð Ñ‘ Ð Ñ•Ð Ð†Ð ÂµÐ¡Ð‚Ð¡Ð‚Ð Â°Ð â„–Ð Ò‘Ð Â°
 local function stopOverride()
     if not isOverrideActive then return end
     isOverrideActive = false
 
     if humanoid then
-        humanoid.WalkSpeed = 16 -- РґРµС„РѕР»С‚РЅР°СЏ СЃРєРѕСЂРѕСЃС‚СЊ
+        humanoid.WalkSpeed = 16 -- Ð Ò‘Ð ÂµÐ¡â€žÐ Ñ•Ð Â»Ð¡â€šÐ Ð…Ð Â°Ð¡Ð Ð¡ÐƒÐ Ñ”Ð Ñ•Ð¡Ð‚Ð Ñ•Ð¡ÐƒÐ¡â€šÐ¡ÐŠ
         humanoid.AutoRotate = true
         humanoid:Move(Vector3.new(0, 0, 0))
     end
@@ -1551,7 +1550,7 @@ local function stopOverride()
     end
 end
 
--- Р“Р»Р°РІРЅС‹Р№ С†РёРєР»
+-- Ð â€œÐ Â»Ð Â°Ð Ð†Ð Ð…Ð¡â€¹Ð â„– Ð¡â€ Ð Ñ‘Ð Ñ”Ð Â»
 RunService.RenderStepped:Connect(function()
     if not voidrushcontrol then return end
 
@@ -1581,7 +1580,7 @@ local function teleportTo(position)
     local char = LocalPlayer.Character
     if char and char:FindFirstChild("HumanoidRootPart") then
         char.HumanoidRootPart.CFrame = CFrame.new(position)
-        log("РўРµР»РµРїРѕСЂС‚ Рє: " .. tostring(position))
+        log("Ð ÑžÐ ÂµÐ Â»Ð ÂµÐ Ñ—Ð Ñ•Ð¡Ð‚Ð¡â€š Ð Ñ”: " .. tostring(position))
     end
 end
 
@@ -1592,7 +1591,7 @@ local function tryPizzaHeal()
     local humanoid = character:FindFirstChild("Humanoid")
     local root = character:FindFirstChild("HumanoidRootPart")
     if not humanoid or not root then
-        log("вќЊ РќРµ РЅР°Р№РґРµРЅ Humanoid РёР»Рё HumanoidRootPart")
+        log("Ð²ÑœÐŠ Ð ÑœÐ Âµ Ð Ð…Ð Â°Ð â„–Ð Ò‘Ð ÂµÐ Ð… Humanoid Ð Ñ‘Ð Â»Ð Ñ‘ HumanoidRootPart")
         return
     end
 
@@ -1601,7 +1600,7 @@ local function tryPizzaHeal()
 
     local pizza = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Ingame") and workspace.Map.Ingame:FindFirstChild("Pizza")
     if not pizza or not pizza:IsA("BasePart") then
-        log("вќЊ Pizza РЅРµ РЅР°Р№РґРµРЅР° РёР»Рё РЅРµ СЏРІР»СЏРµС‚СЃСЏ BasePart")
+        log("Ð²ÑœÐŠ Pizza Ð Ð…Ð Âµ Ð Ð…Ð Â°Ð â„–Ð Ò‘Ð ÂµÐ Ð…Ð Â° Ð Ñ‘Ð Â»Ð Ñ‘ Ð Ð…Ð Âµ Ð¡ÐÐ Ð†Ð Â»Ð¡ÐÐ ÂµÐ¡â€šÐ¡ÐƒÐ¡Ð BasePart")
         return
     end
 
@@ -1609,12 +1608,12 @@ local function tryPizzaHeal()
     task.wait(0.5)
 
     if humanoid.Health <= beforeHP then
-        log("рџЌ• HP РЅРµ РІРѕСЃСЃС‚Р°РЅРѕРІР»РµРЅРѕ, Р¶РґС‘Рј РµС‰С‘ 0.5 СЃРµРє")
+        log("Ñ€ÑŸÐŒâ€¢ HP Ð Ð…Ð Âµ Ð Ð†Ð Ñ•Ð¡ÐƒÐ¡ÐƒÐ¡â€šÐ Â°Ð Ð…Ð Ñ•Ð Ð†Ð Â»Ð ÂµÐ Ð…Ð Ñ•, Ð Â¶Ð Ò‘Ð¡â€˜Ð Ñ˜ Ð ÂµÐ¡â€°Ð¡â€˜ 0.5 Ð¡ÐƒÐ ÂµÐ Ñ”")
         task.wait(0.5)
     end
 
     teleportTo(startPos)
-    log("в†©пёЏ Р’РѕР·РІСЂР°С‚ РЅР° РёСЃС…РѕРґРЅСѓСЋ РїРѕР·РёС†РёСЋ")
+    log("Ð²â€ Â©Ð¿Ñ‘Ð Ð â€™Ð Ñ•Ð Â·Ð Ð†Ð¡Ð‚Ð Â°Ð¡â€š Ð Ð…Ð Â° Ð Ñ‘Ð¡ÐƒÐ¡â€¦Ð Ñ•Ð Ò‘Ð Ð…Ð¡Ñ“Ð¡Ð‹ Ð Ñ—Ð Ñ•Ð Â·Ð Ñ‘Ð¡â€ Ð Ñ‘Ð¡Ð‹")
 end
 
 local function setupHealthMonitor(character)
@@ -1624,34 +1623,34 @@ local function setupHealthMonitor(character)
 
     local humanoid = character:WaitForChild("Humanoid", 5)
     if not humanoid then
-        log("вќЊ Humanoid РЅРµ РЅР°Р№РґРµРЅ")
+        log("Ð²ÑœÐŠ Humanoid Ð Ð…Ð Âµ Ð Ð…Ð Â°Ð â„–Ð Ò‘Ð ÂµÐ Ð…")
         return
     end
 
-    log("вњ… РњРѕРЅРёС‚РѕСЂРёРЅРі HP Р°РєС‚РёРІРµРЅ")
+    log("Ð²Ñšâ€¦ Ð ÑšÐ Ñ•Ð Ð…Ð Ñ‘Ð¡â€šÐ Ñ•Ð¡Ð‚Ð Ñ‘Ð Ð…Ð Ñ– HP Ð Â°Ð Ñ”Ð¡â€šÐ Ñ‘Ð Ð†Ð ÂµÐ Ð…")
 
     healthConnection = humanoid.HealthChanged:Connect(function(currentHP)
         if autoPizzaEnabled and currentHP < hpThreshold and currentHP > 0 then
-            log("вљ пёЏ HP РЅРёР¶Рµ РїРѕСЂРѕРіР°: " .. currentHP)
+            log("Ð²Ñ™ Ð¿Ñ‘Ð HP Ð Ð…Ð Ñ‘Ð Â¶Ð Âµ Ð Ñ—Ð Ñ•Ð¡Ð‚Ð Ñ•Ð Ñ–Ð Â°: " .. currentHP)
             tryPizzaHeal()
         end
     end)
 end
 
--- РџРѕРґРєР»СЋС‡РµРЅРёРµ РїСЂРё СЃС‚Р°СЂС‚Рµ
+-- Ð ÑŸÐ Ñ•Ð Ò‘Ð Ñ”Ð Â»Ð¡Ð‹Ð¡â€¡Ð ÂµÐ Ð…Ð Ñ‘Ð Âµ Ð Ñ—Ð¡Ð‚Ð Ñ‘ Ð¡ÐƒÐ¡â€šÐ Â°Ð¡Ð‚Ð¡â€šÐ Âµ
 if LocalPlayer.Character then
     setupHealthMonitor(LocalPlayer.Character)
 end
 
 charAddedConnection = LocalPlayer.CharacterAdded:Connect(setupHealthMonitor)
 
--- вЏ¬ РЎРѕР·РґР°РЅРёРµ UI РІ РєРѕРЅС†Рµ, РєР°Рє С‚С‹ РїСЂРѕСЃРёР»
+-- Ð²ÐÂ¬ Ð ÐŽÐ Ñ•Ð Â·Ð Ò‘Ð Â°Ð Ð…Ð Ñ‘Ð Âµ UI Ð Ð† Ð Ñ”Ð Ñ•Ð Ð…Ð¡â€ Ð Âµ, Ð Ñ”Ð Â°Ð Ñ” Ð¡â€šÐ¡â€¹ Ð Ñ—Ð¡Ð‚Ð Ñ•Ð¡ÐƒÐ Ñ‘Ð Â»
 Tabs.Misc:Toggle({
     Title = "Auto Eat Pizza",
     Default = false,
     Callback = function(v)
         autoPizzaEnabled = v
-        log("Auto Pizza: " .. (v and "вњ… Р’РљР›" or "вќЊ Р’Р«РљР›"))
+        log("Auto Pizza: " .. (v and "Ð²Ñšâ€¦ Ð â€™Ð Ñ™Ð â€º" or "Ð²ÑœÐŠ Ð â€™Ð Â«Ð Ñ™Ð â€º"))
     end
 })
 
@@ -1662,7 +1661,7 @@ Tabs.Misc:Slider({
     Suffix = "%",
     Callback = function(val)
         hpThreshold = val
-        log("РџРѕСЂРѕРі HP СѓСЃС‚Р°РЅРѕРІР»РµРЅ РЅР°: " .. val)
+        log("Ð ÑŸÐ Ñ•Ð¡Ð‚Ð Ñ•Ð Ñ– HP Ð¡Ñ“Ð¡ÐƒÐ¡â€šÐ Â°Ð Ð…Ð Ñ•Ð Ð†Ð Â»Ð ÂµÐ Ð… Ð Ð…Ð Â°: " .. val)
     end
 })
 
@@ -1695,7 +1694,7 @@ Tabs.Misc:Slider({
     end
 })
 
--- телепорт за спину + кидание пиццы
+-- Ñ‚ÐµÐ»ÐµÐ¿Ð¾Ñ€Ñ‚ Ð·Ð° ÑÐ¿Ð¸Ð½Ñƒ + ÐºÐ¸Ð´Ð°Ð½Ð¸Ðµ Ð¿Ð¸Ñ†Ñ†Ñ‹
 local function teleportBehind(targetChar)
     if not targetChar or not targetChar:FindFirstChild("HumanoidRootPart") then return end
     
@@ -1707,7 +1706,7 @@ local function teleportBehind(targetChar)
     
     local returnPos = rootPart.CFrame
 
-    -- "прилипание" за спиной
+    -- "Ð¿Ñ€Ð¸Ð»Ð¸Ð¿Ð°Ð½Ð¸Ðµ" Ð·Ð° ÑÐ¿Ð¸Ð½Ð¾Ð¹
     local stickConnection
     stickConnection = RunService.Heartbeat:Connect(function()
         if not targetRootPart or not targetRootPart.Parent or not rootPart or not rootPart.Parent then
@@ -1719,7 +1718,7 @@ local function teleportBehind(targetChar)
         rootPart.CFrame = backPos
     end)
     
-    -- отправляем remote
+    -- Ð¾Ñ‚Ð¿Ñ€Ð°Ð²Ð»ÑÐµÐ¼ remote
     local args = {
         "UseActorAbility",
         {
@@ -1728,7 +1727,7 @@ local function teleportBehind(targetChar)
     }
     ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent"):FireServer(unpack(args))
 
-    -- возврат через 2 сек
+    -- Ð²Ð¾Ð·Ð²Ñ€Ð°Ñ‚ Ñ‡ÐµÑ€ÐµÐ· 2 ÑÐµÐº
     task.delay(2, function()
         stickConnection:Disconnect()
         if character and rootPart and rootPart.Parent then
@@ -1737,7 +1736,7 @@ local function teleportBehind(targetChar)
     end)
 end
 
--- мониторинг HP союзника
+-- Ð¼Ð¾Ð½Ð¸Ñ‚Ð¾Ñ€Ð¸Ð½Ð³ HP ÑÐ¾ÑŽÐ·Ð½Ð¸ÐºÐ°
 local function monitorPlayerHP(player)
     local function onCharacterAdded(character)
         local humanoid = character:WaitForChild("Humanoid", 5)
@@ -1761,7 +1760,7 @@ local function monitorPlayerHP(player)
     player.CharacterAdded:Connect(onCharacterAdded)
 end
 
--- следим за всеми игроками кроме себя
+-- ÑÐ»ÐµÐ´Ð¸Ð¼ Ð·Ð° Ð²ÑÐµÐ¼Ð¸ Ð¸Ð³Ñ€Ð¾ÐºÐ°Ð¼Ð¸ ÐºÑ€Ð¾Ð¼Ðµ ÑÐµÐ±Ñ
 for _, player in ipairs(Players:GetPlayers()) do
     if player ~= LocalPlayer then
         monitorPlayerHP(player)
@@ -1779,12 +1778,8 @@ end)
 Tabs.Misc:Button({
     Title = "Load Auto RaginPace(Slasher)",
     Callback = function()
-    
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
-local lp = Players.LocalPlayer
+            end
+        })
 local playerGui = lp:WaitForChild("PlayerGui")
 
 -- == Persistent Storage ==
@@ -1892,11 +1887,8 @@ Tabs.Misc:Slider({
     Suffix = "studs",
     Callback = function(val)
         RANGE = val
-        savedRange.Value = val -- сохраняем в persistent value
+        savedRange.Value = val -- ÑÐ¾Ñ…Ñ€Ð°Ð½ÑÐµÐ¼ Ð² persistent value
     end
-})
-
-end
 })
 
 -- HSHSHSHDHDHDHDHDHEIIEJDJXJXNDDN
@@ -1904,10 +1896,6 @@ end
 Tabs.Misc:Button({
     Title = "Load Auto Error 404",
     Callback = function()
-        local Players = game:GetService("Players")
-        local ReplicatedStorage = game:GetService("ReplicatedStorage")
-        local lp = Players.LocalPlayer
-
         -- Vars
         local autoErrorEnabled = false
         local detectionRange = 14
@@ -2043,10 +2031,9 @@ Tabs.Misc:Button({
     end
 })
 
-local Players = game:GetService("Players")  
 local Workspace = game:GetService("Workspace")  
 
--- Таблица диаметров (редактируй по желанию)  
+-- Ð¢Ð°Ð±Ð»Ð¸Ñ†Ð° Ð´Ð¸Ð°Ð¼ÐµÑ‚Ñ€Ð¾Ð² (Ñ€ÐµÐ´Ð°ÐºÑ‚Ð¸Ñ€ÑƒÐ¹ Ð¿Ð¾ Ð¶ÐµÐ»Ð°Ð½Ð¸ÑŽ)  
 local killerDiameters = {  
 	["Jason"] = 15,  
 	["John Doe"] = 15,  
@@ -2056,15 +2043,15 @@ local killerDiameters = {
 	["Slasher"] = 15  
 }  
 
-local circleColor = Color3.fromRGB(255, 105, 180) -- розовый  
+local circleColor = Color3.fromRGB(255, 105, 180) -- Ñ€Ð¾Ð·Ð¾Ð²Ñ‹Ð¹  
 
--- Параметры кольца  
+-- ÐŸÐ°Ñ€Ð°Ð¼ÐµÑ‚Ñ€Ñ‹ ÐºÐ¾Ð»ÑŒÑ†Ð°  
 local SEGMENTS = 96        
 local SEGMENT_HEIGHT = 0.2 
 local SEGMENT_WIDTH = 0.35 
 
 local circles = {} -- circles[killer] = { model = Model, segments = {...}, diameter = number }  
-local enabled = false -- флаг работы  
+local enabled = false -- Ñ„Ð»Ð°Ð³ Ñ€Ð°Ð±Ð¾Ñ‚Ñ‹  
 
 local function createRingForKiller(killer, diameter)  
 	if not killer or not killer.Parent then return end  
@@ -2178,23 +2165,152 @@ Tabs.Misc:Toggle({
     end
 })
 
+
+-- AAAAA
+
+--// Servicios
+
+--// ConfiguraciÃ³n
+local aimDuration = 1.2
+local aimTargets = { "Jason", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli", "Guest666"}
+local trackedAnimations = {
+    ["103601716322988"] = true,
+    ["133491532453922"] = true,
+    ["86371356500204"] = true,
+    ["76649505662612"] = true,
+    ["81698196845041"] = true
+}
+
+--// Variables
+local enableChanceAimbot = false
+local chancePredict = 4
+local Humanoid, HRP
+local lastTriggerTime = 0
+local aiming = false
+local originalAutoRotate
+
+--// UI Toggles y Sliders
+Tabs.Auto_Stun:Toggle({
+    Title = "Enable Chance Aimbot",
+    Default = false,
+    Callback = function(state)
+        enableChanceAimbot = state
+    end
+})
+
+Tabs.Auto_Stun:Slider({
+    Title = "Chance Predict",
+    Step = 0.1,
+    Value = {Min = 0, Max = 20, Default = 4},
+    Callback = function(val)
+        chancePredict = tonumber(val) or 4
+    end
+})
+
+--// Funciones
+local function setupCharacter(char)
+    Humanoid = char:WaitForChild("Humanoid")
+    HRP = char:WaitForChild("HumanoidRootPart")
+end
+
+local function getValidTarget()
+    local killersFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Killers")
+    if killersFolder then
+        for _, name in ipairs(aimTargets) do
+            local target = killersFolder:FindFirstChild(name)
+            if target and target:FindFirstChild("HumanoidRootPart") then
+                return target.HumanoidRootPart
+            end
+        end
+    end
+    return nil
+end
+
+local function getPlayingAnimationIds()
+    local ids = {}
+    if Humanoid then
+        for _, track in ipairs(Humanoid:GetPlayingAnimationTracks()) do
+            if track.Animation and track.Animation.AnimationId then
+                local id = track.Animation.AnimationId:match("%d+")
+                if id then
+                    ids[id] = true
+                end
+            end
+        end
+    end
+    return ids
+end
+
+local function smoothLookAt(hrp, targetPos, dt)
+    local dir = (targetPos - hrp.Position)
+    if dir.Magnitude <= 0.001 then return end
+    local desiredCF = CFrame.new(hrp.Position, hrp.Position + dir.Unit)
+    hrp.CFrame = hrp.CFrame:Lerp(desiredCF, math.clamp(8 * dt, 0, 1))
+end
+
+--// Setup inicial
+if LocalPlayer.Character then
+    setupCharacter(LocalPlayer.Character)
+end
+LocalPlayer.CharacterAdded:Connect(setupCharacter)
+
+--// LÃ³gica principal
+RunService.RenderStepped:Connect(function(dt)
+    if not enableChanceAimbot or not Humanoid or not HRP then return end
+
+    local playing = getPlayingAnimationIds()
+    local triggered = false
+    for id in pairs(trackedAnimations) do
+        if playing[id] then
+            triggered = true
+            break
+        end
+    end
+
+    if triggered then
+        lastTriggerTime = tick()
+        aiming = true
+    end
+
+    if aiming and tick() - lastTriggerTime <= aimDuration then
+        if originalAutoRotate == nil then
+            originalAutoRotate = Humanoid.AutoRotate
+        end
+
+        Humanoid.AutoRotate = false
+        HRP.AssemblyAngularVelocity = Vector3.zero
+
+        local targetHRP = getValidTarget()
+        if targetHRP then
+            local dist = (targetHRP.Position - HRP.Position).Magnitude
+            local finalPred = chancePredict * (1 + dist / 80)
+            local predictedPos = targetHRP.Position + (targetHRP.Velocity * finalPred)
+            smoothLookAt(HRP, predictedPos, dt)
+        end
+    elseif aiming then
+        aiming = false
+        if originalAutoRotate ~= nil then
+            Humanoid.AutoRotate = originalAutoRotate
+            originalAutoRotate = nil
+        end
+    end
+end)
+
+
 Tabs.Auto_Stun:Button({
     Title = "Load Auto Invisibility",
     Callback = function()
 
-    local Players = game:GetService("Players")
-    local LocalPlayer = Players.LocalPlayer
-
-    -- Настройки анимации
+    -- ÐÐ°ÑÑ‚Ñ€Ð¾Ð¹ÐºÐ¸ Ð°Ð½Ð¸Ð¼Ð°Ñ†Ð¸Ð¸
     local animationId = "75804462760596"
     local loopRunning = false
     local loopThread
     local currentAnim = nil
 
-    -- GUI переменные
+    -- GUI Ð¿ÐµÑ€ÐµÐ¼ÐµÐ½Ð½Ñ‹Ðµ
     local autoInvis = false
     local animationSpeed = 0
-    local invisDuration = 5 -- по умолчанию 5 секунд
+    local invisDuration = 5 -- Ð¿Ð¾ ÑƒÐ¼Ð¾Ð»Ñ‡Ð°Ð½Ð¸ÑŽ 5 ÑÐµÐºÑƒÐ½Ð´
 
     -- Toggle
     Tabs.Auto_Stun:Toggle({
@@ -2208,7 +2324,7 @@ Tabs.Auto_Stun:Button({
         end
     })
 
-    -- Slider длительности эффекта Invisibility
+    -- Slider Ð´Ð»Ð¸Ñ‚ÐµÐ»ÑŒÐ½Ð¾ÑÑ‚Ð¸ ÑÑ„Ñ„ÐµÐºÑ‚Ð° Invisibility
     Tabs.Auto_Stun:Slider({
         Title = "Invisibility Duration",
         Step = 1,
@@ -2219,7 +2335,7 @@ Tabs.Auto_Stun:Button({
         end
     })
 
-    -- Функции запуска/остановки анимации
+    -- Ð¤ÑƒÐ½ÐºÑ†Ð¸Ð¸ Ð·Ð°Ð¿ÑƒÑÐºÐ°/Ð¾ÑÑ‚Ð°Ð½Ð¾Ð²ÐºÐ¸ Ð°Ð½Ð¸Ð¼Ð°Ñ†Ð¸Ð¸
     function StartInvisibility()
         if loopRunning then return end
         loopRunning = true
@@ -2272,7 +2388,7 @@ Tabs.Auto_Stun:Button({
         print("[AutoInvis] Stopped invisibility")
     end
 
-    -- Проверка GUI каждые 0.1 секунды
+    -- ÐŸÑ€Ð¾Ð²ÐµÑ€ÐºÐ° GUI ÐºÐ°Ð¶Ð´Ñ‹Ðµ 0.1 ÑÐµÐºÑƒÐ½Ð´Ñ‹
     task.spawn(function()
         while true do
             task.wait(0.1)
@@ -2289,7 +2405,7 @@ Tabs.Auto_Stun:Button({
                         print("[AutoInvis] Clone count >= 26, activating invis")
                         StartInvisibility()
                         task.delay(invisDuration, StopInvisibility)
-                        task.wait(invisDuration + 0.1) -- Ждём, чтобы не спамить
+                        task.wait(invisDuration + 0.1) -- Ð–Ð´Ñ‘Ð¼, Ñ‡Ñ‚Ð¾Ð±Ñ‹ Ð½Ðµ ÑÐ¿Ð°Ð¼Ð¸Ñ‚ÑŒ
                     end
                 end
             end
@@ -2303,19 +2419,17 @@ end
 Tabs.Teleport:Button({
     Title = "Tp to Killer",
     Callback = function()
-        local Players = game:GetService("Players")
-        local lp = Players.LocalPlayer
         local workspace = game:GetService("Workspace")
 
         local KillersFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Killers")
         if not KillersFolder then
-            warn("Killers РЅРµ РЅР°Р№РґРµРЅРѕ РІ Workspace.Players")
+            warn("Killers Ð Ð…Ð Âµ Ð Ð…Ð Â°Ð â„–Ð Ò‘Ð ÂµÐ Ð…Ð Ñ• Ð Ð† Workspace.Players")
             return
         end
 
         local targetKiller = KillersFolder:FindFirstChildWhichIsA("Model")
         if not targetKiller or not targetKiller.PrimaryPart then
-            warn("РЈР±РёР№С†Р° РЅРµ РёРјРµРµС‚ PrimaryPart")
+            warn("Ð ÐˆÐ Â±Ð Ñ‘Ð â„–Ð¡â€ Ð Â° Ð Ð…Ð Âµ Ð Ñ‘Ð Ñ˜Ð ÂµÐ ÂµÐ¡â€š PrimaryPart")
             return
         end
 
@@ -2326,18 +2440,16 @@ Tabs.Teleport:Button({
 Tabs.Teleport:Button({
     Title = "Tp to Survivor",
     Callback = function()
-        local Players = game:GetService("Players")
-        local lp = Players.LocalPlayer
         local workspace = game:GetService("Workspace")
 
         if not lp.Character or not lp.Character.PrimaryPart then
-            warn("РќРµ РЅР°Р№РґРµРЅ Character РёР»Рё PrimaryPart")
+            warn("Ð ÑœÐ Âµ Ð Ð…Ð Â°Ð â„–Ð Ò‘Ð ÂµÐ Ð… Character Ð Ñ‘Ð Â»Ð Ñ‘ PrimaryPart")
             return
         end
 
         local SurvivorsFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Survivors")
         if not SurvivorsFolder then
-            warn("Survivors РЅРµ РЅР°Р№РґРµРЅ")
+            warn("Survivors Ð Ð…Ð Âµ Ð Ð…Ð Â°Ð â„–Ð Ò‘Ð ÂµÐ Ð…")
             return
         end
 
@@ -2357,7 +2469,7 @@ Tabs.Teleport:Button({
         if nearest and nearest.PrimaryPart then
             lp.Character:SetPrimaryPartCFrame(nearest.PrimaryPart.CFrame + Vector3.new(0, 5, 0))
         else
-            warn("Р‘Р»РёР¶Р°Р№С€РёР№ Survivor РЅРµ РЅР°Р№РґРµРЅ")
+            warn("Ð â€˜Ð Â»Ð Ñ‘Ð Â¶Ð Â°Ð â„–Ð¡â‚¬Ð Ñ‘Ð â„– Survivor Ð Ð…Ð Âµ Ð Ð…Ð Â°Ð â„–Ð Ò‘Ð ÂµÐ Ð…")
         end
     end
 })
@@ -2365,16 +2477,14 @@ Tabs.Teleport:Button({
 Tabs.Teleport:Button({
     Title = "Tp to Generator",
     Callback = function()
-        local Players = game:GetService("Players")
-        local lp = Players.LocalPlayer
         local workspace = game:GetService("Workspace")
 
         if not lp.Character or not lp.Character.PrimaryPart then
-            warn("РќРµ РЅР°Р№РґРµРЅ Character РёР»Рё PrimaryPart")
+            warn("Ð ÑœÐ Âµ Ð Ð…Ð Â°Ð â„–Ð Ò‘Ð ÂµÐ Ð… Character Ð Ñ‘Ð Â»Ð Ñ‘ PrimaryPart")
             return
         end
 
-        -- РС‰РµРј Generator РІ Workspace:GetDescendants()
+        -- Ð Â˜Ð¡â€°Ð ÂµÐ Ñ˜ Generator Ð Ð† Workspace:GetDescendants()
         local target
         for _, obj in ipairs(workspace:GetDescendants()) do
             if obj.Name == "Generator" and obj:IsA("BasePart") then
@@ -2387,11 +2497,11 @@ Tabs.Teleport:Button({
         end
 
         if not target then
-            warn("Generator РЅРµ РЅР°Р№РґРµРЅ")
+            warn("Generator Ð Ð…Ð Âµ Ð Ð…Ð Â°Ð â„–Ð Ò‘Ð ÂµÐ Ð…")
             return
         end
 
-        -- РўРµР»РµРїРѕСЂС‚РёСЂСѓРµРј РёРіСЂРѕРєР°
+        -- Ð ÑžÐ ÂµÐ Â»Ð ÂµÐ Ñ—Ð Ñ•Ð¡Ð‚Ð¡â€šÐ Ñ‘Ð¡Ð‚Ð¡Ñ“Ð ÂµÐ Ñ˜ Ð Ñ‘Ð Ñ–Ð¡Ð‚Ð Ñ•Ð Ñ”Ð Â°
         lp.Character:SetPrimaryPartCFrame(target.CFrame + Vector3.new(0, 0, 0))
     end
 })
@@ -2433,7 +2543,7 @@ Tabs.Teleport:Button({
 Tabs.Random:Button({
     Title = "Fling (works only on killer)",
     Callback = function()
-        -- СЃРѕР·РґР°С‘Рј GUI Рё РІРµСЃСЊ С„СѓРЅРєС†РёРѕРЅР°Р» С‚РѕР»СЊРєРѕ РїСЂРё РЅР°Р¶Р°С‚РёРё РєРЅРѕРїРєРё
+        -- Ð¡ÐƒÐ Ñ•Ð Â·Ð Ò‘Ð Â°Ð¡â€˜Ð Ñ˜ GUI Ð Ñ‘ Ð Ð†Ð ÂµÐ¡ÐƒÐ¡ÐŠ Ð¡â€žÐ¡Ñ“Ð Ð…Ð Ñ”Ð¡â€ Ð Ñ‘Ð Ñ•Ð Ð…Ð Â°Ð Â» Ð¡â€šÐ Ñ•Ð Â»Ð¡ÐŠÐ Ñ”Ð Ñ• Ð Ñ—Ð¡Ð‚Ð Ñ‘ Ð Ð…Ð Â°Ð Â¶Ð Â°Ð¡â€šÐ Ñ‘Ð Ñ‘ Ð Ñ”Ð Ð…Ð Ñ•Ð Ñ—Ð Ñ”Ð Ñ‘
 
         local ScreenGui = Instance.new("ScreenGui")
         local Frame = Instance.new("Frame")
@@ -2509,23 +2619,17 @@ Tabs.Random:Button({
         HideButton.Position = UDim2.new(0.05, 0, 0.9, 0)
         HideButton.Size = UDim2.new(0, 50, 0, 30)
         HideButton.Font = Enum.Font.SourceSansBold
-        HideButton.Text = "рџ‘Ѓ"
+        HideButton.Text = "Ñ€ÑŸâ€˜Ðƒ"
         HideButton.TextColor3 = Color3.fromRGB(255, 255, 255)
         HideButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
         UICorner:Clone().Parent = HideButton
 
-        -- РЎР»СѓР¶Р±С‹
-        local RunService = game:GetService("RunService")
-        local Players = game:GetService("Players")
+        -- Ð ÐŽÐ Â»Ð¡Ñ“Ð Â¶Ð Â±Ð¡â€¹
         local UserInputService = game:GetService("UserInputService")
 
-        -- РџРµСЂРµРјРµРЅРЅС‹Рµ
-        local hiddenfling = false
-        local flingPower = 10000
-        local lp = Players.LocalPlayer
-        local dragging = false
+        -- Ð ÑŸÐ ÂµÐ¡Ð‚Ð Âµocal dragging = false
 
-        -- РћСЃРЅРѕРІРЅР°СЏ fling-С„СѓРЅРєС†РёСЏ СЃ С‚Р°Р№РјРµСЂРѕРј
+        -- Ð Ñ›Ð¡ÐƒÐ Ð…Ð Ñ•Ð Ð†Ð Ð…Ð Â°Ð¡Ð fling-Ð¡â€žÐ¡Ñ“Ð Ð…Ð Ñ”Ð¡â€ Ð Ñ‘Ð¡Ð Ð¡Ðƒ Ð¡â€šÐ Â°Ð â„–Ð Ñ˜Ð ÂµÐ¡Ð‚Ð Ñ•Ð Ñ˜
         local function fling()
             local hrp, c, vel, movel = nil, nil, nil, 0.1
 
@@ -2533,7 +2637,7 @@ Tabs.Random:Button({
                 RunService.Heartbeat:Wait()
 
                 if hiddenfling then
-                    -- 4 СЃРµРєСѓРЅРґС‹ fling СЂР°Р±РѕС‚Р°РµС‚
+                    -- 4 Ð¡ÐƒÐ ÂµÐ Ñ”Ð¡Ñ“Ð Ð…Ð Ò‘Ð¡â€¹ fling Ð¡Ð‚Ð Â°Ð Â±Ð Ñ•Ð¡â€šÐ Â°Ð ÂµÐ¡â€š
                     local start = tick()
                     while hiddenfling and tick() - start < 4 do
                         local left = 4 - math.floor(tick() - start)
@@ -2554,7 +2658,7 @@ Tabs.Random:Button({
                         end
                     end
 
-                    -- 3 СЃРµРєСѓРЅРґС‹ РїР°СѓР·Р°
+                    -- 3 Ð¡ÐƒÐ ÂµÐ Ñ”Ð¡Ñ“Ð Ð…Ð Ò‘Ð¡â€¹ Ð Ñ—Ð Â°Ð¡Ñ“Ð Â·Ð Â°
                     local pauseStart = tick()
                     while hiddenfling and tick() - pauseStart < 4 do
                         local left = 4 - math.floor(tick() - pauseStart)
@@ -2567,7 +2671,7 @@ Tabs.Random:Button({
             end
         end
 
-        -- РљРЅРѕРїРєРё
+        -- Ð Ñ™Ð Ð…Ð Ñ•Ð Ñ—Ð Ñ”Ð Ñ‘
         ToggleButton.MouseButton1Click:Connect(function()
             hiddenfling = not hiddenfling
             if hiddenfling then
@@ -2583,13 +2687,13 @@ Tabs.Random:Button({
         HideButton.MouseButton1Click:Connect(function()
             Frame.Visible = not Frame.Visible
             if Frame.Visible then
-                HideButton.Text = "рџ‘Ѓ"
+                HideButton.Text = "Ñ€ÑŸâ€˜Ðƒ"
             else
-                HideButton.Text = "рџ‘Ђ"
+                HideButton.Text = "Ñ€ÑŸâ€˜Ð‚"
             end
         end)
 
-        -- РЎР»Р°Р№РґРµСЂ РјРѕС‰РЅРѕСЃС‚Рё fling
+        -- Ð ÐŽÐ Â»Ð Â°Ð â„–Ð Ò‘Ð ÂµÐ¡Ð‚ Ð Ñ˜Ð Ñ•Ð¡â€°Ð Ð…Ð Ñ•Ð¡ÐƒÐ¡â€šÐ Ñ‘ fling
         PowerSlider.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                 dragging = true
@@ -2615,147 +2719,12 @@ Tabs.Random:Button({
             end
         end)
 
-        -- Р—Р°РїСѓСЃРє fling С†РёРєР»Р°
+        -- Ð â€”Ð Â°Ð Ñ—Ð¡Ñ“Ð¡ÐƒÐ Ñ” fling Ð¡â€ Ð Ñ‘Ð Ñ”Ð Â»Ð Â°
         task.spawn(fling)
     end
 })
 
-
-
-local aimbotEnabled = false
-local aimbotConnection = nil
-
-Tabs.Random:Toggle({
-    Title = "Aimbot",
-    Default = false,
-    Callback = function(state)
-        aimbotEnabled = state
-        if aimbotEnabled then
-            aimbotConnection = RunService.RenderStepped:Connect(function()
-                local cam = Workspace.CurrentCamera
-                local myChar = LocalPlayer.Character
-                if not (myChar and myChar:FindFirstChild("Head")) then return end
-                local myHeadPos = myChar.Head.Position
-                local minDist = math.huge
-                local target
-                for _, pl in pairs(Players:GetPlayers()) do
-                    if pl ~= LocalPlayer and pl.Character and pl.Character:FindFirstChild("Head") then
-                        local dist = (pl.Character.Head.Position - myHeadPos).Magnitude
-                        if dist < minDist then
-                            minDist = dist
-                            target = pl
-                        end
-                    end
-                end
-                if target and target.Character then
-                    local headPos = target.Character.Head.Position
-                    local camPos = cam.CFrame.Position
-                    cam.CFrame = CFrame.new(camPos, headPos)
-                end
-            end)
-        else
-            if aimbotConnection then
-                aimbotConnection:Disconnect()
-                aimbotConnection = nil
-            end
-        end
-    end
-})
-
-Tabs.Random:Button({
-    Title = "Load Orbit",
-    Callback = function()
-    
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
-
--- РџРµСЂРµРјРµРЅРЅС‹Рµ
-local orbitActive = false
-local orbitDistance = 10
-local orbitSpeed = 5
-local angle = 0
-local targetPlayer = nil
-
--- Р¤СѓРЅРєС†РёСЏ РїРѕР»СѓС‡РµРЅРёСЏ РїРµСЂСЃРѕРЅР°Р¶Р°
-local function getCharacter(player)
-    return player.Character or player.CharacterAdded:Wait()
-end
-
--- РћСЂР±РёС‚Р°
-RunService.RenderStepped:Connect(function(dt)
-    if not orbitActive or not targetPlayer then return end
-
-    local targetChar = getCharacter(targetPlayer)
-    local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
-    local myChar = getCharacter(LocalPlayer)
-    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-    if not myRoot or not targetRoot then return end
-
-    angle = angle + orbitSpeed * dt
-    local offset = Vector3.new(math.cos(angle) * orbitDistance, 0, math.sin(angle) * orbitDistance)
-    myRoot.CFrame = CFrame.new(targetRoot.Position + offset, targetRoot.Position)
-end)
-
--- РџРѕР»СѓС‡Р°РµРј СЃРїРёСЃРѕРє РёРіСЂРѕРєРѕРІ (РєСЂРѕРјРµ СЃРµР±СЏ)
-local function getPlayerNames()
-    local names = {}
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            table.insert(names, player.Name)
-        end
-    end
-    return names
-end
-
-Tabs.Random:Toggle({
-    Title = "Orbit Players(u can use on killer so he can't Hit you) ",
-    Default = false,
-    Callback = function(state)
-        orbitActive = state
-    end
-})
-
--- Dropdown РґР»СЏ РІС‹Р±РѕСЂР° РёРіСЂРѕРєР°
-Tabs.Random:Dropdown({
-    Title = "Choose the player",
-    Values = getPlayerNames(),
-    Value = nil,
-    Multi = false,
-    AllowNone = true,
-    Callback = function(choice)
-        local chosen = Players:FindFirstChild(choice)
-        if chosen then
-            targetPlayer = chosen
-            print("[ORBIT] Р¦РµР»СЊ РІС‹Р±СЂР°РЅР°:", choice)
-        else
-            targetPlayer = nil
-        end
-    end
-})
-
-Tabs.Random:Slider({
-    Title = "rotation speed ",
-    Step = 0.5,
-    Value = {Min = 1, Max = 50, Default = orbitSpeed},
-    Suffix = " speed",
-    Callback = function(val)
-        orbitSpeed = val
-    end
-})
-
-Tabs.Random:Slider({
-    Title = " Orbit Distance",
-    Step = 1,
-    Value = {Min = 1, Max = 20, Default = orbitDistance},
-    Suffix = " studs",
-    Callback = function(val)
-        orbitDistance = val
-    end
-})
-
-end
-})
+-- Ð ÑŸÐ ÂµÐ¡Ð‚Ð ÂµÐ Ñ˜Ð ÂµÐ Ð…Ð Ð…Ð¡â€¹Ð Âµ
 
 Tabs.Random:Button({
     Title = "Speed Boost(Like Eliot's Rush Hour)",
@@ -2766,31 +2735,31 @@ local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 local sprintModule = require(game.ReplicatedStorage.Systems.Character.Game.Sprinting)
 
--- сохраняем стандартное значение
+-- ÑÐ¾Ñ…Ñ€Ð°Ð½ÑÐµÐ¼ ÑÑ‚Ð°Ð½Ð´Ð°Ñ€Ñ‚Ð½Ð¾Ðµ Ð·Ð½Ð°Ñ‡ÐµÐ½Ð¸Ðµ
 local defaultSprintSpeed = sprintModule.SprintSpeed
 
--- создаём GUI
+-- ÑÐ¾Ð·Ð´Ð°Ñ‘Ð¼ GUI
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Parent = PlayerGui
 
 local DragButton = Instance.new("TextButton")
-DragButton.Size = UDim2.new(0, 70, 0, 35) -- чуть больше, чтобы текст хорошо помещался
+DragButton.Size = UDim2.new(0, 70, 0, 35) -- Ñ‡ÑƒÑ‚ÑŒ Ð±Ð¾Ð»ÑŒÑˆÐµ, Ñ‡Ñ‚Ð¾Ð±Ñ‹ Ñ‚ÐµÐºÑÑ‚ Ñ…Ð¾Ñ€Ð¾ÑˆÐ¾ Ð¿Ð¾Ð¼ÐµÑ‰Ð°Ð»ÑÑ
 DragButton.Position = UDim2.new(0.05, 0, 0.2, 0)
-DragButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- чёрный фон
+DragButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- Ñ‡Ñ‘Ñ€Ð½Ñ‹Ð¹ Ñ„Ð¾Ð½
 DragButton.BorderSizePixel = 2
 DragButton.Text = "Boost"
-DragButton.TextColor3 = Color3.fromRGB(255, 255, 255) -- белый текст
-DragButton.TextSize = 16 -- нормальный размер текста
-DragButton.Font = Enum.Font.SourceSansBold -- жирный шрифт для читаемости
+DragButton.TextColor3 = Color3.fromRGB(255, 255, 255) -- Ð±ÐµÐ»Ñ‹Ð¹ Ñ‚ÐµÐºÑÑ‚
+DragButton.TextSize = 16 -- Ð½Ð¾Ñ€Ð¼Ð°Ð»ÑŒÐ½Ñ‹Ð¹ Ñ€Ð°Ð·Ð¼ÐµÑ€ Ñ‚ÐµÐºÑÑ‚Ð°
+DragButton.Font = Enum.Font.SourceSansBold -- Ð¶Ð¸Ñ€Ð½Ñ‹Ð¹ ÑˆÑ€Ð¸Ñ„Ñ‚ Ð´Ð»Ñ Ñ‡Ð¸Ñ‚Ð°ÐµÐ¼Ð¾ÑÑ‚Ð¸
 DragButton.Parent = ScreenGui
 
--- зелёная обводка
+-- Ð·ÐµÐ»Ñ‘Ð½Ð°Ñ Ð¾Ð±Ð²Ð¾Ð´ÐºÐ°
 local UIStroke = Instance.new("UIStroke")
 UIStroke.Color = Color3.fromRGB(0, 255, 0)
 UIStroke.Thickness = 2
 UIStroke.Parent = DragButton
 
--- делаем кнопку перетаскиваемой
+-- Ð´ÐµÐ»Ð°ÐµÐ¼ ÐºÐ½Ð¾Ð¿ÐºÑƒ Ð¿ÐµÑ€ÐµÑ‚Ð°ÑÐºÐ¸Ð²Ð°ÐµÐ¼Ð¾Ð¹
 local dragging, dragInput, dragStart, startPos
 
 local function update(input)
@@ -2827,22 +2796,22 @@ game:GetService("UserInputService").InputChanged:Connect(function(input)
 	end
 end)
 
--- логика кнопки с таймером
+-- Ð»Ð¾Ð³Ð¸ÐºÐ° ÐºÐ½Ð¾Ð¿ÐºÐ¸ Ñ Ñ‚Ð°Ð¹Ð¼ÐµÑ€Ð¾Ð¼
 local debounce = false
 DragButton.MouseButton1Click:Connect(function()
 	if debounce then return end
 	debounce = true
 
-	-- ставим SprintSpeed = 37
+	-- ÑÑ‚Ð°Ð²Ð¸Ð¼ SprintSpeed = 37
 	sprintModule.SprintSpeed = 37
 
-	-- обратный отсчёт
+	-- Ð¾Ð±Ñ€Ð°Ñ‚Ð½Ñ‹Ð¹ Ð¾Ñ‚ÑÑ‡Ñ‘Ñ‚
 	for i = 5, 1, -1 do
 		DragButton.Text = tostring(i)
 		task.wait(1)
 	end
 
-	-- возвращаем стандартное значение
+	-- Ð²Ð¾Ð·Ð²Ñ€Ð°Ñ‰Ð°ÐµÐ¼ ÑÑ‚Ð°Ð½Ð´Ð°Ñ€Ñ‚Ð½Ð¾Ðµ Ð·Ð½Ð°Ñ‡ÐµÐ½Ð¸Ðµ
 	sprintModule.SprintSpeed = defaultSprintSpeed
 	DragButton.Text = "Boost"
 	debounce = false
@@ -2851,15 +2820,12 @@ end)
 end
 })
 
---// 🔪 Jason Hitbox Toggle (por distancia)
+--// ðŸ”ª Jason Hitbox Toggle (por distancia)
 --// Autor: Sniffycat
 
 _G.JasonHitbox = _G.JasonHitbox or false
 _G.hitboxnearestdist = 11
-
-local RunService = game:GetService("RunService")
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
+    
 local hitboxcode = nil
 
 local AttackAnimations = loadstring(game:HttpGet("https://raw.githubusercontent.com/gopnikjovana/probable-meme/refs/heads/main/hitboxanimations"))()
@@ -2893,7 +2859,7 @@ local function spawnhitbox(code)
         local hrp = char:FindFirstChild("HumanoidRootPart")
         if not humanoid or not hrp then return end
 
-        -- Detectar si está atacando
+        -- Detectar si estÃ¡ atacando
         local isAttacking = false
         for _, v in humanoid:GetPlayingAnimationTracks() do
             if AttackAnimations[v.Animation.AnimationId] and (v.TimePosition / v.Length < 0.75) then
@@ -2903,7 +2869,7 @@ local function spawnhitbox(code)
         end
         if not isAttacking then return end
 
-        -- Buscar el jugador más cercano
+        -- Buscar el jugador mÃ¡s cercano
         local nearestTarget
         local nearestDistance = math.huge
 
@@ -2921,7 +2887,7 @@ local function spawnhitbox(code)
             end
         end
 
-        -- Según si sos Killer o Survivor
+        -- SegÃºn si sos Killer o Survivor
         if char.Parent and char.Parent.Name == "Killers" then
             findNearest(workspace.Players:FindFirstChild("Survivors"))
             findNearest(workspace.Map:FindFirstChild("NPCs", true))
@@ -2984,7 +2950,7 @@ local function spawnhitbox(code)
         local hrp = char:FindFirstChild("HumanoidRootPart")
         if not humanoid or not hrp then return end
 
-        -- Detectar si está atacando
+        -- Detectar si estÃ¡ atacando
         local isAttacking = false
         for _, v in humanoid:GetPlayingAnimationTracks() do
             if AttackAnimations[v.Animation.AnimationId] and (v.TimePosition / v.Length < 0.75) then
@@ -2994,7 +2960,7 @@ local function spawnhitbox(code)
         end
         if not isAttacking then return end
 
-        -- Buscar el jugador más cercano
+        -- Buscar el jugador mÃ¡s cercano
         local nearestTarget
         local nearestDistance = math.huge
 
@@ -3012,7 +2978,7 @@ local function spawnhitbox(code)
             end
         end
 
-        -- Según si sos Killer o Survivor
+        -- SegÃºn si sos Killer o Survivor
         if char.Parent and char.Parent.Name == "Killers" then
             findNearest(workspace.Players:FindFirstChild("Survivors"))
             findNearest(workspace.Map:FindFirstChild("NPCs", true))
@@ -3049,20 +3015,6 @@ Tabs.Hitbox:Toggle({
     Default = false,
     Callback = function(state)
         _G.JasonHitbox = state
-    end
-})
-
-Tabs.Hitbox:Slider({
-    Title = "Reach distance",
-    Step = 0.1,
-    Value = {Min = 1, Max = 100, Default = 10},
-    Callback = function(val)
-        -- algunos sliders devuelven tabla (p.ej. {Value = 10})
-        if typeof(val) == "table" then
-            _G.hitboxnearestdist = val.Value or _G.hitboxnearestdist
-        else
-            _G.hitboxnearestdist = val
-        end
     end
 })
 
