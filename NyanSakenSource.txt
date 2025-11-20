@@ -1216,6 +1216,25 @@ Tabs.Misc:Toggle({
 end
 })
 
+Tabs.Misc:Toggle({
+    Title = "Dusekkar anti-wall break",
+    Default = false,
+    Callback = function(state)
+        if state then
+            local ok, err = pcall(function()
+                local util = require(game:GetService("ReplicatedStorage").Modules.Util)
+                hookfunction(util.IsOnScreen, function(...)
+                    return true
+                end)
+            end)
+
+            if not ok then
+                warn("Anti-wall break failed:", err)
+            end
+        end
+    end
+})
+
 --NOLI ANTI WALL CRUSH 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
