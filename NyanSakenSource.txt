@@ -39,10 +39,8 @@ local stunning = Window:Section({
 })
 
 local otherthing = Window:Section({
-    Title = "Other",
+    Title = "Antis",
 })
-
-
 
 local Tabs = {
     Stamina_Settings = Main4:Tab({ Title = "Stamina settings", Icon = "footprints" }),
@@ -52,7 +50,7 @@ local Tabs = {
     Sk8T = Veeronica:Tab({ Title = "Sk8", Icon = "gift" }),
     Auto_Stun = stunning:Tab({ Title = "Stun & Aimbot Related", Icon = "spline-pointer" }),
     Random = otherthing:Tab({ Title = "Extra", Icon = "crosshair" }),
-    Hitbox = otherthing:Tab({ Title = "Hitbox", Icon = "target" }),
+    Hitbox = otherthing:Tab({ Title = "Rrach", Icon = "target" }),
     Generator = Main4:Tab({ Title = "Generators", Icon = "battery-charging" }),
     Teleport = otherthing:Tab({Title = "TP-Places", Icon = "cable" }),
     Credits = Window:Tab({ Title = "Credits", Icon = "award" })
