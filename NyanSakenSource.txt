@@ -208,211 +208,307 @@ Tabs.Stamina_Settings:Button({
     end
 })
 
-local espKillerActive = false
-local killerHighlights = {}
-local killerEspThread
+-- ================================================================= --
+--                    OPTIMIZED PLAYER ESP (HIGHLIGHT)
+-- ================================================================= --
 
-local function clearKillerHighlights()
-    for _, h in ipairs(killerHighlights) do
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+
+-- 🎨 Colores y Transparencia Solicitados (Aplicados al Highlight)
+-- En el highlight, solo podemos controlar el color principal y la transparencia de relleno.
+-- No podemos hacer distinción fácil entre "Refill" y "Normal" con la configuración actual, 
+-- así que usamos los colores base y transparencias solicitadas.
+
+-- Survivor: verde un poquito claro (150, 255, 150) / 0.2
+local COLOR_SURVIVOR = Color3.fromRGB(150, 255, 150) 
+local TRANSPARENCY_SURVIVOR = 0.2 
+-- Killer: rojo un poco claro (255, 150, 150) / 0.3
+local COLOR_KILLER = Color3.fromRGB(255, 150, 150) 
+local TRANSPARENCY_KILLER = 0.3 
+
+-- 🔄 Almacenamiento de Highlights y Conexiones
+local killerHighlights = {}
+local survivorHighlights = {}
+local killerConnections = {}
+local survivorConnections = {}
+local espKillerActive = false
+local espSurvivorActive = false
+local fillTransparency = 0.6
+-- ----------------------------------------------------
+-- // FUNCIONES DE UTILITY
+-- ----------------------------------------------------
+
+local function clearHighlights(highlightsTable)
+    for _, h in pairs(highlightsTable) do
         if h and h.Parent then h:Destroy() end
     end
-    killerHighlights = {}
+    -- Limpiar la tabla de conexiones
+    for _, conn in pairs(killerConnections) do conn:Disconnect() end
+    for _, conn in pairs(survivorConnections) do conn:Disconnect() end
+    killerConnections = {}
+    survivorConnections = {}
 end
 
-local function createKillerHighlight(model)
+local function createHighlight(model, color, fillTransparency)
+    if not model:FindFirstChild("HumanoidRootPart") then return end -- Asegurar que es un personaje
+
+    -- Usar un nombre único para evitar conflictos y facilitar la limpieza
+    local highlightName = "PlayerESP_Highlight"
+    local existingHighlight = model:FindFirstChild(highlightName)
+    if existingHighlight then return existingHighlight end -- Ya tiene highlight
+
     local highlight = Instance.new("Highlight")
+    highlight.Name = highlightName
     highlight.Adornee = model
-    highlight.FillColor = Color3.fromRGB(255, 0, 0)
-    highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
-    highlight.FillTransparency = 0.7
-    highlight.OutlineTransparency = 0
+    highlight.FillColor = color
+    highlight.OutlineColor = color -- Usar el mismo color para el contorno
+    highlight.FillTransparency = fillTransparency
+    highlight.OutlineTransparency = 0 -- Contorno sólido
     highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
     highlight.Parent = model
-    table.insert(killerHighlights, highlight)
+    
+    return highlight
 end
 
-local function updateKillerESP()
-    clearKillerHighlights()
-    local killersFolder = Workspace:FindFirstChild("Players") and Workspace.Players:FindFirstChild("Killers")
-    if not killersFolder then return end
-    for _, killer in ipairs(killersFolder:GetChildren()) do
-        if killer:IsA("Model") and killer:FindFirstChild("HumanoidRootPart") then
-            createKillerHighlight(killer)
+-- ----------------------------------------------------
+-- // LÓGICA DE ESP JUGADORES
+-- ----------------------------------------------------
+
+local function handleKiller(killer)
+    if killer:IsA("Model") and espKillerActive then
+        local highlight = createHighlight(killer, COLOR_KILLER, TRANSPARENCY_KILLER)
+        if highlight then
+            killerHighlights[killer] = highlight
         end
     end
 end
 
+local function handleSurvivor(survivor)
+    if survivor:IsA("Model") and survivor ~= LocalPlayer.Character and espSurvivorActive then
+        local highlight = createHighlight(survivor, COLOR_SURVIVOR, TRANSPARENCY_SURVIVOR)
+        if highlight then
+            survivorHighlights[survivor] = highlight
+        end
+    end
+end
+
+-- ----------------------------------------------------
+-- // LÓGICA DE EVENTOS (ANTI-LAG)
+-- ----------------------------------------------------
+
+local function startKillerESP()
+    espKillerActive = true
+    local killersFolder = Workspace:FindFirstChild("Players") and Workspace.Players:FindFirstChild("Killers")
+    if not killersFolder then return end
+
+    -- 1. Aplicar a personajes existentes
+    for _, killer in ipairs(killersFolder:GetChildren()) do
+        handleKiller(killer)
+    end
+
+    -- 2. Conectar eventos para nuevos/eliminados
+    killerConnections.Added = killersFolder.ChildAdded:Connect(function(child)
+        handleKiller(child)
+    end)
+    
+    killerConnections.Removed = killersFolder.ChildRemoved:Connect(function(child)
+        if killerHighlights[child] then
+            killerHighlights[child]:Destroy()
+            killerHighlights[child] = nil
+        end
+    end)
+end
+
+local function stopKillerESP()
+    espKillerActive = false
+    clearHighlights(killerHighlights)
+    killerHighlights = {}
+end
+
+
+local function startSurvivorESP()
+    espSurvivorActive = true
+    local survivorsFolder = Workspace:FindFirstChild("Players") and Workspace.Players:FindFirstChild("Survivors")
+    if not survivorsFolder then return end
+
+    -- 1. Aplicar a personajes existentes
+    for _, survivor in ipairs(survivorsFolder:GetChildren()) do
+        if survivor ~= LocalPlayer.Character then -- Excluir localplayer
+            handleSurvivor(survivor)
+        end
+    end
+
+    -- 2. Conectar eventos para nuevos/eliminados
+    survivorConnections.Added = survivorsFolder.ChildAdded:Connect(function(child)
+        if child ~= LocalPlayer.Character then
+            handleSurvivor(child)
+        end
+    end)
+    
+    survivorConnections.Removed = survivorsFolder.ChildRemoved:Connect(function(child)
+        if survivorHighlights[child] then
+            survivorHighlights[child]:Destroy()
+            survivorHighlights[child] = nil
+        end
+    end)
+end
+
+local function stopSurvivorESP()
+    espSurvivorActive = false
+    clearHighlights(survivorHighlights)
+    survivorHighlights = {}
+end
+
+-- 🎨 Colores de items
+local ITEM_COLOR_MEDKIT = Color3.fromRGB(255, 105, 180) -- Rosado
+local ITEM_COLOR_BLOXY = Color3.fromRGB(0, 150, 255) -- Azul
+
+local espEnabledMedkit = false
+local espEnabledBloxy = false
+local itemEspConnections = {}
+
+-- ----------------------------------------------------
+-- // FUNCIONES DE ITEM ESP
+-- ----------------------------------------------------
+
+local function createItemHighlight(part, color, outlineTransparency)
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "ItemHighlight"
+    highlight.Adornee = part
+    highlight.FillColor = color
+    highlight.OutlineColor = color
+    highlight.FillTransparency = 0.5
+    highlight.OutlineTransparency = outlineTransparency
+    highlight.Parent = part
+end
+
+local function checkAndApplyItemESP(item)
+    local part = nil
+    if item:IsA("BasePart") then
+        part = item
+    elseif item:IsA("Model") then
+        -- Buscar la parte principal para el highlight
+        part = item:FindFirstChildWhichIsA("BasePart")
+    end
+
+    if part and not part:FindFirstChild("ItemHighlight") then
+        if item.Name == "Medkit" and espEnabledMedkit then
+            createItemHighlight(part, ITEM_COLOR_MEDKIT, 0)
+        elseif item.Name == "BloxyCola" and espEnabledBloxy then
+            createItemHighlight(part, ITEM_COLOR_BLOXY, 0.2)
+        end
+    end
+end
+
+local function removeItemESP(item)
+    local part = nil
+    if item:IsA("BasePart") then
+        part = item
+    elseif item:IsA("Model") then
+        part = item:FindFirstChildWhichIsA("BasePart")
+    end
+    
+    if part then
+        local highlight = part:FindFirstChild("ItemHighlight")
+        if highlight then
+            highlight:Destroy()
+        end
+    end
+end
+
+local function startItemESP()
+    -- 1. Aplicar a items existentes (Barrido inicial más controlado)
+    for _, child in ipairs(Workspace:GetChildren()) do
+        if (child.Name == "Medkit" and espEnabledMedkit) or (child.Name == "BloxyCola" and espEnabledBloxy) then
+            checkAndApplyItemESP(child)
+        end
+    end
+    
+    -- 2. Conectar evento ChildAdded en Workspace (Anti-lag: solo escucha el objeto cuando aparece)
+    itemEspConnections.Added = Workspace.ChildAdded:Connect(function(child)
+        if (child.Name == "Medkit" and espEnabledMedkit) or (child.Name == "BloxyCola" and espEnabledBloxy) then
+            checkAndApplyItemESP(child)
+        end
+    end)
+    
+    -- 3. Conectar evento ChildRemoved en Workspace
+    itemEspConnections.Removed = Workspace.ChildRemoved:Connect(function(child)
+        removeItemESP(child)
+    end)
+end
+
+local function stopItemESP()
+    -- Desconectar eventos
+    if itemEspConnections.Added then itemEspConnections.Added:Disconnect() end
+    if itemEspConnections.Removed then itemEspConnections.Removed:Disconnect() end
+    itemEspConnections = {}
+
+    -- Limpiar todos los ESP de items
+    for _, child in ipairs(Workspace:GetChildren()) do
+        if child.Name == "Medkit" or child.Name == "BloxyCola" then
+            removeItemESP(child)
+        end
+    end
+end
+
+-- ================================================================= --
+--                               GUI
+-- ================================================================= --
+
+-- 🕹️ ESP Killer
 Tabs.Esp:Toggle({
     Title = "ESP Killer",
     Default = false,
     Callback = function(state)
-        espKillerActive = state
-        if espKillerActive then
-            killerEspThread = task.spawn(function()
-                while espKillerActive do
-                    updateKillerESP()
-                    task.wait(5)
-                end
-            end)
+        if state then
+            startKillerESP()
         else
-            if killerEspThread then task.cancel(killerEspThread); killerEspThread = nil end
-            clearKillerHighlights()
+            stopKillerESP()
         end
     end
 })
 
-local espSurvivorActive = false
-local survivorHighlights = {}
-local survivorEspThread
-
-local function clearSurvivorHighlights()
-    for _, h in ipairs(survivorHighlights) do
-        if h and h.Parent then h:Destroy() end
-    end
-    survivorHighlights = {}
-end
-
-local function createSurvivorHighlight(model)
-    local highlight = Instance.new("Highlight")
-    highlight.Adornee = model
-    highlight.FillColor = Color3.fromRGB(0, 255, 0)
-    highlight.OutlineColor = Color3.fromRGB(0, 255, 0)
-    highlight.FillTransparency = 0.7
-    highlight.OutlineTransparency = 0
-    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    highlight.Parent = model
-    table.insert(survivorHighlights, highlight)
-end
-
-local function updateSurvivorESP()
-    clearSurvivorHighlights()
-    local survivorsFolder = Workspace:FindFirstChild("Players") and Workspace.Players:FindFirstChild("Survivors")
-    if not survivorsFolder then return end
-    for _, survivor in ipairs(survivorsFolder:GetChildren()) do
-        if survivor:IsA("Model") and survivor:FindFirstChild("HumanoidRootPart") then
-            createSurvivorHighlight(survivor)
-        end
-    end
-end
-
+-- 🕹️ ESP Survivors
 Tabs.Esp:Toggle({
     Title = "ESP Survivors",
     Default = false,
     Callback = function(state)
-        espSurvivorActive = state
-        if espSurvivorActive then
-            survivorEspThread = task.spawn(function()
-                while espSurvivorActive do
-                    updateSurvivorESP()
-                    task.wait(5)
-                end
-            end)
+        if state then
+            startSurvivorESP()
         else
-            if survivorEspThread then task.cancel(survivorEspThread); survivorEspThread = nil end
-            clearSurvivorHighlights()
+            stopSurvivorESP()
         end
     end
 })
 
--- ESP ITEMS 
--- // РќР°СЃС‚СЂРѕР№РєРё
-local espEnabledMedkit = false
-local espEnabledBloxy = false
-
--- // Р¤СѓРЅРєС†РёРё РѕС‡РёСЃС‚РєРё
-local function clearESP(name)
-    for _, item in ipairs(workspace:GetDescendants()) do
-        if item.Name == name and (item:IsA("BasePart") or item:IsA("Model")) then
-            local part = item:IsA("BasePart") and item or item:FindFirstChildWhichIsA("BasePart")
-            if part and part:FindFirstChild("ItemHighlight") then
-                part.ItemHighlight:Destroy()
-            end
-        end
-    end
-end
-
--- // РћСЃРЅРѕРІРЅРѕР№ ESP Р°РїРґРµР№С‚РµСЂ
-local function updateESP()
-    for _, item in ipairs(workspace:GetDescendants()) do
-        local part = nil
-        if item:IsA("BasePart") then
-            part = item
-        elseif item:IsA("Model") then
-            part = item:FindFirstChildWhichIsA("BasePart")
-        end
-
-        if part then
-            if item.Name == "Medkit" and espEnabledMedkit and not part:FindFirstChild("ItemHighlight") then
-                local highlight = Instance.new("Highlight")
-                highlight.Name = "ItemHighlight"
-                highlight.FillColor = Color3.fromRGB(255, 105, 180) -- СЂРѕР·РѕРІС‹Р№
-                highlight.OutlineColor = Color3.fromRGB(255, 105, 180)
-                highlight.FillTransparency = 0.5
-                highlight.OutlineTransparency = 0
-                
-                highlight.Parent = part
-            elseif item.Name == "BloxyCola" and espEnabledBloxy and not part:FindFirstChild("ItemHighlight") then
-                local highlight = Instance.new("Highlight")
-                highlight.Name = "ItemHighlight"
-                highlight.FillColor = Color3.fromRGB(0, 150, 255) -- СЃРёРЅРёР№
-                highlight.OutlineColor = Color3.fromRGB(0, 150, 255)
-                highlight.FillTransparency = 0.5
-                highlight.OutlineTransparency = 0.2
-                highlight.Parent = part
-            end
-        end
-    end
-end
-
--- // РџРѕС‚РѕРєРё
-local medkitEspThread = nil
-local bloxyEspThread = nil
-
--- // РЎРѕР·РґР°РЅРёРµ Toggles С‡РµСЂРµР· WindUI
+-- 🕹️ ESP Medkit
 Tabs.Esp:Toggle({
     Title = "ESP Medkit",
     Default = false,
     Callback = function(state)
         espEnabledMedkit = state
-        if espEnabledMedkit then
-            medkitEspThread = task.spawn(function()
-                while espEnabledMedkit do
-                    updateESP()
-                    task.wait(2)
-                end
-            end)
+        if espEnabledMedkit or espEnabledBloxy then
+            startItemESP()
         else
-            if medkitEspThread then
-                task.cancel(medkitEspThread)
-                medkitEspThread = nil
-            end
-            clearESP("Medkit")
+            stopItemESP()
         end
     end
 })
 
+-- 🕹️ ESP BloxyCola
 Tabs.Esp:Toggle({
     Title = "ESP BloxyCola",
     Default = false,
     Callback = function(state)
         espEnabledBloxy = state
-        if espEnabledBloxy then
-            bloxyEspThread = task.spawn(function()
-                while espEnabledBloxy do
-                    updateESP()
-                    task.wait(2)
-                end
-            end)
+        if espEnabledMedkit or espEnabledBloxy then
+            startItemESP()
         else
-            if bloxyEspThread then
-                task.cancel(bloxyEspThread)
-                bloxyEspThread = nil
-            end
-            clearESP("BloxyCola")
+            stopItemESP()
         end
     end
 })
-
 --ESP BACK OF THE KILLER 
 Tabs.Esp:Button({
     Title = "Esp Back of the killer (two time)",
