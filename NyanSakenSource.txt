@@ -222,7 +222,7 @@ local Workspace = game:GetService("Workspace")
 
 -- Survivor: verde un poquito claro (150, 255, 150) / 0.2
 local COLOR_SURVIVOR = Color3.fromRGB(150, 255, 150) 
-local TRANSPARENCY_SURVIVOR = 0.2 
+local TRANSPARENCY_SURVIVOR = 0.3
 -- Killer: rojo un poco claro (255, 150, 150) / 0.3
 local COLOR_KILLER = Color3.fromRGB(255, 150, 150) 
 local TRANSPARENCY_KILLER = 0.3 
@@ -234,7 +234,7 @@ local killerConnections = {}
 local survivorConnections = {}
 local espKillerActive = false
 local espSurvivorActive = false
-local fillTransparency = 0.6
+local fillTransparency = 0.8
 -- ----------------------------------------------------
 -- // FUNCIONES DE UTILITY
 -- ----------------------------------------------------
