@@ -968,7 +968,7 @@ Tabs.Misc:Toggle({
 local antiFogActive = false
 local disabledFogElements = {}
 
-Tabs.antis:Toggle({
+Tabs.anti:Toggle({
     Title = "Anti Fog",
     Default = false,
     Callback = function(state)
