@@ -1167,8 +1167,8 @@ local RunService = game:GetService("RunService")
 local AntiSlowConfigs = {
     Slowness = {Values = {"SlowedStatus"}, Connection = nil, Enabled = false},
     Skills = {Values = {"StunningKiller", "EatFriedChicken", "GuestBlocking", "PunchAbility", "SubspaceTripmine",
-                        "TaphTripwire", "PlasmaBeam", "SpawnProtection", "c00lgui", "ShootingGun", 
-                        "TwoTimeStab", "TwoTimeCrouching", "DrinkingCola", "DrinkingSlateskin", 
+                        "TaphTripwire", "PlasmaBeam", "SpawnProtection", "c00lgui", "ShootingGun",
+                        "TwoTimeStab", "TwoTimeCrouching", "DrinkingCola", "DrinkingSlateskin",
                         "SlateskinStatus", "EatingGhostburger"}, Connection = nil, Enabled = false},
     Items = {Values = {"BloxyColaItem", "Medkit"}, Connection = nil, Enabled = false},
     Emotes = {Values = {"Emoting"}, Connection = nil, Enabled = false},
