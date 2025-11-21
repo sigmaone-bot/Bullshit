@@ -208,71 +208,384 @@ Tabs.Stamina_Settings:Button({
     end
 })
 
+-- // ===============================
+-- //   L U A U   E S P   M O D U L E
+-- // ===============================
 
+-- // SERVICES
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 
---ESP BACK OF THE KILLER 
-Tabs.Esp:Button({
-    Title = "Esp Back of the killer (two time)",
-    Callback = function()
-        loadstring(game:HttpGet("https://pastebin.com/raw/4d4uHMdH"))()
-        WindUI:Notify({ Title = "Hiii", Content = "hi from bublik6241", Duration = 2 })
-    end
-})
+-- // SETTINGS
+local highlightSettings = {
+    Survivor = {
+        OutlineColor = Color3.fromRGB(120,255,120),
+        FillColor = Color3.fromRGB(170,255,170),
+        OutlineTransparency = 0.3,
+        FillTransparency = 0.85
+    },
+    Killer = {
+        OutlineColor = Color3.fromRGB(255,120,120),
+        FillColor = Color3.fromRGB(255,170,170),
+        OutlineTransparency = 0.3,
+        FillTransparency = 0.85
+    },
+    Spectator = {
+        OutlineColor = Color3.fromRGB(180,180,180),
+        FillColor = Color3.fromRGB(220,220,220),
+        OutlineTransparency = 0.3,
+        FillTransparency = 0.85
+    },
+    Generator = {
+        OutlineColor = Color3.fromRGB(120,170,255),
+        FillColor = Color3.fromRGB(170,210,255),
+        OutlineTransparency = 0.3,
+        FillTransparency = 0.85
+    },
+    Tool = {
+        OutlineColor = Color3.fromRGB(255,220,100),
+        FillColor = Color3.fromRGB(255,245,170),
+        OutlineTransparency = 0.3,
+        FillTransparency = 0.85
+    }
+}
 
-local espGeneratorsActive = false
-local generatorHighlights = {}
-local generatorEspThread
+local FONT = Enum.Font.SourceSansBold
 
-local function clearGeneratorHighlights()
-    for _, h in ipairs(generatorHighlights) do
-        if h and h.Parent then h:Destroy() end
-    end
-    generatorHighlights = {}
+-- // TRACKING TABLE (SOLO BORRA LO QUE DEBE BORRAR)
+local activeESP = {
+    Survivor = {},
+    Killer = {},
+    Spectator = {},
+    Generator = {},
+    Tool = {}
+}
+
+-- // =======================
+-- // UTILITY FUNCTIONS
+-- // =======================
+
+local function makeHighlight(target, typeName)
+    local cfg = highlightSettings[typeName]
+
+    local h = Instance.new("Highlight")
+    h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    h.OutlineColor = cfg.OutlineColor
+    h.FillColor = cfg.FillColor
+    h.OutlineTransparency = cfg.OutlineTransparency
+    h.FillTransparency = cfg.FillTransparency
+    h.Parent = target
+
+    return h
 end
 
-local function createGeneratorHighlight(target)
-    local highlight = Instance.new("Highlight")
-    highlight.Adornee = target
-    highlight.FillColor = Color3.fromRGB(255, 255, 255)
-    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-    highlight.FillTransparency = 0.6
-    highlight.OutlineTransparency = 0
-    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    highlight.Parent = target
-    table.insert(generatorHighlights, highlight)
+local function makeBillboard(target, text, color)
+    local gui = Instance.new("BillboardGui")
+    gui.Size = UDim2.new(3,0,1,0)
+    gui.StudsOffset = Vector3.new(0,2,0)
+    gui.Adornee = target
+    gui.AlwaysOnTop = true
+    gui.Parent = target
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1,0,1,0)
+    lbl.BackgroundTransparency = 1
+    lbl.TextScaled = true
+    lbl.Font = FONT
+    lbl.TextColor3 = color
+    lbl.Text = text
+    lbl.Parent = gui
+
+    return gui
 end
 
-local function updateGeneratorESP()
-    clearGeneratorHighlights()
-    -- РС‰РµРј РІРѕ РІСЃРµР№ РёРіСЂРѕРІРѕР№ РѕР±Р»Р°СЃС‚Рё, Р° РЅРµ РїРѕ РєРѕРЅРєСЂРµС‚РЅРѕРјСѓ РїСѓС‚Рё
-    for _, item in ipairs(Workspace:GetDescendants()) do
-        -- РСЃРїРѕР»СЊР·СѓРµРј string.find РґР»СЏ РїРѕРёСЃРєР° РїРѕ С‡Р°СЃС‚Рё РёРјРµРЅРё
-        if item.Name:find("Generator") then
-            if (item:IsA("Model") and item.PrimaryPart) or item:IsA("BasePart") then
-                createGeneratorHighlight(item)
-            end
+-- ======================================================
+-- //                SURVIVOR ESP
+-- ======================================================
+
+local function applySurvivorESP(model)
+    if activeESP.Survivor[model] then return end
+
+    local h = makeHighlight(model, "Survivor")
+    local nameTag = makeBillboard(model.Head, model.Name, Color3.fromRGB(255,100,28))
+    local hpTag = makeBillboard(model.Head, "", Color3.fromRGB(255,100,28))
+
+    local conn = model.Humanoid.HealthChanged:Connect(function()
+        hpTag.TextLabel.Text = "HP: "..math.floor(model.Humanoid.Health).."/"..model.Humanoid.MaxHealth
+    end)
+
+    activeESP.Survivor[model] = {highlight=h, tags={nameTag, hpTag}, conn=conn}
+end
+
+function startSurvivorESP()
+    for _,v in ipairs(workspace.Players.Survivors:GetChildren()) do
+        if v:FindFirstChild("Humanoid") then
+            applySurvivorESP(v)
         end
     end
+
+    activeESP.Survivor.connection = workspace.Players.Survivors.ChildAdded:Connect(function(v)
+        if v:FindFirstChild("Humanoid") then
+            applySurvivorESP(v)
+        end
+    end)
+end
+
+function stopSurvivorESP()
+    if activeESP.Survivor.connection then
+        activeESP.Survivor.connection:Disconnect()
+        activeESP.Survivor.connection = nil
+    end
+
+    for model,data in pairs(activeESP.Survivor) do
+        if typeof(data) == "table" then
+            if data.conn then data.conn:Disconnect() end
+            if data.highlight then data.highlight:Destroy() end
+            for _,bill in ipairs(data.tags) do bill:Destroy() end
+        end
+    end
+
+    activeESP.Survivor = {}
+end
+
+-- ======================================================
+-- //                KILLER ESP
+-- ======================================================
+
+local function applyKillerESP(model)
+    if activeESP.Killer[model] then return end
+
+    local h = makeHighlight(model, "Killer")
+    local nameTag = makeBillboard(model.Head, model.Name, Color3.fromRGB(204,0,0))
+    local hpTag = makeBillboard(model.Head, "", Color3.fromRGB(204,0,0))
+
+    local conn = model.Humanoid.HealthChanged:Connect(function()
+        hpTag.TextLabel.Text = "HP: "..math.floor(model.Humanoid.Health).."/"..model.Humanoid.MaxHealth
+    end)
+
+    activeESP.Killer[model] = {highlight=h, tags={nameTag, hpTag}, conn=conn}
+end
+
+function startKillerESP()
+    for _,v in ipairs(workspace.Players.Killers:GetChildren()) do
+        if v:FindFirstChild("Humanoid") then
+            applyKillerESP(v)
+        end
+    end
+
+    activeESP.Killer.connection = workspace.Players.Killers.ChildAdded:Connect(function(v)
+        if v:FindFirstChild("Humanoid") then
+            applyKillerESP(v)
+        end
+    end)
+end
+
+function stopKillerESP()
+    if activeESP.Killer.connection then
+        activeESP.Killer.connection:Disconnect()
+        activeESP.Killer.connection = nil
+    end
+
+    for model,data in pairs(activeESP.Killer) do
+        if data.conn then data.conn:Disconnect() end
+        if data.highlight then data.highlight:Destroy() end
+        for _,bill in ipairs(data.tags) do bill:Destroy() end
+    end
+
+    activeESP.Killer = {}
+end
+
+-- ======================================================
+-- //                SPECTATOR ESP
+-- ======================================================
+
+local function applySpectatorESP(model)
+    if activeESP.Spectator[model] then return end
+
+    local h = makeHighlight(model, "Spectator")
+    local nameTag = makeBillboard(model.Head, "[Spectator] "..model.Name, Color3.fromRGB(200,200,200))
+
+    activeESP.Spectator[model] = {highlight=h, tags={nameTag}}
+end
+
+function startSpectatorESP()
+    for _,v in ipairs(workspace.Players.Spectators:GetChildren()) do
+        if v:FindFirstChild("Humanoid") then
+            applySpectatorESP(v)
+        end
+    end
+
+    activeESP.Spectator.connection = workspace.Players.Spectators.ChildAdded:Connect(function(v)
+        if v:FindFirstChild("Humanoid") then
+            applySpectatorESP(v)
+        end
+    end)
+end
+
+function stopSpectatorESP()
+    if activeESP.Spectator.connection then
+        activeESP.Spectator.connection:Disconnect()
+        activeESP.Spectator.connection = nil
+    end
+
+    for model,data in pairs(activeESP.Spectator) do
+        if data.highlight then data.highlight:Destroy() end
+        for _,bill in ipairs(data.tags) do bill:Destroy() end
+    end
+
+    activeESP.Spectator = {}
+end
+
+-- ======================================================
+-- //                GENERATOR ESP
+-- ======================================================
+
+local function applyGeneratorESP(gen)
+    if activeESP.Generator[gen] then return end
+
+    if not gen:FindFirstChild("Main") then return end
+
+    local h = makeHighlight(gen, "Generator")
+    local nameTag = makeBillboard(gen.Main, "Generator", Color3.fromRGB(255,206,28))
+    local progressTag = makeBillboard(gen.Main, "", Color3.fromRGB(255,206,28))
+
+    local conn = RunService.Heartbeat:Connect(function()
+        if gen:FindFirstChild("Progress") then
+            local p = gen.Progress.Value
+            progressTag.TextLabel.Text = "Progress: "..p.."%"
+
+            if p >= 99 then
+                h:Destroy()
+                nameTag:Destroy()
+                progressTag:Destroy()
+                conn:Disconnect()
+            end
+        end
+    end)
+
+    activeESP.Generator[gen] = {highlight=h, tags={nameTag, progressTag}, conn=conn}
+end
+
+function startGeneratorESP()
+    for _,v in ipairs(workspace.Map.Ingame:GetChildren()) do
+        if v:IsA("Model") and v.Name == "Generator" then
+            applyGeneratorESP(v)
+        end
+    end
+
+    activeESP.Generator.connection = workspace.Map.Ingame.ChildAdded:Connect(function(v)
+        if v:IsA("Model") and v.Name == "Generator" then
+            applyGeneratorESP(v)
+        end
+    end)
+end
+
+function stopGeneratorESP()
+    if activeESP.Generator.connection then
+        activeESP.Generator.connection:Disconnect()
+        activeESP.Generator.connection = nil
+    end
+
+    for model,data in pairs(activeESP.Generator) do
+        if data.conn then data.conn:Disconnect() end
+        if data.highlight then data.highlight:Destroy() end
+        for _,bill in ipairs(data.tags) do bill:Destroy() end
+    end
+
+    activeESP.Generator = {}
+end
+
+-- ======================================================
+-- //                TOOL ESP
+-- ======================================================
+
+local function applyToolESP(tool)
+    if activeESP.Tool[tool] then return end
+
+    if not tool:FindFirstChild("ItemRoot") then return end
+
+    local h = makeHighlight(tool, "Tool")
+    local nameTag = makeBillboard(tool.ItemRoot, tool.Name, Color3.fromRGB(32,54,153))
+
+    activeESP.Tool[tool] = {highlight=h, tags={nameTag}}
+end
+
+function startToolESP()
+    for _,v in ipairs(workspace.Map.Ingame:GetDescendants()) do
+        if v:IsA("Tool") and v:FindFirstChild("ItemRoot") then
+            applyToolESP(v)
+        end
+    end
+
+    activeESP.Tool.connection = workspace.Map.Ingame.DescendantAdded:Connect(function(v)
+        if v:IsA("Tool") and v:FindFirstChild("ItemRoot") then
+            applyToolESP(v)
+        end
+    end)
+end
+
+function stopToolESP()
+    if activeESP.Tool.connection then
+        activeESP.Tool.connection:Disconnect()
+        activeESP.Tool.connection = nil
+    end
+
+    for tool,data in pairs(activeESP.Tool) do
+        if data.highlight then data.highlight:Destroy() end
+        for _,bill in ipairs(data.tags) do bill:Destroy() end
+    end
+
+    activeESP.Tool = {}
 end
 
 Tabs.Esp:Toggle({
-    Title = "ESP Generators",
+    Title = "ESP Survivors",
     Default = false,
     Callback = function(state)
-        espGeneratorsActive = state
-        if espGeneratorsActive then
-            generatorEspThread = task.spawn(function()
-                while espGeneratorsActive do
-                    updateGeneratorESP()
-                    task.wait(20)
-                end
-            end)
+        if state then
+            startSurvivorESP()
         else
-            if generatorEspThread then task.cancel(generatorEspThread); generatorEspThread = nil end
-            clearGeneratorHighlights()
+            stopSurvivorESP()
         end
     end
 })
+
+Tabs.Esp:Toggle({
+    Title = "ESP Killers",
+    Default = false,
+    Callback = function(state)
+        if state then
+            startKillerESP()
+        else
+            stopKillerESP()
+        end
+    end
+})
+
+Tabs.Esp:Toggle({
+    Title = "Generator ESP",
+    Default = false,
+    Callback = function(state)
+        if state then
+            startGeneratorESP()
+        else
+            stopGeneratorESP()
+        end
+    end
+})
+
+Tabs.Esp:Toggle({
+    Title = "Tool ESP",
+    Default = false,
+    Callback = function(state)
+        if state then
+            startToolESP()
+        else
+            stopToolESP()
+        end
+    end
+})
+
 
 Players.PlayerAdded:Connect(function()
     Tabs.Main:SetDropdownValues("Р’С‹Р±РѕСЂ РёРіСЂРѕРєР° РґР»СЏ Orbit", getPlayerNames())
