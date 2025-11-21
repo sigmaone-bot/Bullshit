@@ -2990,7 +2990,7 @@ end
 
 --// Auto re-spawn
 _G.JasonHitbox = _G.JasonHitbox or false
-_G.hitboxnearestdist = 13
+_G.hitboxnearestdist = 10
 
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
