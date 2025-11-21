@@ -2997,7 +2997,7 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local hitboxcode = nil
 
-local AttackAnimations = loadstring(game:HttpGet("https://raw.githubusercontent.com/gopnikjovana/probable-meme/refs/heads/main/hitboxanimations"))()
+local AttackAnimations = loadstring(game:HttpGet("https://raw.githubusercontent.com/sigmaone-bot/Bullshit/refs/heads/main/AttackAnims"))()
 
 --// Generar texto aleatorio
 local function randomtext()
