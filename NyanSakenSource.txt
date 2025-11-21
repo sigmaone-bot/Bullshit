@@ -31,26 +31,32 @@ local Main4 = Window:Section({
 })
 
 local Veeronica = Window:Section({
-    Title = "Skating",
+    Title = "Sk8",
 })
 
 local stunning = Window:Section({
-    Title = "Fight & Flight",
+    Title = "Attack",
 })
 
 local otherthing = Window:Section({
     Title = "Antis",
 })
 
+local noli = Window:Section({
+    Title = "Noli",
+})
+
 local Tabs = {
     Stamina_Settings = Main4:Tab({ Title = "Stamina settings", Icon = "footprints" }),
     Esp = Main4:Tab({ Title = "ESP", Icon = "eye" }),
     istun = stunning:Tab({ Title = "Sentinel & Survival", Icon = "shield" }),
-    Misc = otherthing:Tab({ Title = "Misc", Icon = "gift" }),
+    Misc = Main4:Tab({ Title = "Misc", Icon = "gift" }),
+    anti = Main4:Tab({ Title = "Antis", Icon = "gift" }),
     Sk8T = Veeronica:Tab({ Title = "Sk8", Icon = "gift" }),
     Auto_Stun = stunning:Tab({ Title = "Stun & Aimbot Related", Icon = "spline-pointer" }),
     Random = otherthing:Tab({ Title = "Extra", Icon = "crosshair" }),
-    Hitbox = otherthing:Tab({ Title = "Rrach", Icon = "target" }),
+    Hitbox = stunning:Tab({ Title = "Reach", Icon = "target" }),
+    nole = noli:Tab({ Title = "Noli stuff", Icon = "target" }),
     Generator = Main4:Tab({ Title = "Generators", Icon = "battery-charging" }),
     Teleport = otherthing:Tab({Title = "TP-Places", Icon = "cable" }),
     Credits = Window:Tab({ Title = "Credits", Icon = "award" })
@@ -164,7 +170,7 @@ Tabs.Stamina_Settings:Slider({
 
 Tabs.Stamina_Settings:Slider({
     Title = "Sprint Speed",
-    Step = 1,
+    Step = 0.25,
     Value = {Min = 15, Max = 40, Default = sprintSpeedValue},
     Suffix = " S",
     Callback = function(val)
@@ -909,7 +915,7 @@ task.spawn(function()
 end)
 
 -- Toggle
-Tabs.Misc:Toggle({
+Tabs.anti:Toggle({
     Title = "Anti-Kick (Fly & Noclip may not work and Laggy)",
     Default = false,
     Callback = function(state)
@@ -962,7 +968,7 @@ Tabs.Misc:Toggle({
 local antiFogActive = false
 local disabledFogElements = {}
 
-Tabs.Misc:Toggle({
+Tabs.antis:Toggle({
     Title = "Anti Fog",
     Default = false,
     Callback = function(state)
@@ -1032,7 +1038,7 @@ local function removeEffects()
     end
 end
 
-Tabs.Misc:Toggle({
+Tabs.anti:Toggle({
     Title = "Remove Effects",
     Default = true,
     Callback = function(state)
@@ -1128,7 +1134,7 @@ local function stopAntiSlow(config)
     end
 end
 
-Tabs.Misc:Toggle({
+Tabs.anti:Toggle({
     Title = "Anti Slow",
     Default = false,
     Callback = function(state)
@@ -1262,7 +1268,7 @@ if not getgenv()._oldFireServer then
 end
 
 -- Р”РѕР±Р°РІР»СЏРµРј Toggle РІ GUI
-Tabs.Misc:Toggle({
+Tabs.nole:Toggle({
     Title = "VoidRush No-Crash",
     Default = false,
     Callback = function(state)
@@ -1493,7 +1499,7 @@ Tabs.Sk8T:Slider({
 
 local ORIGINAL_DASH_SPEED = 60
 
-Tabs.Misc:Slider({
+Tabs.nole:Slider({
     Title = "Noli Rush Speed:",
     Step = 5,
     Value = {Min = 30, Max = 85, Default = 60},
@@ -1525,7 +1531,7 @@ end
 
 LocalPlayer.CharacterAdded:Connect(setupCharacter)
 
-Tabs.Misc:Toggle({
+Tabs.nole:Toggle({
     Title = "Void Rush full Control (Noli)",
     Default = false,
     Callback = function(state)
