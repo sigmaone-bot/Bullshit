@@ -9,9 +9,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Window = WindUI:CreateWindow({
     Folder = "Veeronica",
-    Title = "SKATTIIINNNGGGG Hub.",
+    Title = "Fazing HUB",
     Icon = "star",
-    Author = "Made by FaZ",
+    Author = "skidded from ringta actually.",
     Theme = "Dark",
     Size = UDim2.fromOffset(500, 420),
     HasOutline = true
@@ -53,7 +53,7 @@ local Tabs = {
     Misc = Main4:Tab({ Title = "Misc", Icon = "gift" }),
     anti = Main4:Tab({ Title = "Antis", Icon = "gift" }),
     Sk8T = Veeronica:Tab({ Title = "Sk8", Icon = "gift" }),
-    Auto_Stun = stunning:Tab({ Title = "Stun & Aimbot Related", Icon = "spline-pointer" }),
+    Auto_Stun = stunning:Tab({ Title = "Other", Icon = "spline-pointer" }),
     Random = otherthing:Tab({ Title = "Extra", Icon = "crosshair" }),
     Hitbox = stunning:Tab({ Title = "Reach", Icon = "target" }),
     nole = noli:Tab({ Title = "Noli stuff", Icon = "target" }),
