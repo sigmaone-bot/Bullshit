@@ -2989,8 +2989,8 @@ end
 })
 
 --// Auto re-spawn
-_G.JasonHitbox = _G.JasonHitbox or false
-_G.hitboxnearestdist = 10
+_G.JasonHitbox = _G.JasonHitbox
+_G.hitboxnearestdist = 0
 
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
@@ -3031,7 +3031,7 @@ local function spawnhitbox(code)
         -- Detectar si está atacando
         local isAttacking = false
         for _, v in humanoid:GetPlayingAnimationTracks() do
-            if AttackAnimations[v.Animation.AnimationId] and (v.TimePosition / v.Length < 0.7) then
+            if AttackAnimations[v.Animation.AnimationId] and (v.TimePosition / v.Length < 0.75) then
                 isAttacking = true
                 break
             end
@@ -3099,12 +3099,12 @@ Tabs.Hitbox:Toggle({
   Tabs.Hitbox:Slider({
     Title = "Reach Distance",
     Step = 1,
-    Value = {Min = 5, Max = 50, Default = _G.hitboxnearestdist},
+    Value = {Min = 5, Max = 50, Default = 10},
     Suffix = " studs",
     Callback = function(val)
-        if _G.JasonHitbox then
+        
             _G.hitboxnearestdist = val
-        end
+        
     end
 })
 
