@@ -2997,14 +2997,24 @@ local LocalPlayer = Players.LocalPlayer
 
 local AttackAnimations = loadstring(game:HttpGet("https://raw.githubusercontent.com/sigmaone-bot/Bullshit/refs/heads/main/AttackAnims"))()
 
-local hitboxConnection -- conexión global
+local hitboxConnection -- conexión principal (única)
 
+---------------------------------------------------------
+-- INICIAR EL SISTEMA DE HITBOX
+---------------------------------------------------------
 local function startHitbox()
-    if hitboxConnection then hitboxConnection:Disconnect() end
+    -- Si ya existe una conexión, desconectarla para reemplazarla
+    if hitboxConnection then
+        hitboxConnection:Disconnect()
+        hitboxConnection = nil
+    end
 
     hitboxConnection = RunService.Heartbeat:Connect(function()
         if not _G.JasonHitbox then return end
-        if not _G.hitboxnearestdist then return end
+
+        -- seguridad máxima
+        local reach = tonumber(_G.hitboxnearestdist) or 10
+        if reach <= 0 then reach = 10 end
 
         local char = LocalPlayer.Character
         if not char then return end
@@ -3013,38 +3023,44 @@ local function startHitbox()
         local hrp = char:FindFirstChild("HumanoidRootPart")
         if not humanoid or not hrp then return end
 
-        -- Detectar ataque
+        ---------------------------------------------------------
+        -- DETECTAR SI ESTÁ ATACANDO
+        ---------------------------------------------------------
         local isAttacking = false
-        for _, v in humanoid:GetPlayingAnimationTracks() do
-            local id = v.Animation.AnimationId
-            if AttackAnimations[id] and (v.TimePosition / v.Length < 0.75) then
+
+        for _, track in humanoid:GetPlayingAnimationTracks() do
+            local id = track.Animation.AnimationId
+            if AttackAnimations[id] and (track.TimePosition / track.Length < 0.75) then
                 isAttacking = true
                 break
             end
         end
+
         if not isAttacking then return end
 
-        -- Buscar objetivo
-        local nearestTarget
+        ---------------------------------------------------------
+        -- BUSCAR AL TARGET MÁS CERCANO
+        ---------------------------------------------------------
+        local nearestTarget = nil
         local nearestDistance = math.huge
 
         local function findNearest(folder)
             if not folder then return end
-            for _, v in pairs(folder:GetChildren()) do
-                local hrp2 = v:FindFirstChild("HumanoidRootPart")
+            for _, model in pairs(folder:GetChildren()) do
+                local hrp2 = model:FindFirstChild("HumanoidRootPart")
                 if hrp2 then
                     local dist = (hrp2.Position - hrp.Position).Magnitude
                     if dist < nearestDistance then
                         nearestDistance = dist
-                        nearestTarget = v
+                        nearestTarget = model
                     end
                 end
             end
         end
 
-        -- Killer o Survivor
-        local parent = char.Parent and char.Parent.Name
-        if parent == "Killers" then
+        local parentName = char.Parent and char.Parent.Name
+
+        if parentName == "Killers" then
             findNearest(workspace.Players:FindFirstChild("Survivors"))
             findNearest(workspace.Map:FindFirstChild("NPCs", true))
         else
@@ -3053,11 +3069,19 @@ local function startHitbox()
         end
 
         if not nearestTarget then return end
-        if nearestDistance > _G.hitboxnearestdist then return end
 
-        -- Movimiento
-        local oldVel = hrp.Velocity
+        ---------------------------------------------------------
+        -- COMPARACIÓN SEGURA (NUNCA CRASHEA)
+        ---------------------------------------------------------
+        local distNum = tonumber(nearestDistance) or math.huge
+        if distNum > reach then return end
+
+        ---------------------------------------------------------
+        -- MOVERSE HACIA EL TARGET
+        ---------------------------------------------------------
         local targetPos = nearestTarget.HumanoidRootPart.Position
+        local oldVel = hrp.Velocity
+
         local neededVel = (targetPos - hrp.Position) * 12
 
         hrp.Velocity = neededVel
@@ -3066,14 +3090,21 @@ local function startHitbox()
     end)
 end
 
+---------------------------------------------------------
+-- REINICIAR AL RESPAWN
+---------------------------------------------------------
 LocalPlayer.CharacterAdded:Connect(function()
     task.wait(0.5)
     startHitbox()
 end)
 
+-- inicio inicial
 startHitbox()
 
+---------------------------------------------------------
 -- UI
+---------------------------------------------------------
+
 Tabs.Hitbox:Toggle({
     Title = "Reach",
     Default = false,
@@ -3091,6 +3122,7 @@ Tabs.Hitbox:Slider({
         _G.hitboxnearestdist = val
     end
 })
+
   
 Tabs.Generator:Button({
     Title = "Fix generator manual",
