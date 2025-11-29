@@ -2988,38 +2988,23 @@ end)
 end
 })
 
---// Auto re-spawn
-_G.JasonHitbox = _G.JasonHitbox
-_G.hitboxnearestdist = 0
+_G.JasonHitbox = _G.JasonHitbox or false
+_G.hitboxnearestdist = _G.hitboxnearestdist or 10
 
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-local hitboxcode = nil
 
 local AttackAnimations = loadstring(game:HttpGet("https://raw.githubusercontent.com/sigmaone-bot/Bullshit/refs/heads/main/AttackAnims"))()
 
---// Generar texto aleatorio
-local function randomtext()
-    local characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
-    local length = math.random(5, 12)
-    local result = ""
-    for i = 1, length do
-        local randIndex = math.random(1, #characters)
-        result = result .. characters:sub(randIndex, randIndex)
-    end
-    return result
-end
+local hitboxConnection -- conexión global
 
---// Hitbox principal
-local function spawnhitbox(code)
-    hitboxcode = code
-    local mycode = code
-    local connection
+local function startHitbox()
+    if hitboxConnection then hitboxConnection:Disconnect() end
 
-    connection = RunService.Heartbeat:Connect(function()
+    hitboxConnection = RunService.Heartbeat:Connect(function()
         if not _G.JasonHitbox then return end
-        if not hitboxcode or hitboxcode ~= mycode then connection:Disconnect() end
+        if not _G.hitboxnearestdist then return end
 
         local char = LocalPlayer.Character
         if not char then return end
@@ -3028,17 +3013,18 @@ local function spawnhitbox(code)
         local hrp = char:FindFirstChild("HumanoidRootPart")
         if not humanoid or not hrp then return end
 
-        -- Detectar si está atacando
+        -- Detectar ataque
         local isAttacking = false
         for _, v in humanoid:GetPlayingAnimationTracks() do
-            if AttackAnimations[v.Animation.AnimationId] and (v.TimePosition / v.Length < 0.75) then
+            local id = v.Animation.AnimationId
+            if AttackAnimations[id] and (v.TimePosition / v.Length < 0.75) then
                 isAttacking = true
                 break
             end
         end
         if not isAttacking then return end
 
-        -- Buscar el jugador más cercano
+        -- Buscar objetivo
         local nearestTarget
         local nearestDistance = math.huge
 
@@ -3056,8 +3042,9 @@ local function spawnhitbox(code)
             end
         end
 
-        -- Según si sos Killer o Survivor
-        if char.Parent and char.Parent.Name == "Killers" then
+        -- Killer o Survivor
+        local parent = char.Parent and char.Parent.Name
+        if parent == "Killers" then
             findNearest(workspace.Players:FindFirstChild("Survivors"))
             findNearest(workspace.Map:FindFirstChild("NPCs", true))
         else
@@ -3068,7 +3055,7 @@ local function spawnhitbox(code)
         if not nearestTarget then return end
         if nearestDistance > _G.hitboxnearestdist then return end
 
-        -- Mover hacia el objetivo
+        -- Movimiento
         local oldVel = hrp.Velocity
         local targetPos = nearestTarget.HumanoidRootPart.Position
         local neededVel = (targetPos - hrp.Position) * 12
@@ -3079,15 +3066,14 @@ local function spawnhitbox(code)
     end)
 end
 
---// Auto re-spawn
 LocalPlayer.CharacterAdded:Connect(function()
-    task.wait(1)
-    spawnhitbox(randomtext())
+    task.wait(0.5)
+    startHitbox()
 end)
 
-spawnhitbox(randomtext())
+startHitbox()
 
---// Toggle + Slider UI
+-- UI
 Tabs.Hitbox:Toggle({
     Title = "Reach",
     Default = false,
@@ -3096,43 +3082,14 @@ Tabs.Hitbox:Toggle({
     end
 })
 
-  Tabs.Hitbox:Slider({
+Tabs.Hitbox:Slider({
     Title = "Reach Distance",
     Step = 1,
     Value = {Min = 5, Max = 50, Default = 10},
     Suffix = " studs",
     Callback = function(val)
-        
-            _G.hitboxnearestdist = val
-        
+        _G.hitboxnearestdist = val
     end
-})
-
-Tabs.Generator:Button({
-    Title = "Solve generator (combo with anti kick)",
-    Callback = function()
-        local FartNapFolder = workspace:FindFirstChild("Map")
-            and workspace.Map:FindFirstChild("Ingame")
-            and workspace.Map.Ingame:FindFirstChild("Map")
-        if FartNapFolder then
-            local closestGenerator, closestDistance = nil, math.huge
-            local playerPosition = game.Players.LocalPlayer.Character.HumanoidRootPart.Position
-            for _, g in ipairs(FartNapFolder:GetChildren()) do
-                if g.Name == "Generator" and g.Progress.Value < 100 then
-                    local distance = (g:GetPivot().Position - playerPosition).Magnitude
-                    if distance < closestDistance then
-                        closestDistance = distance
-                        closestGenerator = g
-                    end
-                end
-          end
-          
-    end
-        closestGenerator.Remotes.RE:FireServer()
-        closestGenerator.Remotes.RE:FireServer()
-        closestGenerator.Remotes.RE:FireServer()
-        closestGenerator.Remotes.RE:FireServer()
-      end
 })
   
 Tabs.Generator:Button({
