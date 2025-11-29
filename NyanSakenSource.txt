@@ -3130,7 +3130,7 @@ local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
-local AttackAnimations = loadstring(game:HttpGet("https://raw.githubusercontent.com/sigmaone-bot/Bullshit/refs/heads/main/AttackAnims"))()
+local AttackAnimations = loadstring(game:HttpGet("https://raw.githubusercontent.com/sigmaone-bot/Bullshit/refs/heads/main/AimbotAnims"))()
 
 local aimbotConnection
 
