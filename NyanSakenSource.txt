@@ -1174,89 +1174,87 @@ Tabs.anti:Toggle({
 })
 
 -- ANTI SLOWS 
-local Survivors = workspace:WaitForChild("Players"):WaitForChild("Survivors")
+-- ANTI SLOW (solo para ti, con respawn support)
+local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
--- Anti-Slow Configs
-local AntiSlowConfigs = {
-    Slowness = {Values = {"SlowedStatus"}, Connection = nil, Enabled = false},
-    Skills = {Values = {"StunningKiller", "EatFriedChicken", "GuestBlocking", "PunchAbility", "SubspaceTripmine",
-                        "TaphTripwire", "PlasmaBeam", "SpawnProtection", "c00lgui", "ShootingGun",
-                        "TwoTimeStab", "TwoTimeCrouching", "DrinkingCola", "DrinkingSlateskin",
-                        "SlateskinStatus", "EatingGhostburger"}, Connection = nil, Enabled = false},
-    Items = {Values = {"BloxyColaItem", "Medkit"}, Connection = nil, Enabled = false},
-    Emotes = {Values = {"Emoting"}, Connection = nil, Enabled = false},
-    Builderman = {Values = {"DispenserConstruction", "SentryConstruction"}, Connection = nil, Enabled = false}
+local LocalPlayer = Players.LocalPlayer
+
+-- Valores permitidos (NO se tocan)
+local Allowed = {
+    DirectionalMovement = true,
+    NosFlying = true,
+    NosFlySlow = true,
+    NosCataclysm = true,
+    VoidRushDash = true,
+    Sprinting = true
 }
 
--- Hide Slowness UI
-local function hideSlownessUI()
-    local mainUI = game:GetService("Players").LocalPlayer.PlayerGui:FindFirstChild("MainUI")
-    if mainUI then
-        local statusContainer = mainUI:FindFirstChild("StatusContainer")
-        if statusContainer then
-            local slownessUI = statusContainer:FindFirstChild("Slowness")
-            if slownessUI then
-                slownessUI.Visible = false
-            end
-        end
-    end
-end
+local AntiSlowEnabled = false
+local AntiSlowConnection = nil
 
--- Handle Anti-Slow
-local function handleAntiSlow(survivor, config)
-    if survivor:GetAttribute("Username") ~= game:GetService("Players").LocalPlayer.Name then return end
-    local function onRenderStep()
-        if not survivor.Parent or not config.Enabled then return end
-        local speedMultipliers = survivor:FindFirstChild("SpeedMultipliers")
-        if speedMultipliers then
-            for _, valName in ipairs(config.Values) do
-                local val = speedMultipliers:FindFirstChild(valName)
-                if val and val:IsA("NumberValue") and val.Value ~= 1 then
-                    val.Value = 1
+-- Función que forza los speed multipliers
+local function AntiSlowLoop()
+    local character = LocalPlayer.Character
+    if not character then return end
+
+    local speedMultipliers = character:FindFirstChild("SpeedMultipliers")
+    if not speedMultipliers then return end
+
+    for _, obj in ipairs(speedMultipliers:GetChildren()) do
+        if obj:IsA("NumberValue") then
+            -- Sólo se salvan los permitidos
+            if not Allowed[obj.Name] then
+                if obj.Value ~= 1 then
+                    obj.Value = 1
                 end
             end
         end
-        hideSlownessUI()
     end
-
-    config.Connection = RunService.RenderStepped:Connect(onRenderStep)
 end
 
--- Start Anti-Slow
-local function startAntiSlow(config)
-    config.Enabled = true
-    for _, survivor in pairs(Survivors:GetChildren()) do
-        handleAntiSlow(survivor, config)
-    end
-    Survivors.ChildAdded:Connect(function(child)
-        task.wait()
-        handleAntiSlow(child, config)
+-- Encender Anti Slow
+local function EnableAntiSlow()
+    if AntiSlowConnection then AntiSlowConnection:Disconnect() end
+    AntiSlowEnabled = true
+
+    AntiSlowConnection = RunService.RenderStepped:Connect(function()
+        if AntiSlowEnabled then
+            AntiSlowLoop()
+        end
     end)
 end
 
--- Stop Anti-Slow
-local function stopAntiSlow(config)
-    config.Enabled = false
-    if config.Connection then
-        config.Connection:Disconnect()
-        config.Connection = nil
+-- Apagar Anti Slow
+local function DisableAntiSlow()
+    AntiSlowEnabled = false
+    if AntiSlowConnection then
+        AntiSlowConnection:Disconnect()
+        AntiSlowConnection = nil
     end
 end
 
+-- Reconexión automática al respawn
+LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(0.2)
+    if AntiSlowEnabled then
+        EnableAntiSlow()
+    end
+end)
+
+-- Toggle UI
 Tabs.anti:Toggle({
-    Title = "Anti Slow",
+    Title = "Anti Stun",
     Default = false,
     Callback = function(state)
-        for _, config in pairs(AntiSlowConfigs) do
-            if state then
-                startAntiSlow(config)
-            else
-                stopAntiSlow(config)
-            end
+        if state then
+            EnableAntiSlow()
+        else
+            DisableAntiSlow()
         end
     end
 })
+
 
 Tabs.Misc:Button({
     Title = "Load Invisibility",
