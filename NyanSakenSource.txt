@@ -3204,16 +3204,20 @@ local function startAimbot()
         if not nearestTarget then return end
 
         ---------------------------------------------------------
-        -- HACER AIMBOT
+        -- ROTACIÓN SIMPLE (LOOKAT EN Y)
         ---------------------------------------------------------
         local targetPos = nearestTarget.Position
 
         -- aplicar predicción suave
         local predicted = targetPos + (nearestTarget.Velocity * predict * 0.1)
 
-        -- apuntar
-        local newCFrame = CFrame.new(hrp.Position, Vector3.new(predicted.X, hrp.Position.Y, predicted.Z))
-        hrp.CFrame = newCFrame
+        -- dirección horizontal
+        local dir = predicted - hrp.Position
+        dir = Vector3.new(dir.X, 0, dir.Z)
+
+        if dir.Magnitude > 0.5 then
+            hrp.CFrame = CFrame.lookAt(hrp.Position, hrp.Position + dir)
+        end
     end)
 end
 
