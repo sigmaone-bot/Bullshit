@@ -170,7 +170,7 @@ Tabs.Stamina_Settings:Slider({
 
 Tabs.Stamina_Settings:Slider({
     Title = "Sprint Speed",
-    Step = 0.25,
+    Step = 1,
     Value = {Min = 15, Max = 40, Default = sprintSpeedValue},
     Suffix = " S",
     Callback = function(val)
@@ -3240,7 +3240,7 @@ Tabs.Hitbox:Toggle({
 
 Tabs.Hitbox:Slider({
     Title = "Predict",
-    Step = 1,
+    Step = 0.5,
     Value = {Min = 0, Max = 10, Default = 0},
     Suffix = " studs",
     Callback = function(val)
