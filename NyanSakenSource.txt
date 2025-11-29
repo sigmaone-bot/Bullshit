@@ -3123,7 +3123,134 @@ Tabs.Hitbox:Slider({
     end
 })
 
-  
+_G.AimbotEnabled = _G.AimbotEnabled or false
+_G.AimPredict = _G.AimPredict or 0
+
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local AttackAnimations = loadstring(game:HttpGet("https://raw.githubusercontent.com/sigmaone-bot/Bullshit/refs/heads/main/AttackAnims"))()
+
+local aimbotConnection
+
+---------------------------------------------------------
+-- INICIAR AIMBOT
+---------------------------------------------------------
+local function startAimbot()
+    if aimbotConnection then
+        aimbotConnection:Disconnect()
+        aimbotConnection = nil
+    end
+
+    aimbotConnection = RunService.RenderStepped:Connect(function()
+        if not _G.AimbotEnabled then return end
+
+        -- Convertir predict seguro
+        local predict = tonumber(_G.AimPredict) or 0
+        if predict < 0 then predict = 0 end
+        if predict > 10 then predict = 10 end
+
+        local char = LocalPlayer.Character
+        if not char then return end
+
+        local humanoid = char:FindFirstChild("Humanoid")
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if not humanoid or not hrp then return end
+
+        ---------------------------------------------------------
+        -- DETECTAR SI ESTÁ ATACANDO
+        ---------------------------------------------------------
+        local isAttacking = false
+
+        for _, track in humanoid:GetPlayingAnimationTracks() do
+            local id = track.Animation.AnimationId
+            if AttackAnimations[id] and (track.TimePosition / track.Length < 0.75) then
+                isAttacking = true
+                break
+            end
+        end
+
+        if not isAttacking then return end
+
+        ---------------------------------------------------------
+        -- ENCONTRAR EL TARGET MÁS CERCANO
+        ---------------------------------------------------------
+        local nearestTarget
+        local nearestDist = math.huge
+
+        local function findNearest(folder)
+            if not folder then return end
+            for _, model in pairs(folder:GetChildren()) do
+                local hrp2 = model:FindFirstChild("HumanoidRootPart")
+                if hrp2 then
+                    local dist = (hrp2.Position - hrp.Position).Magnitude
+                    if dist < nearestDist then
+                        nearestDist = dist
+                        nearestTarget = hrp2
+                    end
+                end
+            end
+        end
+
+        local pname = char.Parent and char.Parent.Name
+
+        if pname == "Killers" then
+            findNearest(workspace.Players:FindFirstChild("Survivors"))
+            findNearest(workspace.Map:FindFirstChild("NPCs", true))
+        else
+            findNearest(workspace.Players:FindFirstChild("Killers"))
+            findNearest(workspace.Map:FindFirstChild("NPCs", true))
+        end
+
+        if not nearestTarget then return end
+
+        ---------------------------------------------------------
+        -- HACER AIMBOT
+        ---------------------------------------------------------
+        local targetPos = nearestTarget.Position
+
+        -- aplicar predicción suave
+        local predicted = targetPos + (nearestTarget.Velocity * predict * 0.1)
+
+        -- apuntar
+        local newCFrame = CFrame.new(hrp.Position, Vector3.new(predicted.X, hrp.Position.Y, predicted.Z))
+        hrp.CFrame = newCFrame
+    end)
+end
+
+---------------------------------------------------------
+-- RESET EN RESPAWN
+---------------------------------------------------------
+LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(0.5)
+    startAimbot()
+end)
+
+startAimbot()
+
+---------------------------------------------------------
+-- UI
+---------------------------------------------------------
+Tabs.Hitbox:Toggle({
+    Title = "Aimbot",
+    Default = false,
+    Callback = function(state)
+        _G.AimbotEnabled = state
+    end
+})
+
+Tabs.Hitbox:Slider({
+    Title = "Predict",
+    Step = 1,
+    Value = {Min = 0, Max = 10, Default = 0},
+    Suffix = " studs",
+    Callback = function(val)
+        _G.AimPredict = val
+    end
+})
+
+
 Tabs.Generator:Button({
     Title = "Fix generator manual",
     Callback = function()
