@@ -1395,7 +1395,7 @@ local sk8module = require(game:GetService("ReplicatedStorage").Assets.Survivors.
 Tabs.Sk8T:Slider({
     Title = "Sk8 turn speed",
     Step = 0.5,
-    Value = {Min = 0, Max = 15, Default = 1},
+    Value = {Min = 0, Max = 15, Default = 15},
     Callback = function(val)
         sk8module.Sk8TurnControl = val
     end
@@ -1413,7 +1413,7 @@ Tabs.Sk8T:Slider({
 Tabs.Sk8T:Slider({
     Title = "Sk8 Trick Jump Height (>0.60 = may kick)",
     Step = 0.01,
-    Value = {Min = 0, Max = 1, Default = 0.525},
+    Value = {Min = 0, Max = 1, Default = 0.535},
     Callback = function(val)
         sk8module.Sk8TrickJump = val
     end
@@ -1425,6 +1425,155 @@ Tabs.Sk8T:Slider({
     Value = {Min = 0, Max = 15, Default = 1},
     Callback = function(val)
         sk8module.Sk8TrickTurnControl = val
+    end
+})
+
+_G.TiltEnabled = _G.TiltEnabled or false
+_G.TiltPitch = _G.TiltPitch or 40
+_G.TiltForward = _G.TiltForward or 0.06
+_G.TiltUp = _G.TiltUp or 0.08
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local player = Players.LocalPlayer
+
+local ANIM_ID = "117058860640843" -- anim a detectar
+
+---------------------------------------------------------------------
+-- Detectar animación
+---------------------------------------------------------------------
+local function isMatchAnimation(anim)
+    if not anim or not anim.AnimationId then return false end
+    return tostring(anim.AnimationId):find(ANIM_ID, 1, true) ~= nil
+end
+
+---------------------------------------------------------------------
+-- Core del tilt / pitch dinámico
+---------------------------------------------------------------------
+local function attachTiltToCharacter(character)
+    if not character then return end
+
+    local humanoid = character:WaitForChild("Humanoid", 5)
+    if not humanoid then return end
+
+    local animator = humanoid:WaitForChild("Animator", 5)
+    if not animator then return end
+
+    local active = {}
+
+    animator.AnimationPlayed:Connect(function(track)
+        if not isMatchAnimation(track.Animation) then return end
+        if active[track] then return end
+        active[track] = true
+
+        local hrp = character:WaitForChild("HumanoidRootPart", 3)
+        if not hrp then
+            active[track] = nil
+            return
+        end
+
+        local conn
+        conn = RunService.RenderStepped:Connect(function()
+            if not _G.TiltEnabled then
+                if conn then conn:Disconnect() end
+                active[track] = nil
+                return
+            end
+
+            if not hrp or not hrp.Parent then
+                if conn then conn:Disconnect() end
+                active[track] = nil
+                return
+            end
+
+            -------------------------------------------------
+            -- Leer sliders
+            -------------------------------------------------
+            local pitch = math.rad(_G.TiltPitch)
+            local forward = _G.TiltForward
+            local up = _G.TiltUp
+
+            -------------------------------------------------
+            -- Dirección horizontal sin cambiar yaw
+            -------------------------------------------------
+            local lv = hrp.CFrame.LookVector
+            local flat = Vector3.new(lv.X, 0, lv.Z)
+            if flat.Magnitude == 0 then
+                flat = Vector3.new(0, 0, -1)
+            else
+                flat = flat.Unit
+            end
+
+            -------------------------------------------------
+            -- Crear CFrame suave
+            -------------------------------------------------
+            local pos = hrp.Position + flat * forward + Vector3.new(0, up, 0)
+            local base = CFrame.new(pos, pos + flat)
+            local final = base * CFrame.Angles(pitch, 0, 0)
+
+            -------------------------------------------------
+            -- Aplicar
+            -------------------------------------------------
+            hrp.CFrame = final
+        end)
+
+        -- Cuando la animación termina, dejar de forzar el tilt
+        track.Stopped:Connect(function()
+            if conn then conn:Disconnect() end
+            active[track] = nil
+        end)
+    end)
+end
+
+---------------------------------------------------------------------
+-- Detectar respawn y reiniciar sistema
+---------------------------------------------------------------------
+local function setupCharacter(char)
+    task.wait(0.2)
+    attachTiltToCharacter(char)
+end
+
+if player.Character then
+    setupCharacter(player.Character)
+end
+
+player.CharacterAdded:Connect(setupCharacter)
+
+Tabs.Sk8T:Toggle({
+    Title = "Veeronica Better Bumper",
+    Default = false,
+    Callback = function(state)
+        _G.TiltEnabled = state
+    end
+})
+
+Tabs.Sk8T:Slider({
+    Title = "Pitch",
+    Step = 1,
+    Value = {Min = -45, Max = 100, Default = 40},
+    Suffix = "°",
+    Callback = function(val)
+        _G.TiltPitch = val
+    end
+})
+
+Tabs.Sk8T:Slider({
+    Title = "Forward Offset",
+    Step = 0.01,
+    Value = {Min = 0, Max = 0.4, Default = 0.06},
+    Suffix = " studs",
+    Callback = function(val)
+        _G.TiltForward = val
+    end
+})
+
+Tabs.Sk8T:Slider({
+    Title = "Up Offset",
+    Step = 0.01,
+    Value = {Min = 0, Max = 0.4, Default = 0.08},
+    Suffix = " studs",
+    Callback = function(val)
+        _G.TiltUp = val
     end
 })
 
@@ -3252,155 +3401,6 @@ Tabs.Hitbox:Slider({
     Suffix = " studs",
     Callback = function(val)
         _G.AimPredict = val
-    end
-})
-
-_G.TiltEnabled = _G.TiltEnabled or false
-_G.TiltPitch = _G.TiltPitch or 40
-_G.TiltForward = _G.TiltForward or 0.06
-_G.TiltUp = _G.TiltUp or 0.08
-
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local player = Players.LocalPlayer
-
-local ANIM_ID = "117058860640843" -- anim a detectar
-
----------------------------------------------------------------------
--- Detectar animación
----------------------------------------------------------------------
-local function isMatchAnimation(anim)
-    if not anim or not anim.AnimationId then return false end
-    return tostring(anim.AnimationId):find(ANIM_ID, 1, true) ~= nil
-end
-
----------------------------------------------------------------------
--- Core del tilt / pitch dinámico
----------------------------------------------------------------------
-local function attachTiltToCharacter(character)
-    if not character then return end
-
-    local humanoid = character:WaitForChild("Humanoid", 5)
-    if not humanoid then return end
-
-    local animator = humanoid:WaitForChild("Animator", 5)
-    if not animator then return end
-
-    local active = {}
-
-    animator.AnimationPlayed:Connect(function(track)
-        if not isMatchAnimation(track.Animation) then return end
-        if active[track] then return end
-        active[track] = true
-
-        local hrp = character:WaitForChild("HumanoidRootPart", 3)
-        if not hrp then
-            active[track] = nil
-            return
-        end
-
-        local conn
-        conn = RunService.RenderStepped:Connect(function()
-            if not _G.TiltEnabled then
-                if conn then conn:Disconnect() end
-                active[track] = nil
-                return
-            end
-
-            if not hrp or not hrp.Parent then
-                if conn then conn:Disconnect() end
-                active[track] = nil
-                return
-            end
-
-            -------------------------------------------------
-            -- Leer sliders
-            -------------------------------------------------
-            local pitch = math.rad(_G.TiltPitch)
-            local forward = _G.TiltForward
-            local up = _G.TiltUp
-
-            -------------------------------------------------
-            -- Dirección horizontal sin cambiar yaw
-            -------------------------------------------------
-            local lv = hrp.CFrame.LookVector
-            local flat = Vector3.new(lv.X, 0, lv.Z)
-            if flat.Magnitude == 0 then
-                flat = Vector3.new(0, 0, -1)
-            else
-                flat = flat.Unit
-            end
-
-            -------------------------------------------------
-            -- Crear CFrame suave
-            -------------------------------------------------
-            local pos = hrp.Position + flat * forward + Vector3.new(0, up, 0)
-            local base = CFrame.new(pos, pos + flat)
-            local final = base * CFrame.Angles(pitch, 0, 0)
-
-            -------------------------------------------------
-            -- Aplicar
-            -------------------------------------------------
-            hrp.CFrame = final
-        end)
-
-        -- Cuando la animación termina, dejar de forzar el tilt
-        track.Stopped:Connect(function()
-            if conn then conn:Disconnect() end
-            active[track] = nil
-        end)
-    end)
-end
-
----------------------------------------------------------------------
--- Detectar respawn y reiniciar sistema
----------------------------------------------------------------------
-local function setupCharacter(char)
-    task.wait(0.2)
-    attachTiltToCharacter(char)
-end
-
-if player.Character then
-    setupCharacter(player.Character)
-end
-
-player.CharacterAdded:Connect(setupCharacter)
-
-Tabs.Hitbox:Toggle({
-    Title = "Veeronica Better Bumper",
-    Default = false,
-    Callback = function(state)
-        _G.TiltEnabled = state
-    end
-})
-
-Tabs.Hitbox:Slider({
-    Title = "Pitch",
-    Step = 1,
-    Value = {Min = -45, Max = 45, Default = 40},
-    Suffix = "°",
-    Callback = function(val)
-        _G.TiltPitch = val
-    end
-})
-
-Tabs.Hitbox:Slider({
-    Title = "Forward Offset",
-    Step = 0.01,
-    Value = {Min = 0, Max = 0.4, Default = 0.06},
-    Suffix = " studs",
-    Callback = function(val)
-        _G.TiltForward = val
-    end
-})
-
-Tabs.Hitbox:Slider({
-    Title = "Up Offset",
-    Step = 0.01,
-    Value = {Min = 0, Max = 0.4, Default = 0.08},
-    Suffix = " studs",
-    Callback = function(val)
-        _G.TiltUp = val
     end
 })
 
