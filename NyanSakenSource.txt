@@ -3238,7 +3238,7 @@ startAimbot()
 -- UI
 ---------------------------------------------------------
 Tabs.Hitbox:Toggle({
-    Title = "Aimbot",
+    Title = "Aimbot (Any/Most characters)",
     Default = false,
     Callback = function(state)
         _G.AimbotEnabled = state
@@ -3247,7 +3247,7 @@ Tabs.Hitbox:Toggle({
 
 Tabs.Hitbox:Slider({
     Title = "Predict",
-    Step = 0.5,
+    Step = 0.1,
     Value = {Min = 0, Max = 10, Default = 0},
     Suffix = " studs",
     Callback = function(val)
