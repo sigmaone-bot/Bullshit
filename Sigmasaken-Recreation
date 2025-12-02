@@ -1,9 +1,9 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "Sigmasaken RE-Made",
+   Name = "Sigmasaken RE-Made by FaZ",
    Icon = 0, -- Icon in Topbar. Can use Lucide Icons (string) or Roblox Image (number). 0 to use no icon (default).
-   LoadingTitle = "Made By: FaZ",
+   LoadingTitle = "Sigmasaken RE-Made",
    LoadingSubtitle = "Version: 1",
    Theme = "Default", -- Check https://docs.sirius.menu/rayfield/configuration/themes
 
