@@ -1550,7 +1550,7 @@ Tabs.Sk8T:Toggle({
 Tabs.Sk8T:Slider({
     Title = "Pitch",
     Step = 1,
-    Value = {Min = -45, Max = 40, Default = 40},
+    Value = {Min = -45, Max = 50, Default = 40},
     Suffix = "°",
     Callback = function(val)
         _G.TiltPitch = val
@@ -1570,7 +1570,7 @@ Tabs.Sk8T:Slider({
 Tabs.Sk8T:Slider({
     Title = "Up Offset",
     Step = 0.01,
-    Value = {Min = 0, Max = 0.4, Default = 0.08},
+    Value = {Min = 0, Max = 18, Default = 0.08},
     Suffix = " studs",
     Callback = function(val)
         _G.TiltUp = val
