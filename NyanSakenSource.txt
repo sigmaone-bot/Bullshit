@@ -1239,7 +1239,7 @@ end
 
 -- Reconexión automática al respawn
 LocalPlayer.CharacterAdded:Connect(function()
-    task.wait(0.2)
+    task.wait()
     if AntiSlowEnabled then
         EnableAntiSlow()
     end
@@ -1550,7 +1550,7 @@ Tabs.Sk8T:Toggle({
 Tabs.Sk8T:Slider({
     Title = "Pitch",
     Step = 1,
-    Value = {Min = -45, Max = 100, Default = 40},
+    Value = {Min = -45, Max = 40, Default = 40},
     Suffix = "°",
     Callback = function(val)
         _G.TiltPitch = val
@@ -3546,41 +3546,4 @@ Tabs.Generator:Button({
         task.spawn(TpDoGenerator)
         WindUI:Notify({ Title = "Auto Fix", Content = "Starting to fix all generators!", Duration = 3 })
     end,
-})
-
-Tabs.Credits:Divider()
-
-Tabs.Credits:Button({
-    Title = "JOIN DISCORD SERVER RINGTA",
-    Description = "Click To Copy The Discord Server Link For RINGTA",
-    Callback = function()
-        setclipboard("https://discord.gg/ringta")
-        WindUI:Notify({
-            Title = "Copied!",
-            Content = "Discord invite copied to clipboard.",
-            Duration = 3,
-        })
-    end,
-})
-
-Tabs.Credits:Button({
-    Title = "JOIN DISCORD SERVER BUBLIK6241",
-    Description = "Click To Copy The Discord Server Link For BUBLIK6241",
-    Callback = function()
-        setclipboard("https://discord.gg/GMaZPHpn6g")
-        WindUI:Notify({
-            Title = "Copied!",
-            Content = "Discord invite copied to clipboard.",
-            Duration = 3,
-        })
-    end,
-})
-
-Tabs.Credits:Divider()
-
-Tabs.Credits:Paragraph({
-    Title = "PLEASE JOIN BOTH DISCORD SERVER",
-    Desc = "JOIN BOTH RINGTA AND BUBLIK6241 DISCORD SERVERS. THEY DO HUGE EVENTS AND YOU GET EARLY ACCESS TO SCRIPTS & COMMUNITY. IT WILL HELP US BOTH AS THE KEY IS KEYLESS AND WE GET TO HEAR SUGGESTIONS AND REPORTS ABOUT SCRIPTS AND THEY ALSO MADE THIS SCRIPT",
-    Color = "Green",
-    Locked = false,
 })
