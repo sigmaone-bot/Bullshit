@@ -7,6 +7,7 @@ local CoreGui = game:GetService("CoreGui")
 local Players = game.Players
 local LocalPlayer = Players.LocalPlayer
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local sk8module = require(game:GetService("ReplicatedStorage").Assets.Survivors.Veeronica.Config)
 
 -- Rayfield (UI) loader (mantén tu URL)
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
@@ -732,7 +733,7 @@ end)
 ---------------------------------------------------------------------
 -- TAB
 ---------------------------------------------------------------------
-local StaminaTab = Window:CreateTab("Stamina Settings", swords)
+local StaminaTab = Window:CreateTab("Stamina Settings", arrow-big-right-dash)
 
 ---------------------------------------------------------------------
 -- VARIABLES
@@ -1039,10 +1040,88 @@ Misc:CreateButton({
     end
 })
 
+Misc:CreateSection("Sk8 stuff")
+Misc:CreateLabel("Sk8 turn speed, trick power, and base speed should be applied before round begins!", 4483362458, Color3.fromRGB(255,100,100), false)
 
-local Remote = game:GetService("ReplicatedStorage").Modules.Network.RemoteEvent
+Misc:CreateSlider({
+   Name = "Trick Power",
+   Range = {0, 1},
+   Increment = 0.05,
+   CurrentValue = 0.53,
+   Callback = function(val)
+        sk8module.Sk8TrickJump = val
+   end,
+})
 
--- Р“Р»РѕР±Р°Р»СЊРЅС‹Рµ РїРµСЂРµРјРµРЅРЅС‹Рµ
+Misc:CreateSlider({
+   Name = "Base Speed",
+   Range = {0, 2},
+   Increment = 1,
+   CurrentValue = 1.2,
+   Callback = function(val)
+        sk8module.Sk8Speed = val
+   end,
+})
+
+Misc:CreateSlider({
+   Name = "Turn Speed",
+   Range = {0, 15},
+   Increment = 1,
+   CurrentValue = 2.5,
+   Callback = function(val)
+        sk8module.Sk8TurnControl = val
+   end,
+})
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local player = Players.LocalPlayer
+local Remote = ReplicatedStorage.Modules.Network.RemoteEvent
+
+local interval = 0.5 -- segundos entre cada envío
+local running = false
+
+local function Sk8FarmStart()
+	running = true
+	task.spawn(function()
+		while running do
+			local args = {
+				[1] = player.Name .. "SkateTrick",
+				[2] = {}
+			}
+			Remote:FireServer(unpack(args))
+			task.wait(interval)
+		end
+	end)
+end
+
+local function Sk8FarmStop()
+	running = false
+end
+
+Misc:CreateToggle({
+	Name = "Sk8 Farm",
+	CurrentValue = false,
+	Callback = function(state)
+		if state then
+			Sk8FarmStart()
+		else
+			Sk8FarmStop()
+		end
+	end
+})
+
+Misc:CreateSlider({
+   Name = "Sk8 farm speed",
+   Range = {0, 5},
+   Increment = 0.1,
+   CurrentValue = 5,
+   Suffix = "Sec (s)",
+   Callback = function(val)
+        interval = val
+   end,
+})
+
 getgenv()._oldFireServer = getgenv()._oldFireServer or nil
 getgenv()._VoidRushBypass = getgenv()._VoidRushBypass or false -- toggle СЃРѕСЃС‚РѕСЏРЅРёРµ
 
@@ -1072,4 +1151,157 @@ Misc:CreateToggle({
     Callback = function(state)
         getgenv()._VoidRushBypass = state
     end
+})
+
+local Combat = Window:CreateTab("Combat", swords)
+Combat:CreateSection("Sk8 Bumper")
+--Combat:CreateLabel("Sk8 turn speed, trick power, and Sk8 base speed should be applied before round begins!", 4483362458, Color3.fromRGB(255,100,100), false)
+
+_G.TiltEnabled = _G.TiltEnabled or false
+_G.TiltPitch = _G.TiltPitch or 40
+_G.TiltForward = _G.TiltForward or 0.06
+_G.TiltUp = _G.TiltUp or 0.08
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local player = Players.LocalPlayer
+
+local ANIM_ID = "117058860640843" -- anim a detectar
+
+---------------------------------------------------------------------
+-- Detectar animación
+---------------------------------------------------------------------
+local function isMatchAnimation(anim)
+    if not anim or not anim.AnimationId then return false end
+    return tostring(anim.AnimationId):find(ANIM_ID, 1, true) ~= nil
+end
+
+---------------------------------------------------------------------
+-- Core del tilt / pitch dinámico
+---------------------------------------------------------------------
+local function attachTiltToCharacter(character)
+    if not character then return end
+
+    local humanoid = character:WaitForChild("Humanoid", 5)
+    if not humanoid then return end
+
+    local animator = humanoid:WaitForChild("Animator", 5)
+    if not animator then return end
+
+    local active = {}
+
+    animator.AnimationPlayed:Connect(function(track)
+        if not isMatchAnimation(track.Animation) then return end
+        if active[track] then return end
+        active[track] = true
+
+        local hrp = character:WaitForChild("HumanoidRootPart", 3)
+        if not hrp then
+            active[track] = nil
+            return
+        end
+
+        local conn
+        conn = RunService.RenderStepped:Connect(function()
+            if not _G.TiltEnabled then
+                if conn then conn:Disconnect() end
+                active[track] = nil
+                return
+            end
+
+            if not hrp or not hrp.Parent then
+                if conn then conn:Disconnect() end
+                active[track] = nil
+                return
+            end
+
+            -------------------------------------------------
+            -- Leer sliders
+            -------------------------------------------------
+            local pitch = math.rad(_G.TiltPitch)
+            local forward = _G.TiltForward
+            local up = _G.TiltUp
+
+            -------------------------------------------------
+            -- Dirección horizontal sin cambiar yaw
+            -------------------------------------------------
+            local lv = hrp.CFrame.LookVector
+            local flat = Vector3.new(lv.X, 0, lv.Z)
+            if flat.Magnitude == 0 then
+                flat = Vector3.new(0, 0, -1)
+            else
+                flat = flat.Unit
+            end
+
+            -------------------------------------------------
+            -- Crear CFrame suave
+            -------------------------------------------------
+            local pos = hrp.Position + flat * forward + Vector3.new(0, up, 0)
+            local base = CFrame.new(pos, pos + flat)
+            local final = base * CFrame.Angles(pitch, 0, 0)
+
+            -------------------------------------------------
+            -- Aplicar
+            -------------------------------------------------
+            hrp.CFrame = final
+        end)
+
+        -- Cuando la animación termina, dejar de forzar el tilt
+        track.Stopped:Connect(function()
+            if conn then conn:Disconnect() end
+            active[track] = nil
+        end)
+    end)
+end
+
+---------------------------------------------------------------------
+-- Detectar respawn y reiniciar sistema
+---------------------------------------------------------------------
+local function setupCharacter(char)
+    task.wait(0.2)
+    attachTiltToCharacter(char)
+end
+
+if player.Character then
+    setupCharacter(player.Character)
+end
+
+player.CharacterAdded:Connect(setupCharacter)
+
+Combat:CreateToggle({
+    Name = "Veeronica Better Bumper",
+    CurrentValue = false,
+    Callback = function(state)
+        _G.TiltEnabled = state
+    end
+})
+
+Combat:CreateSlider({
+   Name = "Pitch",
+   Range = {-45, 40},
+   Increment = 1,
+   CurrentValue = 40,
+   Callback = function(val)
+        _G.TiltPitch = val
+   end,
+})
+
+Combat:CreateSlider({
+   Name = "Forward Offset",
+   Range = {0, 0.1},
+   Increment = 0.01,
+   CurrentValue = 0.06,
+   Callback = function(val)
+        _G.TiltForward = val
+   end,
+})
+
+Combat:CreateSlider({
+   Name = "Up Offset",
+   Range = {0, 2},
+   Increment = 0.01,
+   CurrentValue = 0.08,
+   Callback = function(val)
+        _G.TiltPitch = val
+   end,
 })
