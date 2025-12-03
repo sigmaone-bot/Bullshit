@@ -4,6 +4,7 @@
 -- Servicios
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
+local LocalPlayer ° game.Players.LocalPlayer
 
 -- Rayfield (UI) loader (mantén tu URL)
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
@@ -776,28 +777,6 @@ end
 -- UI ELEMENTS
 ---------------------------------------------------------------------
 
--- Toggle: disable stamina loss
-StaminaTab:CreateToggle({
-    Name = "Disable Stamina Loss",
-    CurrentValue = false,
-    Flag = "DisableLoss",
-    Callback = function(v)
-        disableLoss = v
-        applyStaminaSettings()
-    end
-})
-
--- Toggle: injectar
-StaminaTab:CreateToggle({
-    Name = "Injectar Stamina Settings",
-    CurrentValue = false,
-    Flag = "InjectStamina",
-    Callback = function(v)
-        injectEnabled = v
-        applyStaminaSettings()
-    end
-})
-
 ---------------------------------------------------------------------
 -- INPUTS
 ---------------------------------------------------------------------
@@ -821,8 +800,8 @@ createInput("Stamina Loss", "StaminaLoss")
 createInput("Stamina Gain", "StaminaGain")
 createInput("Min Stamina", "MinStamina")
 createInput("Max Stamina", "MaxStamina")
-createInput("Stamina Actual", "Stamina")
-createInput("Stamina Speed", "StaminaSpeed")
+createInput("Current Stamina", "Stamina")
+createInput("SprintSpeed", "SprintSpeed")
 
 ---------------------------------------------------------------------
 -- AUTO APLICAR AL SPAWN
@@ -836,3 +815,24 @@ RunService.RenderStepped:Connect(function()
     applyStaminaSettings()
 end)
 
+-- Toggle: disable stamina loss
+StaminaTab:CreateToggle({
+    Name = "Disable Stamina Loss",
+    CurrentValue = false,
+    Flag = "DisableLoss",
+    Callback = function(v)
+        disableLoss = v
+        applyStaminaSettings()
+    end
+})
+
+-- Toggle: injectar
+StaminaTab:CreateToggle({
+    Name = "Inject Stamina Settings",
+    CurrentValue = false,
+    Flag = "InjectStamina",
+    Callback = function(v)
+        injectEnabled = v
+        applyStaminaSettings()
+    end
+})
