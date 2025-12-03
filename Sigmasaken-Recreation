@@ -726,11 +726,6 @@ task.spawn(function()
     if espConfig.enabled then updateESP() end
 end)
 
--- Limpiar al cerrar la sesión
-game:BindToClose(function()
-    cleanupESP()
-end)
-
 --// Dependencies
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
