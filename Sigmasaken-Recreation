@@ -734,7 +734,7 @@ end)
 -- TAB
 ---------------------------------------------------------------------
 local StaminaTab = Window:CreateTab("Stamina Settings", "arrow-big-right-dash")
-
+local sprintingModule = require(game:GetService("ReplicatedStorage").Systems.Character.Game.Sprinting)
 ---------------------------------------------------------------------
 -- VARIABLES
 ---------------------------------------------------------------------
@@ -742,13 +742,13 @@ local injectEnabled = true
 local disableLoss = false
 
 local staminaValues = {
-    StaminaLoss = 10,
-    StaminaGain = 20,
-    MinStamina = 0,
-    MaxStamina = 100,
-    SprintSpeed = 26,
-    KillerSprintSpeed = 28,
-    KillerMaxStamina = 110
+    StaminaLoss = sprintingModule.StaminaLoss,
+    StaminaGain = sprintingModule.StaminaGain,
+    MinStamina = sprintingModule.MinStamina,
+    MaxStamina = sprintingModule.MaxStamina,
+    SprintSpeed = sprintingModule.SprintSpeed,
+    KillerSprintSpeed = sprintingModule.KillerSprintSpeed,
+    KillerMaxStamina = sprintingModule.KillerMaxStamina
 }
 
 ---------------------------------------------------------------------
@@ -757,18 +757,10 @@ local staminaValues = {
 local function applyStaminaSettings()
     if not injectEnabled then return end
 
-    local sprintingModule = require(game:GetService("ReplicatedStorage").Systems.Character.Game.Sprinting)
 
     if not sprintingModule.DefaultsSet then
         sprintingModule.Init()
     end
-
-    sprintingModule.StaminaLoss = staminaValues.StaminaLoss
-    sprintingModule.StaminaGain = staminaValues.StaminaGain
-    sprintingModule.MinStamina = staminaValues.MinStamina
-    sprintingModule.MaxStamina = staminaValues.MaxStamina
-    sprintingModule.Stamina = staminaValues.Stamina
-    sprintingModule.StaminaSpeed = staminaValues.StaminaSpeed
 
     sprintingModule.StaminaLossDisabled = disableLoss
 
