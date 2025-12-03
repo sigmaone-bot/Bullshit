@@ -1065,7 +1065,7 @@ if not getgenv()._oldFireServer then
 end
 
 -- Р”РѕР±Р°РІР»СЏРµРј Toggle РІ GUI
-Misc:Toggle({
+Misc:CreateToggle({
     Name = "VoidRush No-Crash",
     CurrentValue = false,
     Callback = function(state)
