@@ -823,18 +823,13 @@ createInput("Killer Max Stamina", "KillerMaxStamina")
 -- Toggle: disable stamina loss
 local lp = Players.LocalPlayer
 
---[[Loop principal seguro (solo 1 loop)
-task.spawn(function()
-    while true do
-        task.wait(1) -- cada 1 segundo
-
-        -- Si el character existe, aplicar stamina
-        if lp.Character then
-            applyStaminaSettings()
-        end
-    end
+lp.CharacterAdded:Connect(function()
+    task.wait()
+    applyStaminaSettings()
 end)
-]]
+
+RunService.RenderStepped:Wait()
+applyStaminaSettings()
 
 local Misc = Window:CreateTab("Misc", "plus")
 
