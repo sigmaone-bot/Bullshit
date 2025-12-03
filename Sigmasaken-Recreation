@@ -732,7 +732,7 @@ end)
 ---------------------------------------------------------------------
 -- TAB
 ---------------------------------------------------------------------
-local StaminaTab = Window:CreateTab("Stamina Settings", 4483362455)
+local StaminaTab = Window:CreateTab("Stamina Settings", swords)
 
 ---------------------------------------------------------------------
 -- VARIABLES
@@ -844,7 +844,7 @@ task.spawn(function()
 end)
 
 
-local Misc = Window:CreateTab("Misc", 4483362455)
+local Misc = Window:CreateTab("Misc", diamond-plus)
 
 Misc:CreateSection("Pop-ups")
 
