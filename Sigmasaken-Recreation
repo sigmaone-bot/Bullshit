@@ -4,7 +4,9 @@
 -- Servicios
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
-local LocalPlayer = game.Players.LocalPlayer
+local Players = game.Players
+local LocalPlayer = Players.LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Rayfield (UI) loader (mantén tu URL)
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
@@ -217,7 +219,7 @@ local function findShadowParts()
         for _, obj in ipairs(workspace:GetDescendants()) do
             if obj:IsA("BasePart") then
                 local lname = obj.Name:lower()
-                if lname:find("shadow") then
+                if lname:find("Shadow") then
                     table.insert(parts, obj)
                 end
             end
@@ -818,7 +820,7 @@ StaminaTab:CreateToggle({
 StaminaTab:CreateSection("Killer stamina settings")
 
 createInput("Killer Sprint Speed", "KillerSprintSpeed")
-createInput("Killer Max Stamina", "KillerMaxStamima")
+createInput("Killer Max Stamina", "KillerMaxStamina")
 
 
 ---------------------------------------------------------------------
@@ -826,16 +828,237 @@ createInput("Killer Max Stamina", "KillerMaxStamima")
 ---------------------------------------------------------------------
 
 -- Toggle: disable stamina loss
-LocalPlayer.CharacterAdded:Connect(function()
+local lp = Players.LocalPlayer
+
+-- Loop principal seguro (solo 1 loop)
+task.spawn(function()
     while true do
-    task.wait()
-    applyStaminaSettings()
+        task.wait(1) -- cada 1 segundo
+
+        -- Si el character existe, aplicar stamina
+        if lp.Character then
+            applyStaminaSettings()
+        end
     end
 end)
 
---[[task.spawn(function()
-    while true do
-        autoApplyStaminaSettings()
-        task.wait()
+
+local Misc = Window:CreateTab("Misc", 4483362455)
+
+Misc:CreateSection("Pop-ups")
+
+local autoQTE = false
+
+Misc:CreateToggle({
+    Name = "Auto Nosf Minigame",
+    CurrentValue = false,
+    Flag = "AutoQTE",
+    Callback = function(v)
+        autoQTE = v
     end
-end)]]
+})
+
+-- Loop seguro
+task.spawn(function()
+    while task.wait() do
+        if not autoQTE then
+            continue
+        end
+
+        -- Obtener el botón sin error
+        local pg = game.Players.LocalPlayer:FindFirstChild("PlayerGui")
+        if not pg then continue end
+
+        local temp = pg:FindFirstChild("TemporaryUI")
+        if not temp then continue end
+
+        local qte = temp:FindFirstChild("QTE")
+        if not qte then continue end
+
+        local button = qte:FindFirstChild("ActiveButton")
+        if not button then continue end
+
+        -- Ejecutar conexiones
+        for _, conn in ipairs(getconnections(button.MouseButton1Down)) do
+            if conn.Function then
+                conn.Function()
+            end
+        end
+    end
+end)
+
+Misc:CreateSection("Antis")
+
+if not game:IsLoaded() then game.Loaded:Wait() end
+
+getgenv().AntiBanEnabled = false
+
+local function ApplyProtection()
+    -- Hook Kick / Ban
+    local mt = getrawmetatable(game)
+    setreadonly(mt, false)
+    local old = mt.__namecall
+    mt.__namecall = newcclosure(function(self, ...)
+        local m = getnamecallmethod()
+        if m == "Kick" or m == "kick" or tostring(self):lower():find("ban") then
+            return
+        end
+        return old(self, ...)
+    end)
+    setreadonly(mt, true)
+
+    -- Hook suspicious remotes
+    for _, n in ipairs({"BanRemote", "KickRemote", "LogRemote", "ExploitRemote"}) do
+        local r = ReplicatedStorage:FindFirstChild(n, true)
+        if r then
+            if r:IsA("RemoteEvent") then
+                hookfunction(r.FireServer, function() end)
+            elseif r:IsA("RemoteFunction") then
+                hookfunction(r.InvokeServer, function() end)
+            end
+        end
+    end
+end
+
+-- Auto-check cada 5 segundos
+task.spawn(function()
+    while task.wait() do
+        if AntiBanEnabled then
+            for _, n in ipairs({"BanRemote", "KickRemote"}) do
+                if not ReplicatedStorage:FindFirstChild(n, true) then
+                    ApplyProtection()
+                end
+            end
+        end
+    end
+end)
+
+Misc:CreateButton({
+   Name = "Anti Kick (fly and noclip dont really work)",
+   Callback = function()
+    AntiBanEnabled = true
+ApplyProtection()
+   end,
+})
+
+-- Valores permitidos (NO se tocan)
+local Allowed = {
+    DirectionalMovement = true,
+    NosFlying = true,
+    NosFlySlow = true,
+    NosCataclysm = true,
+    VoidRushDash = true,
+    SpeedStatus = true,
+    Sprinting = true,
+    Sk8Trick = true,
+    ManicFixation = true,
+    Sk8 = true
+}
+
+local AntiSlowEnabled = false
+local AntiSlowConnection = nil
+
+-- Función que forza los speed multipliers
+local function AntiSlowLoop()
+    local character = LocalPlayer.Character
+    if not character then return end
+
+    local speedMultipliers = character:FindFirstChild("SpeedMultipliers")
+    if not speedMultipliers then return end
+
+    for _, obj in ipairs(speedMultipliers:GetChildren()) do
+        if obj:IsA("NumberValue") then
+            -- Sólo se salvan los permitidos
+            if not Allowed[obj.Name] then
+                --[[if obj.Value ~= 1 then
+                    obj.Value = 1
+                end]]
+                obj:Destroy()
+            end
+        end
+    end
+end
+
+-- Encender Anti Slow
+local function EnableAntiSlow()
+    if AntiSlowConnection then AntiSlowConnection:Disconnect() end
+    AntiSlowEnabled = true
+
+    AntiSlowConnection = RunService.RenderStepped:Connect(function()
+        if AntiSlowEnabled then
+            AntiSlowLoop()
+        end
+    end)
+end
+
+-- Apagar Anti Slow
+local function DisableAntiSlow()
+    AntiSlowEnabled = false
+    if AntiSlowConnection then
+        AntiSlowConnection:Disconnect()
+        AntiSlowConnection = nil
+    end
+end
+
+-- Reconexión automática al respawn
+LocalPlayer.CharacterAdded:Connect(function()
+    task.wait()
+    if AntiSlowEnabled then
+        EnableAntiSlow()
+    end
+end)
+
+Misc:CreateToggle({
+    Name = "Anti Stun",
+    CurrentValue = false,
+    Callback = function(state)
+        if state then
+            EnableAntiSlow()
+        else
+            DisableAntiSlow()
+        end
+    end
+})
+
+Misc:CreateButton({
+   Name = "Dusekkar anti-wall break",
+   Callback = function()
+     local ok, err = pcall(function()
+                local util = require(game:GetService("ReplicatedStorage").Modules.Util)
+                hookfunction(util.IsOnScreen, function(...)
+    end,
+})
+
+local Remote = game:GetService("ReplicatedStorage").Modules.Network.RemoteEvent
+
+-- Р“Р»РѕР±Р°Р»СЊРЅС‹Рµ РїРµСЂРµРјРµРЅРЅС‹Рµ
+getgenv()._oldFireServer = getgenv()._oldFireServer or nil
+getgenv()._VoidRushBypass = getgenv()._VoidRushBypass or false -- toggle СЃРѕСЃС‚РѕСЏРЅРёРµ
+
+-- РҐСѓРє СЃС‚Р°РІРёРј С‚РѕР»СЊРєРѕ РѕРґРёРЅ СЂР°Р·
+if not getgenv()._oldFireServer then
+    local old
+    old = hookmetamethod(game, "__namecall", function(self, ...)
+        local method = getnamecallmethod()
+        local args = {...}
+        if self == Remote and method == "FireServer" then
+            if args[1] == LocalPlayer.Name .. "VoidRushCollision" then
+                if getgenv()._VoidRushBypass then
+                    return -- Р±Р»РѕРєРёСЂСѓРµРј С‚РѕР»СЊРєРѕ РµСЃР»Рё toggle РІРєР»СЋС‡С‘РЅ
+                end
+            end
+        end
+        return old(self, ...)
+    end)
+
+    getgenv()._oldFireServer = old
+end
+
+-- Р”РѕР±Р°РІР»СЏРµРј Toggle РІ GUI
+Misc:Toggle({
+    Name = "VoidRush No-Crash",
+    CurrentValue = false,
+    Callback = function(state)
+        getgenv()._VoidRushBypass = state
+    end
+})
