@@ -4,7 +4,7 @@
 -- Servicios
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
-local LocalPlayer ° game.Players.LocalPlayer
+local LocalPlayer = game.Players.LocalPlayer
 
 -- Rayfield (UI) loader (mantén tu URL)
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
@@ -743,8 +743,9 @@ local staminaValues = {
     StaminaGain = 20,
     MinStamina = 0,
     MaxStamina = 100,
-    Stamina = 100,
-    StaminaSpeed = 26
+    SprintSpeed = 26,
+    KillerSprintSpeed = 28,
+    KillerMaxStamina = 110
 }
 
 ---------------------------------------------------------------------
@@ -796,26 +797,14 @@ local function createInput(label, key)
     })
 end
 
+StaminaTab:CreateSection("Survivor stamina settings")
+
 createInput("Stamina Loss", "StaminaLoss")
 createInput("Stamina Gain", "StaminaGain")
 createInput("Min Stamina", "MinStamina")
 createInput("Max Stamina", "MaxStamina")
-createInput("Current Stamina", "Stamina")
-createInput("SprintSpeed", "SprintSpeed")
+createInput("Sprint Speed", "SprintSpeed")
 
----------------------------------------------------------------------
--- AUTO APLICAR AL SPAWN
----------------------------------------------------------------------
-LocalPlayer.CharacterAdded:Connect(function()
-    task.wait(1)
-    applyStaminaSettings()
-end)
-
-RunService.RenderStepped:Connect(function()
-    applyStaminaSettings()
-end)
-
--- Toggle: disable stamina loss
 StaminaTab:CreateToggle({
     Name = "Disable Stamina Drain",
     CurrentValue = false,
@@ -826,15 +815,22 @@ StaminaTab:CreateToggle({
     end
 })
 
-Tab:CreateSection("Stamina Injector")
+StaminaTab:CreateSection("Killer stamina settings")
 
--- Toggle: injectar
-StaminaTab:CreateToggle({
-    Name = "Inject Stamina Settings",
-    CurrentValue = false,
-    Flag = "InjectStamina",
-    Callback = function(v)
-        injectEnabled = v
-        applyStaminaSettings()
-    end
-})
+createInput("Killer Sprint Speed", "KillerSprintSpeed")
+createInput("Killer Max Stamina", "KillerMaxStamima")
+
+
+---------------------------------------------------------------------
+-- AUTO APLICAR AL SPAWN
+---------------------------------------------------------------------
+
+-- Toggle: disable stamina loss
+LocalPlayer.CharacterAdded:Connect(function()
+    task.wait()
+    applyStaminaSettings()
+end)
+
+RunService.RenderStepped:Connect(function()
+    applyStaminaSettings()
+end)
