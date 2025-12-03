@@ -818,6 +818,7 @@ StaminaTab:CreateToggle({
 })
 
 StaminaTab:CreateSection("Killer stamina settings")
+StaminaTab:CreateLabel("Survivor Stam loss, gain and min stamina also applies here!", 4483362458, Color3.fromRGB(255,100,100), false)
 
 createInput("Killer Sprint Speed", "KillerSprintSpeed")
 createInput("Killer Max Stamina", "KillerMaxStamina")
