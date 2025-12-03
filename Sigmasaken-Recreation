@@ -827,10 +827,15 @@ createInput("Killer Max Stamina", "KillerMaxStamima")
 
 -- Toggle: disable stamina loss
 LocalPlayer.CharacterAdded:Connect(function()
+    while true do
     task.wait()
     applyStaminaSettings()
+    end
 end)
 
-RunService.RenderStepped:Connect(function()
-    applyStaminaSettings()
-end)
+--[[task.spawn(function()
+    while true do
+        autoApplyStaminaSettings()
+        task.wait()
+    end
+end)]]
