@@ -1,79 +1,503 @@
+-- ESP por modelo (único highlight + billboard por modelo)
+-- Script completo y optimizado
+
+-- Servicios
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+
+-- Rayfield (UI) loader (mantén tu URL)
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
+-- Tables / estados
+local espConfig = {
+    enabled = false,
+    billboardEnabled = false,
+    transparency = 0.5,
+    refillTransparency = 0.5,
+    minionEnabled = false,
+    ritualEnabled = false,
+    footprintEnabled = false,
+    colors = {}
+}
+
+local defaultColors = {
+    killer = { highlight = Color3.fromRGB(255,100,100), fill = Color3.fromRGB(255,200,200) },
+    survivor = { highlight = Color3.fromRGB(100,255,100), fill = Color3.fromRGB(200,255,200) },
+    fakeGenerator = { highlight = Color3.fromRGB(255,100,100), fill = Color3.fromRGB(255,150,150) },
+    generator = { highlight = Color3.fromRGB(100,150,255), fill = Color3.fromRGB(150,200,255) },
+    minion = { highlight = Color3.fromRGB(0,150,0), fill = Color3.fromRGB(50,200,50) },
+    shadow = { highlight = Color3.fromRGB(255,100,100), fill = Color3.fromRGB(255,150,150) },
+    ritual = { highlight = Color3.fromRGB(150,150,150), fill = Color3.fromRGB(255,255,255) }
+}
+
+espConfig.colors = table.clone(defaultColors)
+
+-- Storage para evitar duplicados y controlar objetos
+local modelHighlights = {}   -- [model] = Highlight
+local modelBillboards = {}   -- [model] = BillboardGui
+local processedModels = {}   -- [model] = true
+local espConnections = {}    -- guardamos conexiones para desconectar luego
+
+-- Limpieza
+local function cleanupESP()
+    for model, h in pairs(modelHighlights) do
+        if h and h.Parent then
+            pcall(function() h:Destroy() end)
+        end
+    end
+    modelHighlights = {}
+
+    for model, b in pairs(modelBillboards) do
+        if b and b.Parent then
+            pcall(function() b:Destroy() end)
+        end
+    end
+    modelBillboards = {}
+
+    for _, conn in pairs(espConnections) do
+        if conn and conn.Disconnect then
+            pcall(function() conn:Disconnect() end)
+        end
+    end
+    espConnections = {}
+
+    processedModels = {}
+end
+
+-- Helpers: consigue una parte válida para adornear (PrimaryPart preferida)
+local function getAdorneePartForModel(model)
+    if not model then return nil end
+    if model.PrimaryPart and model.PrimaryPart:IsA("BasePart") then
+        return model.PrimaryPart
+    end
+
+    -- Buscar una parte que sea BasePart
+    for _, c in ipairs(model:GetChildren()) do
+        if c:IsA("BasePart") then
+            return c
+        end
+    end
+
+    return nil
+end
+
+-- Aplica highlight y billboard a UN modelo (no partes)
+local function applyModelESP(model, colorConfig, objectType)
+    if not model or typeof(model) ~= "Instance" then return end
+    if processedModels[model] then
+        -- si ya fue procesado, aseguramos que el highlight/billboard existan y actualizamos valores
+        local existingHighlight = modelHighlights[model]
+        if existingHighlight and existingHighlight.Parent then
+            existingHighlight.FillTransparency = espConfig.refillTransparency
+            existingHighlight.OutlineTransparency = espConfig.transparency
+            existingHighlight.FillColor = colorConfig.fill
+            existingHighlight.OutlineColor = colorConfig.highlight
+        end
+
+        local existingBill = modelBillboards[model]
+        if existingBill and existingBill.Parent then
+            local label = existingBill:FindFirstChildWhichIsA("TextLabel", true)
+            if label then
+                label.Text = objectType
+                label.TextColor3 = colorConfig.highlight
+            end
+            existingBill.Enabled = espConfig.billboardEnabled
+        end
+
+        return
+    end
+
+    local adornPart = getAdorneePartForModel(model)
+    if not adornPart then
+        -- si no hay parte para adornear, marcamos como procesado para evitar reintentos continuos
+        processedModels[model] = true
+        return
+    end
+
+    -- Crear Highlight
+    local ok, highlight = pcall(function()
+        local h = Instance.new("Highlight")
+        h.Name = "ESP_Highlight_" .. (objectType or "Object")
+        h.Adornee = model -- Highlight acepta Model o BasePart
+        h.Parent = CoreGui
+        h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        h.FillTransparency = espConfig.refillTransparency
+        h.OutlineTransparency = espConfig.transparency
+        h.FillColor = colorConfig.fill
+        h.OutlineColor = colorConfig.highlight
+        return h
+    end)
+
+    if ok and highlight then
+        modelHighlights[model] = highlight
+    end
+
+    -- Crear Billboard por modelo (anclar al adornPart). Solo 1 por modelo.
+    if espConfig.billboardEnabled then
+        local success, billboard = pcall(function()
+            local b = Instance.new("BillboardGui")
+            b.Name = "ESP_Billboard_" .. (objectType or "Object") .. "_" .. tostring(model:GetDebugIdAsync()):gsub(":", "_")
+            b.Adornee = adornPart
+            b.Size = UDim2.new(0, 200, 0, 40)
+            b.StudsOffset = Vector3.new(0, 3, 0)
+            b.AlwaysOnTop = true
+            b.Parent = CoreGui
+            b.Enabled = true
+
+            local label = Instance.new("TextLabel")
+            label.Size = UDim2.new(1, 0, 1, 0)
+            label.BackgroundTransparency = 1
+            label.Text = objectType
+            label.TextColor3 = colorConfig.highlight
+            label.TextSize = 14
+            label.Font = Enum.Font.GothamBold
+            label.Parent = b
+
+            return b
+        end)
+
+        if success and billboard then
+            modelBillboards[model] = billboard
+        end
+    end
+
+    -- Marca como procesado
+    processedModels[model] = true
+end
+
+-- Buscadores (modelos o partes) - optimizados para map/players estándar
+local function findKillersAndSurvivors()
+    local killers = {}
+    local survivors = {}
+
+    local playersFolder = workspace:FindFirstChild("Players")
+    if playersFolder then
+        local killersFolder = playersFolder:FindFirstChild("Killers")
+        if killersFolder then
+            for _, k in ipairs(killersFolder:GetChildren()) do
+                if k:IsA("Model") then table.insert(killers, k) end
+            end
+        end
+
+        local survivorsFolder = playersFolder:FindFirstChild("Survivors")
+        if survivorsFolder then
+            for _, s in ipairs(survivorsFolder:GetChildren()) do
+                if s:IsA("Model") then table.insert(survivors, s) end
+            end
+        end
+    end
+
+    return killers, survivors
+end
+
+local function findGenerators()
+    local generators = {}
+    local fakeGenerators = {}
+    local map = workspace:FindFirstChild("Map")
+    if not map then return generators, fakeGenerators end
+    local ingame = map:FindFirstChild("Ingame")
+    if not ingame then return generators, fakeGenerators end
+
+    for _, obj in ipairs(ingame:GetChildren()) do
+        if obj.Name == "Generator" and obj:IsA("Model") then
+            table.insert(generators, obj)
+        elseif obj.Name == "FakeGenerator" and obj:IsA("Model") then
+            table.insert(fakeGenerators, obj)
+        end
+    end
+
+    return generators, fakeGenerators
+end
+
+local function findShadowParts()
+    local parts = {}
+    -- Buscamos BaseParts con "shadow" en su nombre. Limitamos profundidad iterando todo workspace (pcall para safety).
+    pcall(function()
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj:IsA("BasePart") then
+                local lname = obj.Name:lower()
+                if lname:find("shadow") then
+                    table.insert(parts, obj)
+                end
+            end
+        end
+    end)
+    return parts
+end
+
+local function findMinionModels()
+    local minions = {}
+    pcall(function()
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj:IsA("Model") then
+                local nameLower = obj.Name:lower()
+                if nameLower:find("minion") or nameLower:find("zombie") then
+                    table.insert(minions, obj)
+                end
+            end
+        end
+    end)
+    return minions
+end
+
+local function findRitualParts()
+    local rituals = {}
+    pcall(function()
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj:IsA("BasePart") and obj.Name:find("RespawnLocation") then
+                table.insert(rituals, obj)
+            end
+        end
+    end)
+    return rituals
+end
+
+-- Función principal de actualización
+local updating = false
+local function updateESP()
+    if updating then return end
+    updating = true
+
+    if not espConfig.enabled then
+        cleanupESP()
+        updating = false
+        return
+    end
+
+    -- Killers & Survivors
+    local killers, survivors = findKillersAndSurvivors()
+    for _, k in ipairs(killers) do
+        applyModelESP(k, espConfig.colors.killer, "Killer")
+    end
+    for _, s in ipairs(survivors) do
+        applyModelESP(s, espConfig.colors.survivor, "Survivor")
+    end
+
+    -- Generators
+    local gens, fakeGens = findGenerators()
+    for _, g in ipairs(gens) do
+        applyModelESP(g, espConfig.colors.generator, "Generator")
+        task.wait(0.001)
+    end
+    for _, fg in ipairs(fakeGens) do
+        applyModelESP(fg, espConfig.colors.fakeGenerator, "FakeGenerator")
+        task.wait(0.001)
+    end
+
+    -- Shadows (partes)
+    local shadowParts = findShadowParts()
+    for _, p in ipairs(shadowParts) do
+        -- Para partes individuales creamos un "model-like" temporary key (no queremos procesar parte como modelo)
+        -- Usaremos la propia parte como clave en modelHighlights/modelBillboards sólo si no existe ya
+        if not modelHighlights[p] then
+            local ok, highlight = pcall(function()
+                local h = Instance.new("Highlight")
+                h.Name = "ESP_Highlight_Shadow"
+                h.Adornee = p
+                h.Parent = CoreGui
+                h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                h.FillTransparency = espConfig.refillTransparency
+                h.OutlineTransparency = espConfig.transparency
+                h.FillColor = espConfig.colors.shadow.fill
+                h.OutlineColor = espConfig.colors.shadow.highlight
+                return h
+            end)
+            if ok and highlight then
+                modelHighlights[p] = highlight
+            end
+
+            if espConfig.billboardEnabled and not modelBillboards[p] then
+                local success, billboard = pcall(function()
+                    local b = Instance.new("BillboardGui")
+                    b.Name = "ESP_Billboard_Shadow_" .. tostring(p:GetDebugIdAsync()):gsub(":", "_")
+                    b.Adornee = p
+                    b.Size = UDim2.new(0, 200, 0, 40)
+                    b.StudsOffset = Vector3.new(0, 3, 0)
+                    b.AlwaysOnTop = true
+                    b.Parent = CoreGui
+                    b.Enabled = true
+
+                    local label = Instance.new("TextLabel")
+                    label.Size = UDim2.new(1,0,1,0)
+                    label.BackgroundTransparency = 1
+                    label.Text = "Shadow"
+                    label.TextColor3 = espConfig.colors.shadow.highlight
+                    label.TextSize = 14
+                    label.Font = Enum.Font.GothamBold
+                    label.Parent = b
+
+                    return b
+                end)
+                if success and billboard then
+                    modelBillboards[p] = billboard
+                end
+            end
+        end
+    end
+
+    -- Minions
+    if espConfig.minionEnabled then
+        local minions = findMinionModels()
+        for _, m in ipairs(minions) do
+            applyModelESP(m, espConfig.colors.minion, "Minion")
+            task.wait(0.002)
+        end
+    end
+
+    -- Rituals
+    if espConfig.ritualEnabled then
+        local rituals = findRitualParts()
+        for _, r in ipairs(rituals) do
+            -- r es BasePart; manejamos igual que shadow
+            if not modelHighlights[r] then
+                local ok, highlight = pcall(function()
+                    local h = Instance.new("Highlight")
+                    h.Name = "ESP_Highlight_Ritual"
+                    h.Adornee = r
+                    h.Parent = CoreGui
+                    h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                    h.FillTransparency = espConfig.refillTransparency
+                    h.OutlineTransparency = espConfig.transparency
+                    h.FillColor = espConfig.colors.ritual.fill
+                    h.OutlineColor = espConfig.colors.ritual.highlight
+                    return h
+                end)
+                if ok and highlight then
+                    modelHighlights[r] = highlight
+                end
+
+                if espConfig.billboardEnabled and not modelBillboards[r] then
+                    local success, billboard = pcall(function()
+                        local b = Instance.new("BillboardGui")
+                        b.Name = "ESP_Billboard_Ritual_" .. tostring(r:GetDebugIdAsync()):gsub(":", "_")
+                        b.Adornee = r
+                        b.Size = UDim2.new(0,200,0,40)
+                        b.StudsOffset = Vector3.new(0,3,0)
+                        b.AlwaysOnTop = true
+                        b.Parent = CoreGui
+                        b.Enabled = true
+
+                        local label = Instance.new("TextLabel")
+                        label.Size = UDim2.new(1,0,1,0)
+                        label.BackgroundTransparency = 1
+                        label.Text = "Ritual"
+                        label.TextColor3 = espConfig.colors.ritual.highlight
+                        label.TextSize = 14
+                        label.Font = Enum.Font.GothamBold
+                        label.Parent = b
+
+                        return b
+                    end)
+                    if success and billboard then
+                        modelBillboards[r] = billboard
+                    end
+                end
+            end
+        end
+    end
+
+    updating = false
+end
+
+-- Setup UI con Rayfield (tu configuración original, adaptada a este script)
 local Window = Rayfield:CreateWindow({
-   Name = "Sigmasaken RE-Made by FaZ",
-   Icon = 0, -- Icon in Topbar. Can use Lucide Icons (string) or Roblox Image (number). 0 to use no icon (default).
-   LoadingTitle = "Sigmasaken RE-Made",
+   Name = "Sigmasaken RE-Made",
+   Icon = 0,
+   LoadingTitle = "Made By: FaZ",
    LoadingSubtitle = "Version: 1",
-   Theme = "Default", -- Check https://docs.sirius.menu/rayfield/configuration/themes
-
+   Theme = "Default",
    DisableRayfieldPrompts = false,
-   DisableBuildWarnings = false, -- Prevents Rayfield from warning when the script has a version mismatch with the interface
-
+   DisableBuildWarnings = false,
    ConfigurationSaving = {
       Enabled = true,
-      FolderName = nil, -- Create a custom folder for your hub/game
+      FolderName = nil,
       FileName = "Sigma-Sakened"
    },
-
    Discord = {
-      Enabled = false, -- Prompt the user to join your Discord server if their executor supports it
-      Invite = "noinvitelink", -- The Discord invite code, do not include discord.gg/. E.g. discord.gg/ ABCD would be ABCD
-      RememberJoins = true -- Set this to false to make them join the discord every time they load it up
+      Enabled = false,
+      Invite = "noinvitelink",
+      RememberJoins = true
    },
-
-   KeySystem = false, -- Set this to true to use our key system
-   KeySettings = {
-      Title = "Get key dud!!",
-      Subtitle = "Where's keyyy?",
-      Note = "", -- Use this to tell the user how to get a key
-      FileName = "Key", -- It is recommended to use something unique as other scripts using Rayfield may overwrite your key file
-      SaveKey = true, -- The user's key will be saved, but if you change the key, they will be unable to use your script
-      GrabKeyFromSite = false, -- If this is true, set Key below to the RAW site you would like Rayfield to get the key from
-      Key = {"Skid"} -- List of keys that will be accepted by the system, can be RAW file links (pastebin, github etc) or simple strings ("hello","key22")
-   }
+   KeySystem = false
 })
 
-local Tab = Window:CreateTab("ESP", 4483362458) -- Title, Image
+local Tab = Window:CreateTab("ESP", 4483362458)
 
+-- Main Toggle
 local espthing = Tab:CreateToggle({
    Name = "Enable ESP",
    CurrentValue = false,
    Callback = function(Value)
-   -- The function that takes place when the toggle is pressed
-   -- The variable (Value) is a boolean on whether the toggle is true or false
+       espConfig.enabled = Value
+       if not Value then
+           cleanupESP()
+       else
+           updateESP()
+       end
    end,
 })
 
+-- Billboard Toggle
 local espbillthing = Tab:CreateToggle({
    Name = "Enable Billboard ESP",
    CurrentValue = false,
    Callback = function(Value)
-   -- The function that takes place when the toggle is pressed
-   -- The variable (Value) is a boolean on whether the toggle is true or false
+       espConfig.billboardEnabled = Value
+
+       -- actualizar billboards existentes (habilitar/deshabilitar)
+       for model, billboard in pairs(modelBillboards) do
+           if billboard and billboard.Parent then
+               billboard.Enabled = Value
+           end
+       end
+
+       if Value and espConfig.enabled then
+           updateESP()
+       end
    end,
 })
 
+-- Sliders
 local esptransparency = Tab:CreateSlider({
-   Name = "ESP Transparency",
+   Name = "ESP Outline Transparency",
    Range = {0, 1},
-   Increment = 0.1,
+   Increment = 0.05,
    Suffix = "Transparency",
-   CurrentValue = 0.5,
-    Callback = function(Value)
-   -- The function that takes place when the slider changes
-   -- The variable (Value) is a number which correlates to the value the slider is currently at
+   CurrentValue = espConfig.transparency,
+   Callback = function(Value)
+       espConfig.transparency = Value
+       for _, highlight in pairs(modelHighlights) do
+           if highlight and highlight.Parent then
+               highlight.OutlineTransparency = Value
+           end
+       end
+   end,
+})
+
+local esprefilltransparency = Tab:CreateSlider({
+   Name = "ESP Fill Transparency",
+   Range = {0, 1},
+   Increment = 0.05,
+   Suffix = "Transparency",
+   CurrentValue = espConfig.refillTransparency,
+   Callback = function(Value)
+       espConfig.refillTransparency = Value
+       for _, highlight in pairs(modelHighlights) do
+           if highlight and highlight.Parent then
+               highlight.FillTransparency = Value
+           end
+       end
    end,
 })
 
 local Section = Tab:CreateSection("ESP Editor")
 
 local espminion = Tab:CreateToggle({
-   Name = "Enable Minion ESP",
+   Name = "Enable Minion/Zombie ESP",
    CurrentValue = false,
    Callback = function(Value)
-   -- The function that takes place when the toggle is pressed
-   -- The variable (Value) is a boolean on whether the toggle is true or false
+       espConfig.minionEnabled = Value
+       if espConfig.enabled then updateESP() end
    end,
 })
 
@@ -81,25 +505,344 @@ local espritual = Tab:CreateToggle({
    Name = "Enable Ritual ESP",
    CurrentValue = false,
    Callback = function(Value)
-   -- The function that takes place when the toggle is pressed
-   -- The variable (Value) is a boolean on whether the toggle is true or false
+       espConfig.ritualEnabled = Value
+       if espConfig.enabled then updateESP() end
    end,
 })
 
-local espfootpring = Tab:CreateToggle({
-   Name = "Enable Digital Footprint DSP",
+local espfootprint = Tab:CreateToggle({
+   Name = "Enable Digital Footprint ESP",
    CurrentValue = false,
    Callback = function(Value)
-   -- The function that takes place when the toggle is pressed
-   -- The variable (Value) is a boolean on whether the toggle is true or false
+       espConfig.footprintEnabled = Value
+       if espConfig.enabled then updateESP() end
    end,
 })
 
-local Button = Tab:CreateButton({
-   Name = "Button Example",
-   Callback = function()
-   -- The function that takes place when the button is pressed
-   end,
+-- Color pickers (solo highlight color, keep fill colors default or change if you want)
+Tab:CreateColorPicker({
+    Name = "Killer Color",
+    Color = defaultColors.killer.highlight,
+    Flag = "KillerColor",
+    Callback = function(Value)
+        espConfig.colors.killer.highlight = Value
+        if espConfig.enabled then updateESP() end
+    end
+})
+
+Tab:CreateColorPicker({
+    Name = "Survivor Color",
+    Color = defaultColors.survivor.highlight,
+    Flag = "SurvivorColor",
+    Callback = function(Value)
+        espConfig.colors.survivor.highlight = Value
+        if espConfig.enabled then updateESP() end
+    end
+})
+
+Tab:CreateColorPicker({
+    Name = "Fake Generator Color",
+    Color = defaultColors.fakeGenerator.highlight,
+    Flag = "FakeGeneratorColor",
+    Callback = function(Value)
+        espConfig.colors.fakeGenerator.highlight = Value
+        if espConfig.enabled then updateESP() end
+    end
+})
+
+Tab:CreateColorPicker({
+    Name = "Generator Color",
+    Color = defaultColors.generator.highlight,
+    Flag = "GeneratorColor",
+    Callback = function(Value)
+        espConfig.colors.generator.highlight = Value
+        if espConfig.enabled then updateESP() end
+    end
+})
+
+Tab:CreateColorPicker({
+    Name = "Minion Color",
+    Color = defaultColors.minion.highlight,
+    Flag = "MinionColor",
+    Callback = function(Value)
+        espConfig.colors.minion.highlight = Value
+        if espConfig.enabled then updateESP() end
+    end
+})
+
+Tab:CreateColorPicker({
+    Name = "Shadow Color",
+    Color = defaultColors.shadow.highlight,
+    Flag = "ShadowColor",
+    Callback = function(Value)
+        espConfig.colors.shadow.highlight = Value
+        if espConfig.enabled then updateESP() end
+    end
+})
+
+Tab:CreateColorPicker({
+    Name = "Ritual Color",
+    Color = defaultColors.ritual.highlight,
+    Flag = "RitualColor",
+    Callback = function(Value)
+        espConfig.colors.ritual.highlight = Value
+        if espConfig.enabled then updateESP() end
+    end
 })
 
 Rayfield:LoadConfiguration()
+
+-- Detección dinámica (ChildAdded) --- guardamos conexiones para desconectar luego
+local function setupDynamicDetection()
+    -- Players folders
+    local playersFolder = workspace:FindFirstChild("Players")
+    if playersFolder then
+        local killersFolder = playersFolder:FindFirstChild("Killers")
+        if killersFolder then
+            local conn = killersFolder.ChildAdded:Connect(function(child)
+                if espConfig.enabled and child:IsA("Model") then
+                    task.wait(0.4)
+                    applyModelESP(child, espConfig.colors.killer, "Killer")
+                end
+            end)
+            table.insert(espConnections, conn)
+        end
+
+        local survivorsFolder = playersFolder:FindFirstChild("Survivors")
+        if survivorsFolder then
+            local conn = survivorsFolder.ChildAdded:Connect(function(child)
+                if espConfig.enabled and child:IsA("Model") then
+                    task.wait(0.4)
+                    applyModelESP(child, espConfig.colors.survivor, "Survivor")
+                end
+            end)
+            table.insert(espConnections, conn)
+        end
+    end
+
+    -- Map.Ingame children
+    local map = workspace:FindFirstChild("Map")
+    if map then
+        local ingame = map:FindFirstChild("Ingame")
+        if ingame then
+            local conn = ingame.ChildAdded:Connect(function(child)
+                if not espConfig.enabled then return end
+                task.wait(0.3)
+                if child.Name == "Generator" and child:IsA("Model") then
+                    applyModelESP(child, espConfig.colors.generator, "Generator")
+                elseif child.Name == "FakeGenerator" and child:IsA("Model") then
+                    applyModelESP(child, espConfig.colors.fakeGenerator, "FakeGenerator")
+                elseif child:IsA("Model") and espConfig.minionEnabled then
+                    local lname = child.Name:lower()
+                    if lname:find("minion") or lname:find("zombie") then
+                        applyModelESP(child, espConfig.colors.minion, "Minion")
+                    end
+                elseif child:IsA("BasePart") then
+                    local lname = child.Name:lower()
+                    if lname:find("shadow") then
+                        -- apply as shadow part if needed
+                        if not modelHighlights[child] then
+                            local ok, h = pcall(function()
+                                local newh = Instance.new("Highlight")
+                                newh.Adornee = child
+                                newh.Parent = CoreGui
+                                newh.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                                newh.FillTransparency = espConfig.refillTransparency
+                                newh.OutlineTransparency = espConfig.transparency
+                                newh.FillColor = espConfig.colors.shadow.fill
+                                newh.OutlineColor = espConfig.colors.shadow.highlight
+                                return newh
+                            end)
+                            if ok and h then modelHighlights[child] = h end
+                        end
+                    elseif child.Name:find("RespawnLocation") and espConfig.ritualEnabled then
+                        if not modelHighlights[child] then
+                            local ok, h = pcall(function()
+                                local newh = Instance.new("Highlight")
+                                newh.Adornee = child
+                                newh.Parent = CoreGui
+                                newh.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                                newh.FillTransparency = espConfig.refillTransparency
+                                newh.OutlineTransparency = espConfig.transparency
+                                newh.FillColor = espConfig.colors.ritual.fill
+                                newh.OutlineColor = espConfig.colors.ritual.highlight
+                                return newh
+                            end)
+                            if ok and h then modelHighlights[child] = h end
+                        end
+                    end
+                end
+            end)
+            table.insert(espConnections, conn)
+        end
+    end
+end
+
+-- Heartbeat periodic check (evita re-scans constantes; solo reescanea cada X segundos)
+local lastUpdateTime = 0
+local updateCooldown = 3
+RunService.Heartbeat:Connect(function(deltaTime)
+    if not espConfig.enabled then return end
+    lastUpdateTime = lastUpdateTime + deltaTime
+    if lastUpdateTime >= updateCooldown then
+        -- Comprobación rápida: si hay modelos sin process, forzamos update
+        local needsUpdate = false
+        local playersFolder = workspace:FindFirstChild("Players")
+        if playersFolder then
+            local killersFolder = playersFolder:FindFirstChild("Killers")
+            if killersFolder then
+                for _, k in ipairs(killersFolder:GetChildren()) do
+                    if k:IsA("Model") and not processedModels[k] then
+                        needsUpdate = true
+                        break
+                    end
+                end
+            end
+            if not needsUpdate then
+                local survivorsFolder = playersFolder:FindFirstChild("Survivors")
+                if survivorsFolder then
+                    for _, s in ipairs(survivorsFolder:GetChildren()) do
+                        if s:IsA("Model") and not processedModels[s] then
+                            needsUpdate = true
+                            break
+                        end
+                    end
+                end
+            end
+        end
+
+        if needsUpdate then
+            updateESP()
+        end
+
+        lastUpdateTime = 0
+    end
+end)
+
+-- Inicialización (spawn para no bloquear)
+task.spawn(function()
+    task.wait(1.5)
+    setupDynamicDetection()
+    if espConfig.enabled then updateESP() end
+end)
+
+-- Limpiar al cerrar la sesión
+game:BindToClose(function()
+    cleanupESP()
+end)
+
+--// Dependencies
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+---------------------------------------------------------------------
+-- TAB
+---------------------------------------------------------------------
+local StaminaTab = Window:CreateTab("Stamina Settings", 4483362455)
+
+---------------------------------------------------------------------
+-- VARIABLES
+---------------------------------------------------------------------
+local injectEnabled = false
+local disableLoss = false
+
+local staminaValues = {
+    StaminaLoss = 10,
+    StaminaGain = 20,
+    MinStamina = 0,
+    MaxStamina = 100,
+    Stamina = 100,
+    StaminaSpeed = 26
+}
+
+---------------------------------------------------------------------
+-- FUNCIÓN PRINCIPAL
+---------------------------------------------------------------------
+local function applyStaminaSettings()
+    if not injectEnabled then return end
+
+    local sprintingModule = require(game:GetService("ReplicatedStorage").Systems.Character.Game.Sprinting)
+
+    if not sprintingModule.DefaultsSet then
+        sprintingModule.Init()
+    end
+
+    sprintingModule.StaminaLoss = staminaValues.StaminaLoss
+    sprintingModule.StaminaGain = staminaValues.StaminaGain
+    sprintingModule.MinStamina = staminaValues.MinStamina
+    sprintingModule.MaxStamina = staminaValues.MaxStamina
+    sprintingModule.Stamina = staminaValues.Stamina
+    sprintingModule.StaminaSpeed = staminaValues.StaminaSpeed
+
+    sprintingModule.StaminaLossDisabled = disableLoss
+
+    if sprintingModule.__staminaChangedEvent then
+        sprintingModule.__staminaChangedEvent:Fire()
+    end
+end
+
+---------------------------------------------------------------------
+-- UI ELEMENTS
+---------------------------------------------------------------------
+
+-- Toggle: disable stamina loss
+StaminaTab:CreateToggle({
+    Name = "Disable Stamina Loss",
+    CurrentValue = false,
+    Flag = "DisableLoss",
+    Callback = function(v)
+        disableLoss = v
+        applyStaminaSettings()
+    end
+})
+
+-- Toggle: injectar
+StaminaTab:CreateToggle({
+    Name = "Injectar Stamina Settings",
+    CurrentValue = false,
+    Flag = "InjectStamina",
+    Callback = function(v)
+        injectEnabled = v
+        applyStaminaSettings()
+    end
+})
+
+---------------------------------------------------------------------
+-- INPUTS
+---------------------------------------------------------------------
+local function createInput(label, key)
+    StaminaTab:CreateInput({
+        Name = label,
+        CurrentValue = tostring(staminaValues[key]),
+        PlaceholderText = tostring(staminaValues[key]),
+        RemoveTextAfterFocusLost = false,
+        Callback = function(text)
+            local num = tonumber(text)
+            if num then
+                staminaValues[key] = num
+                applyStaminaSettings()
+            end
+        end
+    })
+end
+
+createInput("Stamina Loss", "StaminaLoss")
+createInput("Stamina Gain", "StaminaGain")
+createInput("Min Stamina", "MinStamina")
+createInput("Max Stamina", "MaxStamina")
+createInput("Stamina Actual", "Stamina")
+createInput("Stamina Speed", "StaminaSpeed")
+
+---------------------------------------------------------------------
+-- AUTO APLICAR AL SPAWN
+---------------------------------------------------------------------
+LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(1)
+    applyStaminaSettings()
+end)
+
+RunService.RenderStepped:Connect(function()
+    applyStaminaSettings()
+end)
+
