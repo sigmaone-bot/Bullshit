@@ -832,7 +832,7 @@ createInput("Killer Max Stamina", "KillerMaxStamina")
 -- Toggle: disable stamina loss
 local lp = Players.LocalPlayer
 
--- Loop principal seguro (solo 1 loop)
+--[[Loop principal seguro (solo 1 loop)
 task.spawn(function()
     while true do
         task.wait(1) -- cada 1 segundo
@@ -843,9 +843,9 @@ task.spawn(function()
         end
     end
 end)
+]]
 
-
-local Misc = Window:CreateTab("Misc", "diamond-plus")
+local Misc = Window:CreateTab("Misc", "plus")
 
 Misc:CreateSection("Pop-ups")
 
