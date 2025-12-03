@@ -785,7 +785,7 @@ local function createInput(label, key)
         Name = label,
         CurrentValue = tostring(staminaValues[key]),
         PlaceholderText = tostring(staminaValues[key]),
-        RemoveTextAfterFocusLost = false,
+        RemoveTextAfterFocusLost = true,
         Callback = function(text)
             local num = tonumber(text)
             if num then
