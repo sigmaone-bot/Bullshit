@@ -1021,13 +1021,23 @@ Misc:CreateToggle({
 })
 
 Misc:CreateButton({
-   Name = "Dusekkar anti-wall break",
-   Callback = function()
-     local ok, err = pcall(function()
-                local util = require(game:GetService("ReplicatedStorage").Modules.Util)
-                hookfunction(util.IsOnScreen, function(...)
-    end,
+    Name = "Dusekkar anti-wall break",
+    Callback = function()
+        local ok, err = pcall(function()
+            local util = require(game:GetService("ReplicatedStorage").Modules.Util)
+
+            hookfunction(util.IsOnScreen, function(...)
+                -- Solo bloquea la función para evitar detección
+                return true
+            end)
+        end)
+
+        if not ok then
+            warn("Anti-wall break error:", err)
+        end
+    end
 })
+
 
 local Remote = game:GetService("ReplicatedStorage").Modules.Network.RemoteEvent
 
