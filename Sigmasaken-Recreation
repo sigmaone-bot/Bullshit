@@ -733,7 +733,7 @@ end)
 ---------------------------------------------------------------------
 -- TAB
 ---------------------------------------------------------------------
-local StaminaTab = Window:CreateTab("Stamina Settings", arrow-big-right-dash)
+local StaminaTab = Window:CreateTab("Stamina Settings", "arrow-big-right-dash")
 
 ---------------------------------------------------------------------
 -- VARIABLES
@@ -845,7 +845,7 @@ task.spawn(function()
 end)
 
 
-local Misc = Window:CreateTab("Misc", diamond-plus)
+local Misc = Window:CreateTab("Misc", "diamond-plus")
 
 Misc:CreateSection("Pop-ups")
 
@@ -1153,7 +1153,7 @@ Misc:CreateToggle({
     end
 })
 
-local Combat = Window:CreateTab("Combat", swords)
+local Combat = Window:CreateTab("Combat", "swords")
 Combat:CreateSection("Sk8 Bumper")
 --Combat:CreateLabel("Sk8 turn speed, trick power, and Sk8 base speed should be applied before round begins!", 4483362458, Color3.fromRGB(255,100,100), false)
 
