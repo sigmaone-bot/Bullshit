@@ -746,9 +746,8 @@ local staminaValues = {
     StaminaGain = sprintingModule.StaminaGain,
     MinStamina = sprintingModule.MinStamina,
     MaxStamina = sprintingModule.MaxStamina,
-    SprintSpeed = sprintingModule.SprintSpeed,
-    KillerSprintSpeed = sprintingModule.KillerSprintSpeed,
-    KillerMaxStamina = sprintingModule.KillerMaxStamina
+    StaminaSpeed = sprintingModule.StaminaSpeed
+    --sprintingModule.StaminaLossDisabled = false
 }
 
 ---------------------------------------------------------------------
@@ -798,7 +797,7 @@ createInput("Stamina Loss", "StaminaLoss")
 createInput("Stamina Gain", "StaminaGain")
 createInput("Min Stamina", "MinStamina")
 createInput("Max Stamina", "MaxStamina")
-createInput("Sprint Speed", "SprintSpeed")
+createInput("Sprint Speed", "StaminaSpeed")
 
 StaminaTab:CreateToggle({
     Name = "Disable Stamina Drain",
