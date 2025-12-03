@@ -726,11 +726,6 @@ task.spawn(function()
     if espConfig.enabled then updateESP() end
 end)
 
---// Dependencies
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
-
 ---------------------------------------------------------------------
 -- TAB
 ---------------------------------------------------------------------
