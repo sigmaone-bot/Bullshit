@@ -817,7 +817,7 @@ end)
 
 -- Toggle: disable stamina loss
 StaminaTab:CreateToggle({
-    Name = "Disable Stamina Loss",
+    Name = "Disable Stamina Drain",
     CurrentValue = false,
     Flag = "DisableLoss",
     Callback = function(v)
@@ -825,6 +825,8 @@ StaminaTab:CreateToggle({
         applyStaminaSettings()
     end
 })
+
+Tab:CreateSection("Stamina Injector")
 
 -- Toggle: injectar
 StaminaTab:CreateToggle({
