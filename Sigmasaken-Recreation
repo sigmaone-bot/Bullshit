@@ -1295,11 +1295,11 @@ Combat:CreateSlider({
 
 Combat:CreateSection("Aimbot")
 
--- Enhanced Aimbot with Improved Prediction (LocalScript)
--- - Proper velocity-based prediction with time-based calculation
--- - Optimized target acquisition and validation
--- - Smooth interpolation with adaptive smoothing
--- - Efficient raycast-based line of sight
+-- Enhanced Aimbot with Robust Prediction & Stability (LocalScript)
+-- - Handles respawns, camera resets, and character changes
+-- - Smart prediction: lateral movement only (ignores forward/backward relative to camera)
+-- - Centers on target's rootpart center with smooth tracking
+-- - Automatic recovery from errors and disconnections
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -1313,6 +1313,7 @@ end
 
 local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 local Humanoid = Character:WaitForChild("Humanoid")
+local Camera = Workspace.CurrentCamera
 
 -- Animation triggers
 local TriggerAnimations = {
@@ -1322,30 +1323,98 @@ local TriggerAnimations = {
 
 local Settings = {
     Enabled = false,
-    PredictionTime = 0.15,     -- Time in seconds to predict ahead (0-1 recommended)
+    PredictionTime = 0.15,
     ModeTargets = "Killers + Survivors",
     ModeAimbot = "Camera",
     CameraLockTime = 2,
     IsAiming = false,
     MaxDistance = 1000,
-    RequireLOS = true,
+    RequireLOS = false,
     AimSmoothing = {
         Camera = 0.2,
-        RootPart = 0.25
+        RootPart = 0.2
     },
 }
 
--- Cache for performance
+-- Connection management
+local activeConnections = {}
+local animationConnection = nil
+
+-- Cache
 local cachedTargets = {}
 local lastTargetUpdate = 0
 local TARGET_CACHE_INTERVAL = 0.1
 
-local function RefreshCharacter()
-    Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    Humanoid = Character:WaitForChild("Humanoid")
+-- Cleanup function
+local function CleanupConnections()
+    for _, conn in pairs(activeConnections) do
+        if conn and conn.Disconnect then
+            pcall(function() conn:Disconnect() end)
+        end
+    end
+    activeConnections = {}
+    
+    if animationConnection then
+        pcall(function() animationConnection:Disconnect() end)
+        animationConnection = nil
+    end
 end
 
-LocalPlayer.CharacterAdded:Connect(RefreshCharacter)
+-- Safe character refresh
+local function RefreshCharacter()
+    CleanupConnections()
+    cachedTargets = {}
+    Settings.IsAiming = false
+    
+    local success, newChar = pcall(function()
+        return LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    end)
+    
+    if success and newChar then
+        Character = newChar
+        local success2, newHumanoid = pcall(function()
+            return Character:WaitForChild("Humanoid", 5)
+        end)
+        
+        if success2 and newHumanoid then
+            Humanoid = newHumanoid
+            return true
+        end
+    end
+    return false
+end
+
+-- Safe camera refresh
+local function RefreshCamera()
+    local success, cam = pcall(function()
+        return Workspace.CurrentCamera
+    end)
+    if success and cam then
+        Camera = cam
+        return true
+    end
+    return false
+end
+
+-- Validate game objects
+local function ValidateGameState()
+    if not Character or not Character.Parent then
+        RefreshCharacter()
+        return false
+    end
+    
+    if not Humanoid or not Humanoid.Parent or Humanoid.Health <= 0 then
+        RefreshCharacter()
+        return false
+    end
+    
+    if not Camera or not Camera.Parent then
+        RefreshCamera()
+        return false
+    end
+    
+    return true
+end
 
 -- UI Setup (if Combat exists)
 if Combat then
@@ -1354,6 +1423,19 @@ if Combat then
         CurrentValue = false,
         Callback = function(Value)
             Settings.Enabled = Value
+            if not Value then
+                Settings.IsAiming = false
+                CleanupConnections()
+            end
+        end,
+    })
+
+    Combat:CreateToggle({
+        Name = "Wall Check",
+        CurrentValue = false,
+        Callback = function(Value)
+            Settings.RequireLOS = Value
+            cachedTargets = {} -- Refresh targets when LOS changes
         end,
     })
 
@@ -1365,13 +1447,13 @@ if Combat then
        Flag = "TargetSelector",
        Callback = function(Option)
           Settings.ModeTargets = Option[1]
-          cachedTargets = {} -- Clear cache on mode change
+          cachedTargets = {}
        end,
     })
 
     Combat:CreateDropdown({
        Name = "Modo de Aimbot",
-       Options = {"Camera", "RootPart", "Normal"},
+       Options = {"Camera", "RootPart"},
        CurrentOption = {"Camera"},
        MultipleOptions = false,
        Flag = "AimType",
@@ -1392,13 +1474,14 @@ if Combat then
     })
 
     Combat:CreateSlider({
-       Name = "Camera Smoothing",
+       Name = "Aim Smoothing",
        Range = {0.05, 1},
        Increment = 0.05,
        CurrentValue = 0.2,
        Flag = "SmoothingSlider",
        Callback = function(Value)
           Settings.AimSmoothing.Camera = Value
+          Settings.AimSmoothing.RootPart = Value
        end,
     })
 end
@@ -1406,36 +1489,43 @@ end
 -- Get target folders based on selection
 local function GetTargetsFolder()
     local folders = {}
-    local players = Workspace:FindFirstChild("Players")
-    if not players then return folders end
+    local success, players = pcall(function()
+        return Workspace:FindFirstChild("Players")
+    end)
+    
+    if not success or not players then return folders end
 
-    local survivors = players:FindFirstChild("Survivors")
-    local killers = players:FindFirstChild("Killers")
+    local success2, survivors = pcall(function() return players:FindFirstChild("Survivors") end)
+    local success3, killers = pcall(function() return players:FindFirstChild("Killers") end)
 
     if Settings.ModeTargets == "Killers + Survivors" then
-        if survivors then table.insert(folders, survivors) end
-        if killers then table.insert(folders, killers) end
+        if success2 and survivors then table.insert(folders, survivors) end
+        if success3 and killers then table.insert(folders, killers) end
     elseif Settings.ModeTargets == "Solo Killers" then
-        if killers then table.insert(folders, killers) end
+        if success3 and killers then table.insert(folders, killers) end
     elseif Settings.ModeTargets == "Solo Survivors" then
-        if survivors then table.insert(folders, survivors) end
+        if success2 and survivors then table.insert(folders, survivors) end
     end
 
     return folders
 end
 
--- Validate target
+-- Validate target (ignores name changes)
 local function IsValidTarget(model)
-    if not model or not model.Parent then return false end
-    if model == Character then return false end
+    local success, result = pcall(function()
+        if not model or not model.Parent then return false end
+        if model == Character then return false end
 
-    local hrp = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("Torso") or model:FindFirstChild("UpperTorso")
-    local humanoid = model:FindFirstChildOfClass("Humanoid")
+        local hrp = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("Torso") or model:FindFirstChild("UpperTorso")
+        local humanoid = model:FindFirstChildOfClass("Humanoid")
+        
+        if not hrp or not humanoid then return false end
+        if humanoid.Health <= 0 then return false end
+
+        return true
+    end)
     
-    if not hrp or not humanoid then return false end
-    if humanoid.Health <= 0 then return false end
-
-    return true
+    return success and result
 end
 
 -- Optimized line of sight check
@@ -1444,179 +1534,284 @@ raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
 
 local function HasLineOfSight(targetHRP, origin)
     if not Settings.RequireLOS then return true end
-    if not targetHRP then return false end
-
-    raycastParams.FilterDescendantsInstances = {Character}
     
-    local direction = (targetHRP.Position - origin)
-    local result = Workspace:Raycast(origin, direction, raycastParams)
+    local success, result = pcall(function()
+        if not targetHRP or not origin then return false end
+        
+        raycastParams.FilterDescendantsInstances = {Character}
+        
+        local direction = (targetHRP.Position - origin)
+        local rayResult = Workspace:Raycast(origin, direction, raycastParams)
+        
+        if not rayResult then return true end
+        if rayResult.Instance and rayResult.Instance:IsDescendantOf(targetHRP.Parent) then
+            return true
+        end
+        
+        return false
+    end)
     
-    if not result then return true end
-    if result.Instance and result.Instance:IsDescendantOf(targetHRP.Parent) then
-        return true
-    end
-
-    return false
+    return success and result
 end
 
--- Calculate predicted position with proper physics
-local function CalculatePredictedPosition(targetHRP)
-    if not targetHRP then return nil end
+-- Calculate lateral prediction (ignores forward/backward movement relative to camera)
+local function CalculateLateralPrediction(targetHRP)
+    local success, result = pcall(function()
+        if not targetHRP or not Camera then return nil end
+        
+        -- Get target velocity
+        local velocity = targetHRP.AssemblyLinearVelocity or Vector3.new()
+        
+        -- Get camera's look direction (forward vector)
+        local cameraLook = Camera.CFrame.LookVector
+        
+        -- Project velocity onto a plane perpendicular to camera look direction
+        -- This removes the forward/backward component relative to camera
+        local forwardComponent = velocity:Dot(cameraLook) * cameraLook
+        local lateralVelocity = velocity - forwardComponent
+        
+        -- Calculate predicted position using only lateral movement
+        local predictedPos = targetHRP.Position + (lateralVelocity * Settings.PredictionTime)
+        
+        return predictedPos
+    end)
     
-    -- Get current velocity
-    local velocity = targetHRP.AssemblyLinearVelocity or Vector3.new()
-    
-    -- Calculate predicted position: currentPos + (velocity * predictionTime)
-    local predictedPos = targetHRP.Position + (velocity * Settings.PredictionTime)
-    
-    return predictedPos
+    return success and result or nil
 end
 
 -- Find nearest valid target with caching
 local function GetNearestTarget()
-    local Root = Character:FindFirstChild("HumanoidRootPart")
-    if not Root then return nil end
+    local success, result = pcall(function()
+        local Root = Character:FindFirstChild("HumanoidRootPart")
+        if not Root then return nil end
 
-    local currentTime = tick()
-    
-    -- Update cache periodically
-    if currentTime - lastTargetUpdate > TARGET_CACHE_INTERVAL then
-        cachedTargets = {}
-        for _, folder in ipairs(GetTargetsFolder()) do
-            if folder then
-                for _, model in ipairs(folder:GetChildren()) do
-                    if IsValidTarget(model) then
-                        local hrp = model:FindFirstChild("HumanoidRootPart") or 
-                                   model:FindFirstChild("Torso") or 
-                                   model:FindFirstChild("UpperTorso")
-                        if hrp then
-                            table.insert(cachedTargets, hrp)
+        local currentTime = tick()
+        
+        -- Update cache periodically
+        if currentTime - lastTargetUpdate > TARGET_CACHE_INTERVAL then
+            cachedTargets = {}
+            for _, folder in ipairs(GetTargetsFolder()) do
+                if folder then
+                    for _, model in ipairs(folder:GetChildren()) do
+                        if IsValidTarget(model) then
+                            local hrp = model:FindFirstChild("HumanoidRootPart") or 
+                                       model:FindFirstChild("Torso") or 
+                                       model:FindFirstChild("UpperTorso")
+                            if hrp then
+                                table.insert(cachedTargets, hrp)
+                            end
                         end
                     end
                 end
             end
+            lastTargetUpdate = currentTime
         end
-        lastTargetUpdate = currentTime
-    end
 
-    -- Find nearest from cache
-    local bestDist = math.huge
-    local bestTarget = nil
-    local rootPos = Root.Position
+        -- Find nearest from cache
+        local bestDist = math.huge
+        local bestTarget = nil
+        local rootPos = Root.Position
 
-    for _, hrp in ipairs(cachedTargets) do
-        if hrp and hrp.Parent then
-            local dist = (rootPos - hrp.Position).Magnitude
-            if dist < bestDist and dist <= Settings.MaxDistance then
-                if HasLineOfSight(hrp, rootPos) then
-                    bestDist = dist
-                    bestTarget = hrp
+        for _, hrp in ipairs(cachedTargets) do
+            if hrp and hrp.Parent then
+                local dist = (rootPos - hrp.Position).Magnitude
+                if dist < bestDist and dist <= Settings.MaxDistance then
+                    if HasLineOfSight(hrp, rootPos) then
+                        bestDist = dist
+                        bestTarget = hrp
+                    end
                 end
             end
         end
-    end
 
-    return bestTarget
+        return bestTarget
+    end)
+    
+    return success and result or nil
 end
 
--- Smooth camera aiming with prediction
+-- Smooth camera aiming with lateral prediction
 local function AimCameraAt(targetHRP)
-    local cam = Workspace.CurrentCamera
-    if not cam or not targetHRP then return end
+    local success = pcall(function()
+        if not RefreshCamera() then return end
+        if not targetHRP or not targetHRP.Parent then return end
 
-    local predictedPos = CalculatePredictedPosition(targetHRP)
-    if not predictedPos then return end
+        local predictedPos = CalculateLateralPrediction(targetHRP)
+        if not predictedPos then return end
 
-    local camPos = cam.CFrame.Position
-    local direction = (predictedPos - camPos).Unit
+        -- Center on target's center position
+        local camPos = Camera.CFrame.Position
+        local direction = (predictedPos - camPos).Unit
+        
+        local goalCFrame = CFrame.new(camPos, camPos + direction)
+        Camera.CFrame = Camera.CFrame:Lerp(goalCFrame, Settings.AimSmoothing.Camera)
+    end)
     
-    local goalCFrame = CFrame.new(camPos, camPos + direction)
-    cam.CFrame = cam.CFrame:Lerp(goalCFrame, Settings.AimSmoothing.Camera)
+    if not success then
+        RefreshCamera()
+    end
 end
 
--- Smooth root aiming with prediction
+-- Smooth root aiming with lateral prediction (improved to match camera behavior)
 local function AimRootAt(targetHRP)
-    local root = Character:FindFirstChild("HumanoidRootPart")
-    if not root or not targetHRP then return end
+    local success = pcall(function()
+        if not ValidateGameState() then return end
+        
+        local root = Character:FindFirstChild("HumanoidRootPart")
+        if not root or not targetHRP or not targetHRP.Parent then return end
 
-    local predictedPos = CalculatePredictedPosition(targetHRP)
-    if not predictedPos then return end
+        local predictedPos = CalculateLateralPrediction(targetHRP)
+        if not predictedPos then return end
 
-    local rootPos = root.Position
-    local direction = (predictedPos - rootPos).Unit
+        -- Get current root position and calculate direction to predicted position
+        local rootPos = root.Position
+        local direction = (predictedPos - rootPos)
+        
+        -- Only rotate on Y axis (horizontal plane) to match camera-like behavior
+        -- This prevents the character from tilting up/down
+        local horizontalDirection = Vector3.new(direction.X, 0, direction.Z)
+        
+        if horizontalDirection.Magnitude > 0 then
+            horizontalDirection = horizontalDirection.Unit
+            
+            -- Create goal CFrame that only rotates horizontally
+            local goalCFrame = CFrame.new(rootPos, rootPos + horizontalDirection)
+            
+            -- Preserve Y position (height) while rotating
+            goalCFrame = goalCFrame + Vector3.new(0, rootPos.Y - goalCFrame.Position.Y, 0)
+            
+            -- Apply smooth interpolation
+            root.CFrame = root.CFrame:Lerp(goalCFrame, Settings.AimSmoothing.RootPart)
+        end
+    end)
     
-    local goalCFrame = CFrame.new(rootPos, rootPos + direction)
-    root.CFrame = root.CFrame:Lerp(goalCFrame, Settings.AimSmoothing.RootPart)
+    if not success then
+        RefreshCharacter()
+    end
 end
 
--- Normal mode (camera)
-local function AimNormal(targetHRP)
-    AimCameraAt(targetHRP)
-end
-
--- Main aimbot activation
+-- Main aimbot activation with error recovery
 local function ActivateAimbot()
     if Settings.IsAiming then return end
+    if not ValidateGameState() then return end
+    
     Settings.IsAiming = true
 
-    local target = GetNearestTarget()
-    if not target then
-        Settings.IsAiming = false
-        return
-    end
-
-    local startTime = tick()
-    local lockDuration = math.max(0.05, Settings.CameraLockTime)
-
-    local connection
-    connection = RunService.RenderStepped:Connect(function()
-        if tick() - startTime >= lockDuration or not Settings.Enabled then
-            connection:Disconnect()
+    local success = pcall(function()
+        local target = GetNearestTarget()
+        if not target then
             Settings.IsAiming = false
             return
         end
 
-        if not target or not target.Parent then
-            connection:Disconnect()
-            Settings.IsAiming = false
-            return
-        end
+        local startTime = tick()
+        local lockDuration = math.max(0.05, Settings.CameraLockTime)
 
-        if Settings.ModeAimbot == "Camera" then
-            AimCameraAt(target)
-        elseif Settings.ModeAimbot == "RootPart" then
-            AimRootAt(target)
-        else
-            AimNormal(target)
-        end
+        local connection
+        connection = RunService.RenderStepped:Connect(function()
+            -- Validate state each frame
+            if not ValidateGameState() then
+                if connection then connection:Disconnect() end
+                Settings.IsAiming = false
+                return
+            end
+            
+            if tick() - startTime >= lockDuration or not Settings.Enabled then
+                if connection then connection:Disconnect() end
+                Settings.IsAiming = false
+                return
+            end
+
+            if not target or not target.Parent then
+                if connection then connection:Disconnect() end
+                Settings.IsAiming = false
+                return
+            end
+
+            local aimSuccess = pcall(function()
+                if Settings.ModeAimbot == "Camera" then
+                    AimCameraAt(target)
+                elseif Settings.ModeAimbot == "RootPart" then
+                    AimRootAt(target)
+                end
+            end)
+            
+            if not aimSuccess then
+                if connection then connection:Disconnect() end
+                Settings.IsAiming = false
+            end
+        end)
+        
+        table.insert(activeConnections, connection)
     end)
+    
+    if not success then
+        Settings.IsAiming = false
+        ValidateGameState()
+    end
 end
 
--- Animation detection
+-- Animation detection with error recovery
 local function SetupAnimationDetection(humanoid)
-    humanoid.AnimationPlayed:Connect(function(track)
-        local success, anim = pcall(function() return track.Animation end)
-        if not success or not anim then return end
+    if animationConnection then
+        pcall(function() animationConnection:Disconnect() end)
+    end
+    
+    local success = pcall(function()
+        animationConnection = humanoid.AnimationPlayed:Connect(function(track)
+            local animSuccess = pcall(function()
+                local anim = track.Animation
+                if not anim then return end
 
-        local animId = tostring(anim.AnimationId or "")
-        for _, id in ipairs(TriggerAnimations) do
-            if tostring(id) == animId then
-                if Settings.Enabled and not Settings.IsAiming then
-                    task.spawn(ActivateAimbot)
+                local animId = tostring(anim.AnimationId or "")
+                for _, id in ipairs(TriggerAnimations) do
+                    if tostring(id) == animId then
+                        if Settings.Enabled and not Settings.IsAiming then
+                            task.spawn(ActivateAimbot)
+                        end
+                        break
+                    end
                 end
-                break
+            end)
+            
+            if not animSuccess then
+                ValidateGameState()
             end
-        end
+        end)
     end)
+    
+    if not success then
+        task.wait(1)
+        if Humanoid and Humanoid.Parent then
+            SetupAnimationDetection(Humanoid)
+        end
+    end
 end
 
 -- Initial setup
-SetupAnimationDetection(Humanoid)
+if RefreshCharacter() then
+    SetupAnimationDetection(Humanoid)
+end
 
 -- Reconnect on character respawn
 LocalPlayer.CharacterAdded:Connect(function(char)
-    Character = char
-    Humanoid = Character:WaitForChild("Humanoid")
-    cachedTargets = {}
-    SetupAnimationDetection(Humanoid)
+    task.wait(0.5) -- Small delay for character to fully load
+    if RefreshCharacter() then
+        SetupAnimationDetection(Humanoid)
+    end
+end)
+
+-- Camera change detection
+local cameraConnection
+cameraConnection = Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+    RefreshCamera()
+end)
+
+-- Periodic validation (lightweight safety net)
+task.spawn(function()
+    while task.wait(2) do
+        if Settings.Enabled then
+            ValidateGameState()
+        end
+    end
 end)
