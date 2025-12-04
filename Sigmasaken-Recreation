@@ -1295,15 +1295,28 @@ Combat:CreateSlider({
 
 Combat:CreateSection("Aimbot")
 
+ -- Improved Aimbot (LocalScript)
+-- - Adds target validation (excludes local player, checks Humanoid and health)
+-- - Optional line-of-sight (raycast) check
+-- - Safe handling if UI (Combat) is not available
+-- - Minor smoothing and prediction improvements
+-- - Keeps original UI callbacks if Combat exists
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+local Workspace = game:GetService("Workspace")
 
 local LocalPlayer = Players.LocalPlayer
+while not LocalPlayer do
+    Players.PlayerAdded:Wait()
+    LocalPlayer = Players.LocalPlayer
+end
+
 local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 local Humanoid = Character:WaitForChild("Humanoid")
 
--- Animaciones que activan el aimbot
+-- Animaciones que activan el aimbot (compara como string)
 local TriggerAnimations = {
     "rbxassetid://133491532453922",
     "rbxassetid://79282445348798"
@@ -1311,11 +1324,17 @@ local TriggerAnimations = {
 
 local Settings = {
     Enabled = false,
-    Prediction = 0,
+    Prediction = 0,            -- studs * velocity (as in original)
     ModeTargets = "Killers + Survivors",
-    ModeAimbot = "Camera",
-    CameraLockTime = 2,
+    ModeAimbot = "Camera",     -- Camera | RootPart | Normal
+    CameraLockTime = 2,        -- seconds
     IsAiming = false,
+    MaxDistance = 1000,        -- optional cap for searching targets
+    RequireLOS = true,         -- require line-of-sight (raycast)
+    AimSmoothing = {
+        Camera = 0.15,
+        RootPart = 0.18
+    },
 }
 
 local function RefreshCharacter()
@@ -1325,68 +1344,116 @@ end
 
 LocalPlayer.CharacterAdded:Connect(RefreshCharacter)
 
---////////////////////////////////////////////////////////
---    UI (Rayfield) — Cambiado Tab por Combat
---////////////////////////////////////////////////////////
+if Combat then
+    local togglerr = Combat:CreateToggle({
+        Name = "Enable Aimbot",
+        CurrentValue = false,
+        Callback = function(Value)
+            Settings.Enabled = Value
+        end,
+    })
 
-local togglerr = Combat:CreateToggle({
-    Name = "Enable Aimbot",
-    CurrentValue = false,
-    Callback = function(Value)
-        Settings.Enabled = Value
-    end,
-})
+    local TargetDropdown = Combat:CreateDropdown({
+       Name = "Tipo de Objetivo",
+       Options = {"Killers + Survivors", "Solo Killers", "Solo Survivors"},
+       CurrentOption = {"Killers + Survivors"},
+       MultipleOptions = false,
+       Flag = "TargetSelector",
+       Callback = function(Option)
+          Settings.ModeTargets = Option[1]
+       end,
+    })
 
-local TargetDropdown = Combat:CreateDropdown({
-   Name = "Tipo de Objetivo",
-   Options = {"Killers + Survivors", "Solo Killers", "Solo Survivors"},
-   CurrentOption = {"Killers + Survivors"},
-   MultipleOptions = false,
-   Flag = "TargetSelector",
-   Callback = function(Option)
-      Settings.ModeTargets = Option[1]
-   end,
-})
+    local AimbotType = Combat:CreateDropdown({
+       Name = "Modo de Aimbot",
+       Options = {"Camera", "RootPart", "Normal"},
+       CurrentOption = {"Camera"},
+       MultipleOptions = false,
+       Flag = "AimType",
+       Callback = function(Option)
+          Settings.ModeAimbot = Option[1]
+       end,
+    })
 
-local AimbotType = Combat:CreateDropdown({
-   Name = "Modo de Aimbot",
-   Options = {"Camera", "RootPart", "Normal"},
-   CurrentOption = {"Camera"},
-   MultipleOptions = false,
-   Flag = "AimType",
-   Callback = function(Option)
-      Settings.ModeAimbot = Option[1]
-   end,
-})
-
-local PredSlider = Combat:CreateSlider({
-   Name = "Prediction (studs)",
-   Range = {0, 20},
-   Increment = 0.5,
-   CurrentValue = 0,
-   Flag = "PredictionSlider",
-   Callback = function(Value)
-      Settings.Prediction = Value
-   end,
-})
-
---////////////////////////////////////////////////////////
---    TARGET SYSTEM
---////////////////////////////////////////////////////////
-
-local function GetTargetsFolder()
-    if Settings.ModeTargets == "Killers + Survivors" then
-        return {
-            game.Workspace.Players.Survivors,
-            game.Workspace.Players.Killers
-        }
-    elseif Settings.ModeTargets == "Solo Killers" then
-        return {game.Workspace.Players.Killers}
-    elseif Settings.ModeTargets == "Solo Survivors" then
-        return {game.Workspace.Players.Survivors}
-    end
+    local PredSlider = Combat:CreateSlider({
+       Name = "Prediction (studs)",
+       Range = {0, 20},
+       Increment = 0.5,
+       CurrentValue = 0,
+       Flag = "PredictionSlider",
+       Callback = function(Value)
+          Settings.Prediction = Value
+       end,
+    })
+else
+    -- If you want to debug without UI, you can set values here
+    -- Settings.Enabled = true
 end
 
+-- Helper: grab the target folders depending on selection
+local function GetTargetsFolder()
+    local folders = {}
+    local ok, survivors = pcall(function() return Workspace.Players and Workspace.Players:FindFirstChild("Survivors") end)
+    local ok2, killers = pcall(function() return Workspace.Players and Workspace.Players:FindFirstChild("Killers") end)
+
+    if Settings.ModeTargets == "Killers + Survivors" then
+        if survivors then table.insert(folders, survivors) end
+        if killers then table.insert(folders, killers) end
+    elseif Settings.ModeTargets == "Solo Killers" then
+        if killers then table.insert(folders, killers) end
+    elseif Settings.ModeTargets == "Solo Survivors" then
+        if survivors then table.insert(folders, survivors) end
+    end
+
+    return folders
+end
+
+-- Validate a candidate model as a proper target
+local function IsValidTarget(model)
+    if not model or not model.Parent then return false end
+    if model == Character then return false end -- don't target self
+
+    local hrp = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("Torso") or model:FindFirstChild("UpperTorso")
+    local humanoid = model:FindFirstChildOfClass("Humanoid")
+    if not hrp or not humanoid then return false end
+    if humanoid.Health <= 0 then return false end
+
+    local myRoot = Character:FindFirstChild("HumanoidRootPart")
+    if myRoot then
+        local dist = (myRoot.Position - hrp.Position).Magnitude
+        if dist > Settings.MaxDistance then return false end
+    end
+
+    return true
+end
+
+-- Optional line-of-sight check (raycast from camera or local head to target)
+local function HasLineOfSight(targetHRP)
+    if not Settings.RequireLOS then return true end
+    local cam = Workspace.CurrentCamera
+    if not cam or not targetHRP then return false end
+
+    local origin = cam.CFrame.Position
+    local direction = (targetHRP.Position - origin)
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Blacklist
+    -- ignore local character so the ray won't hit self
+    params.FilterDescendantsInstances = {Character}
+    local result = Workspace:Raycast(origin, direction, params)
+    if not result then
+        -- no hit means direct line to target (depends on world setup)
+        return true
+    end
+
+    -- Allow if the ray hit the targetHRP or something parented to that model
+    if result.Instance and result.Instance:IsDescendantOf(targetHRP.Parent) then
+        return true
+    end
+
+    return false
+end
+
+-- Find nearest valid target HRP (returns BasePart)
 local function GetNearestTarget()
     local Root = Character:FindFirstChild("HumanoidRootPart")
     if not Root then return nil end
@@ -1397,12 +1464,16 @@ local function GetNearestTarget()
     for _, folder in ipairs(GetTargetsFolder()) do
         if folder then
             for _, model in ipairs(folder:GetChildren()) do
-                local hrp = model:FindFirstChild("HumanoidRootPart")
-                if hrp then
-                    local dist = (Root.Position - hrp.Position).Magnitude
-                    if dist < bestDist then
-                        bestDist = dist
-                        bestTarget = hrp
+                if IsValidTarget(model) then
+                    local hrp = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("Torso") or model:FindFirstChild("UpperTorso")
+                    if hrp then
+                        local dist = (Root.Position - hrp.Position).Magnitude
+                        if dist < bestDist and dist <= Settings.MaxDistance then
+                            if HasLineOfSight(hrp) then
+                                bestDist = dist
+                                bestTarget = hrp
+                            end
+                        end
                     end
                 end
             end
@@ -1412,34 +1483,37 @@ local function GetNearestTarget()
     return bestTarget
 end
 
---////////////////////////////////////////////////////////
---    AIMBOT / CAMLOCK
---////////////////////////////////////////////////////////
-
+-- AIM FUNCTIONS
 local function AimCameraAt(targetHRP)
-    local cam = workspace.CurrentCamera
+    local cam = Workspace.CurrentCamera
     local charRoot = Character:FindFirstChild("HumanoidRootPart")
-    if not charRoot then return end
+    if not cam or not charRoot or not targetHRP then return end
 
-    local predicted = targetHRP.Position + (targetHRP.AssemblyLinearVelocity * Settings.Prediction)
-    local direction = (predicted - cam.CFrame.Position).Unit
-    local goalCFrame = CFrame.lookAt(cam.CFrame.Position, cam.CFrame.Position + direction)
+    -- prediction using AssemblyLinearVelocity (if available) scaled by Prediction
+    local vel = (targetHRP.AssemblyLinearVelocity or Vector3.new())
+    local predictedPos = targetHRP.Position + vel * Settings.Prediction
+    local direction = (predictedPos - cam.CFrame.Position)
+    if direction.Magnitude == 0 then return end
+    local goalCFrame = CFrame.lookAt(cam.CFrame.Position, cam.CFrame.Position + direction.Unit)
 
-    cam.CFrame = cam.CFrame:Lerp(goalCFrame, 0.15)
+    cam.CFrame = cam.CFrame:Lerp(goalCFrame, Settings.AimSmoothing.Camera)
 end
 
 local function AimRootAt(targetHRP)
     local root = Character:FindFirstChild("HumanoidRootPart")
-    if not root then return end
+    if not root or not targetHRP then return end
 
-    local predicted = targetHRP.Position + (targetHRP.AssemblyLinearVelocity * Settings.Prediction)
-    local direction = (predicted - root.Position).Unit
-    local goal = CFrame.lookAt(root.Position, root.Position + direction)
+    local vel = (targetHRP.AssemblyLinearVelocity or Vector3.new())
+    local predictedPos = targetHRP.Position + vel * Settings.Prediction
+    local direction = (predictedPos - root.Position)
+    if direction.Magnitude == 0 then return end
+    local goal = CFrame.lookAt(root.Position, root.Position + direction.Unit)
 
-    root.CFrame = root.CFrame:Lerp(goal, 0.18)
+    root.CFrame = root.CFrame:Lerp(goal, Settings.AimSmoothing.RootPart)
 end
 
 local function AimNormal(targetHRP)
+    -- keep original behavior: camera aim
     AimCameraAt(targetHRP)
 end
 
@@ -1448,14 +1522,16 @@ local function ActivateAimbot()
     Settings.IsAiming = true
 
     local target = GetNearestTarget()
-    if not target then 
-        Settings.IsAiming = false 
-        return 
+    if not target then
+        Settings.IsAiming = false
+        return
     end
 
     local startTime = tick()
+    local camLockTime = math.max(0.05, Settings.CameraLockTime or 0)
 
-    while tick() - startTime < Settings.CameraLockTime and Settings.Enabled do
+    while tick() - startTime < camLockTime and Settings.Enabled do
+        if not target or not target.Parent then break end -- target disappeared
         if Settings.ModeAimbot == "Camera" then
             AimCameraAt(target)
         elseif Settings.ModeAimbot == "RootPart" then
@@ -1469,20 +1545,41 @@ local function ActivateAimbot()
     Settings.IsAiming = false
 end
 
---////////////////////////////////////////////////////////
---    DETECCIÓN DE ANIMACIONES
---////////////////////////////////////////////////////////
-
+-- ANIMATION DETECTION
+-- The Humanoid.AnimationPlayed event fires with an AnimationTrack
 Humanoid.AnimationPlayed:Connect(function(track)
-    local anim = track.Animation
-    if not anim then return end
-    
+    local ok, anim = pcall(function() return track and track.Animation end)
+    if not ok or not anim then return end
+
+    local animId = tostring(anim.AnimationId or "")
     for _, id in ipairs(TriggerAnimations) do
-        if anim.AnimationId == id then
+        if tostring(id) == animId then
             if Settings.Enabled then
-                ActivateAimbot()
+                -- run ActivateAimbot in a spawn thread so we don't block the animation event
+                spawn(function()
+                    ActivateAimbot()
+                end)
             end
+            break
         end
     end
 end)
 
+-- Safety: if humanoid gets replaced (character respawn), reconnect the AnimationPlayed
+LocalPlayer.CharacterAdded:Connect(function(char)
+    Character = char
+    Humanoid = Character:WaitForChild("Humanoid")
+    Humanoid.AnimationPlayed:Connect(function(track)
+        local ok, anim = pcall(function() return track and track.Animation end)
+        if not ok or not anim then return end
+        local animId = tostring(anim.AnimationId or "")
+        for _, id in ipairs(TriggerAnimations) do
+            if tostring(id) == animId then
+                if Settings.Enabled then
+                    spawn(function() ActivateAimbot() end)
+                end
+                break
+            end
+        end
+    end)
+end)
