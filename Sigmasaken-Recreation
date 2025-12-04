@@ -1305,8 +1305,8 @@ local Humanoid = Character:WaitForChild("Humanoid")
 
 -- Animaciones que activan el aimbot
 local TriggerAnimations = {
-    "rbxassetid://XXXXXX",
-    "rbxassetid://YYYYYY"
+    "rbxassetid://133491532453922",
+    "rbxassetid://79282445348798"
 }
 
 local Settings = {
