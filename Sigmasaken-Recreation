@@ -1329,7 +1329,7 @@ LocalPlayer.CharacterAdded:Connect(RefreshCharacter)
 --    UI (Rayfield) — Cambiado Tab por Combat
 --////////////////////////////////////////////////////////
 
-local espminion = Combat:CreateToggle({
+local togglerr = Combat:CreateToggle({
     Name = "Enable Aimbot",
     CurrentValue = false,
     Callback = function(Value)
