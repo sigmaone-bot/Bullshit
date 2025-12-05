@@ -1432,7 +1432,9 @@ Combat:CreateSlider({
     end
 })
 
-Combat:CreateButton({
+local Gens = Window:CreateTab("Generators", "swords")
+
+Gens:CreateButton({
     Name = "Fix generator manual",
     Callback = function()
         loadstring(game:HttpGet("https://pastebin.com/raw/tPWnvGj6"))()
