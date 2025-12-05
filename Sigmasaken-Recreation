@@ -1424,10 +1424,18 @@ Combat:CreateToggle({
 Combat:CreateSlider({
     Name = "Reach Distance",
     Increment = 0.5,
-    CurrentValud = 7,
+    CurrentValue = 7,
     Range = {1, 10},
     Suffix = " studs",
     Callback = function(val)
         _G.hitboxnearestdist = val
+    end
+})
+
+Combat:CreateButton({
+    Name = "Fix generator manual",
+    Callback = function()
+        loadstring(game:HttpGet("https://pastebin.com/raw/tPWnvGj6"))()
+        --WindUI:Notify({ Title = "Fix generator manual", Content = "hi from bublik6241", Duration = 2 })
     end
 })
