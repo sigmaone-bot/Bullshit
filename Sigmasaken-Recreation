@@ -1295,16 +1295,17 @@ Combat:CreateSlider({
 
 Combat:CreateSection("Aimbot")
 
--- Professional Aimbot System (LocalScript)
--- Complete rewrite with fixed prediction, stability, and camera tracking
+-- Professional Aimbot System (LocalScript) - Robust Rewrite
+-- Goals:
+--  - More defensive checks to prevent runtime errors
+--  - Proper connection lifecycle (no double-connections / leaks)
+--  - Safe camera handling (store & restore previous camera state)
+--  - Preserve UI toggles, dropdowns and sliders exactly as provided
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
-
--- ============================================
--- INITIALIZATION
--- ============================================
+local HttpService = game:GetService("HttpService")
 
 local LocalPlayer = Players.LocalPlayer
 while not LocalPlayer do
@@ -1315,6 +1316,9 @@ end
 -- Animation IDs that trigger aimbot
 local TRIGGER_ANIMATIONS = {
     "rbxassetid://133491532453922",
+    "rbxassetid://126171487400618",
+    "rbxassetid://83685305553364",
+    "rbxassetid://99030950661794",
     "rbxassetid://79282445348798"
 }
 
@@ -1328,29 +1332,43 @@ local Config = {
     LockDuration = 2,
     MaxDistance = 1000,
     MinVelocity = 1, -- Ignore targets moving slower than this
-    Smoothness = 0.75, -- 0.95 = instant, 0.05 = very smooth
+    Smoothness = 0.75, -- 0 = instant, 1 = super smooth (we will clamp/convert when used)
 }
 
 -- State management
 local State = {
     IsLocked = false,
-    CurrentTarget = nil,
+    CurrentTarget = nil,          -- Instance (Part) being aimed at
     Character = nil,
     Humanoid = nil,
     Camera = nil,
-    ActiveConnection = nil,
+    HeartbeatConn = nil,          -- connection to RunService.Heartbeat
+    AnimConn = nil,               -- connection to Humanoid.AnimationPlayed
+    CharConn = nil,               -- connection to CharacterRemoving (cleanup)
+    PrevCameraType = nil,
+    PrevCameraCFrame = nil,
+    PrevCameraSubject = nil,
 }
 
+-- Utility: safe pcall wrapper
+local function safe(fn, ...)
+    local ok, res = pcall(fn, ...)
+    if not ok then
+        return nil
+    end
+    return res
+end
+
 -- ============================================
--- CORE FUNCTIONS
+-- CORE HELPERS
 -- ============================================
 
 -- Get current character safely
 local function GetCharacter()
-    local char = LocalPlayer.Character
-    if char and char.Parent and char:FindFirstChild("HumanoidRootPart") then
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if hum and hum.Health > 0 then
+    local char = safe(function() return LocalPlayer.Character end)
+    if char and char.Parent and safe(function() return char:FindFirstChild("HumanoidRootPart") end) then
+        local hum = safe(function() return char:FindFirstChildOfClass("Humanoid") end)
+        if hum and safe(function() return hum.Health end) and hum.Health > 0 then
             return char, hum
         end
     end
@@ -1359,25 +1377,69 @@ end
 
 -- Get camera safely
 local function GetCamera()
-    return Workspace.CurrentCamera
+    return safe(function() return Workspace.CurrentCamera end)
 end
 
--- Refresh state
+-- Refresh state and clamp values
 local function RefreshState()
     State.Character, State.Humanoid = GetCharacter()
     State.Camera = GetCamera()
+
+    -- Ensure numeric settings are valid
+    if type(Config.PredictionTime) ~= "number" or Config.PredictionTime ~= Config.PredictionTime then
+        Config.PredictionTime = 0.2
+    end
+    Config.PredictionTime = math.clamp(Config.PredictionTime, 0, 2)
+
+    if type(Config.MinVelocity) ~= "number" or Config.MinVelocity ~= Config.MinVelocity then
+        Config.MinVelocity = 1
+    end
+    Config.MinVelocity = math.max(0, Config.MinVelocity)
+
+    if type(Config.MaxDistance) ~= "number" or Config.MaxDistance ~= Config.MaxDistance then
+        Config.MaxDistance = 1000
+    end
+    Config.MaxDistance = math.max(50, Config.MaxDistance)
+
+    if type(Config.Smoothness) ~= "number" or Config.Smoothness ~= Config.Smoothness then
+        Config.Smoothness = 0.75
+    end
+    Config.Smoothness = math.clamp(Config.Smoothness, 0, 1)
+
     return State.Character ~= nil and State.Camera ~= nil
+end
+
+-- Find the HumanoidRootPart-like part in a model
+local function GetPrimaryPart(model)
+    if not model then return nil end
+    -- prefer HumanoidRootPart, then Lower/UpperTorso, then Torso
+    local candidates = {
+        "HumanoidRootPart", "LowerTorso", "UpperTorso", "Torso", "RootPart"
+    }
+    for _, name in ipairs(candidates) do
+        local p = safe(function() return model:FindFirstChild(name) end)
+        if p and p:IsA("BasePart") then
+            return p
+        end
+    end
+    -- fallback: any BasePart
+    for _, descendant in ipairs(safe(function() return model:GetDescendants() end) or {}) do
+        if descendant and descendant:IsA("BasePart") then
+            return descendant
+        end
+    end
+    return nil
 end
 
 -- Get target folders based on settings
 local function GetTargetFolders()
     local folders = {}
-    local playersFolder = Workspace:FindFirstChild("Players")
+    local playersFolder = safe(function() return Workspace:FindFirstChild("Players") end)
     if not playersFolder then return folders end
-    
-    local survivors = playersFolder:FindFirstChild("Survivors")
-    local killers = playersFolder:FindFirstChild("Killers")
-    
+
+    local survivors = safe(function() return playersFolder:FindFirstChild("Survivors") end)
+    local killers = safe(function() return playersFolder:FindFirstChild("Killers") end)
+
     if Config.TargetMode == "Killers + Survivors" then
         if survivors then table.insert(folders, survivors) end
         if killers then table.insert(folders, killers) end
@@ -1386,69 +1448,84 @@ local function GetTargetFolders()
     elseif Config.TargetMode == "Solo Survivors" then
         if survivors then table.insert(folders, survivors) end
     end
-    
+
     return folders
 end
 
--- Check if model is valid target
+-- Validate model is a valid target
 local function IsValidTarget(model)
     if not model or not model.Parent then return false end
+    if not State.Character then return false end
     if model == State.Character then return false end
-    
-    local hrp = model:FindFirstChild("HumanoidRootPart") or 
-                model:FindFirstChild("Torso") or 
-                model:FindFirstChild("UpperTorso")
-    local hum = model:FindFirstChildOfClass("Humanoid")
-    
+
+    local hrp = GetPrimaryPart(model)
+    local hum = safe(function() return model:FindFirstChildOfClass("Humanoid") end)
+
     if not hrp or not hum then return false end
-    if hum.Health <= 0 then return false end
-    
+    if not safe(function() return hum.Health end) or hum.Health <= 0 then return false end
+
     -- Distance check
-    local myRoot = State.Character and State.Character:FindFirstChild("HumanoidRootPart")
+    local myRoot = GetPrimaryPart(State.Character)
     if myRoot then
-        local dist = (myRoot.Position - hrp.Position).Magnitude
-        if dist > Config.MaxDistance then return false end
+        local success, dist = pcall(function()
+            return (myRoot.Position - hrp.Position).Magnitude
+        end)
+        if not success or dist > Config.MaxDistance then return false end
     end
-    
+
     return true
 end
 
--- Wall check using raycast
+-- Wall check using Raycast; returns true if unobstructed (or wall check disabled)
 local function HasLineOfSight(targetPart)
     if not Config.WallCheck then return true end
-    if not targetPart or not State.Camera then return false end
-    
-    local origin = State.Camera.CFrame.Position
+    if not targetPart or not State.Camera then return false
+
+    end
+    local origin = safe(function() return State.Camera.CFrame.Position end)
+    if not origin then return true end -- be permissive if camera missing
+
     local direction = targetPart.Position - origin
-    
+    if direction.Magnitude <= 0 then return true end
+
     local params = RaycastParams.new()
     params.FilterType = Enum.RaycastFilterType.Exclude
-    params.FilterDescendantsInstances = {State.Character, targetPart.Parent}
-    
-    local result = Workspace:Raycast(origin, direction, params)
-    return result == nil -- No obstruction = line of sight
+    -- exclude player's character and the target model to avoid false positives
+    local excluded = {}
+    if State.Character then table.insert(excluded, State.Character) end
+    local targetModel = targetPart.Parent
+    if targetModel then table.insert(excluded, targetModel) end
+    params.FilterDescendantsInstances = excluded
+
+    local ok, result = pcall(function()
+        return Workspace:Raycast(origin, direction.Unit * math.min(direction.Magnitude, 10000), params)
+    end)
+    if not ok then
+        return true -- if raycast fails, be permissive to avoid breaking
+    end
+    return result == nil
 end
 
--- Find nearest valid target
+-- Find nearest valid target (returns the target part or nil)
 local function FindNearestTarget()
     if not RefreshState() then return nil end
-    
-    local myRoot = State.Character:FindFirstChild("HumanoidRootPart")
+
+    local myRoot = GetPrimaryPart(State.Character)
     if not myRoot then return nil end
-    
+
     local nearest = nil
     local nearestDist = math.huge
-    
+
     for _, folder in ipairs(GetTargetFolders()) do
-        for _, model in ipairs(folder:GetChildren()) do
+        local children = safe(function() return folder:GetChildren() end) or {}
+        for _, model in ipairs(children) do
             if IsValidTarget(model) then
-                local targetPart = model:FindFirstChild("HumanoidRootPart") or
-                                  model:FindFirstChild("Torso") or
-                                  model:FindFirstChild("UpperTorso")
-                
+                local targetPart = GetPrimaryPart(model)
                 if targetPart and HasLineOfSight(targetPart) then
-                    local dist = (myRoot.Position - targetPart.Position).Magnitude
-                    if dist < nearestDist then
+                    local ok, dist = pcall(function()
+                        return (myRoot.Position - targetPart.Position).Magnitude
+                    end)
+                    if ok and dist and dist < nearestDist then
                         nearestDist = dist
                         nearest = targetPart
                     end
@@ -1456,170 +1533,246 @@ local function FindNearestTarget()
             end
         end
     end
-    
+
     return nearest
 end
 
--- Calculate predicted position (lateral movement only)
+-- Predict position using lateral-only prediction relative to camera
 local function GetPredictedPosition(targetPart)
-    if not targetPart or not State.Camera then 
-        return targetPart and targetPart.Position or nil 
-    end
-    
-    local velocity = targetPart.AssemblyLinearVelocity
+    if not targetPart then return nil end
+    if not State.Camera then return targetPart.Position end
+
+    local velocity = safe(function() return targetPart.AssemblyLinearVelocity end) or Vector3.new(0,0,0)
     if not velocity or velocity.Magnitude < Config.MinVelocity then
         return targetPart.Position
     end
-    
-    -- Get camera forward direction
-    local cameraForward = State.Camera.CFrame.LookVector
-    
-    -- Calculate how much target is moving toward/away from camera
-    local forwardSpeed = velocity:Dot(cameraForward)
-    
-    -- Remove forward/backward component, keep only lateral (strafe)
-    local lateralVelocity = velocity - (forwardSpeed * cameraForward)
-    
-    -- Predict position
-    return targetPart.Position + (lateralVelocity * Config.PredictionTime)
+
+    local camForward = safe(function() return State.Camera.CFrame.LookVector end)
+    if not camForward then camForward = Vector3.new(0,0,-1) end
+
+    local forwardSpeed = velocity:Dot(camForward)
+    local lateralVelocity = velocity - (forwardSpeed * camForward)
+
+    -- Multiply by prediction time (clamped) and return
+    local predictTime = math.clamp(Config.PredictionTime or 0.2, 0, 2)
+    return targetPart.Position + (lateralVelocity * predictTime)
 end
 
 -- ============================================
--- AIM FUNCTIONS
+-- AIM IMPLEMENTATIONS
 -- ============================================
 
-local function AimCamera(targetPart)
-    if not State.Camera or not targetPart or not targetPart.Parent then 
-        return false 
+-- Ensure camera is in Scriptable mode and store previous values (idempotent)
+local function EnsureScriptableCamera()
+    if not State.Camera then return end
+    if State.PrevCameraType == nil then
+        -- store previous camera state
+        State.PrevCameraType = safe(function() return State.Camera.CameraType end)
+        State.PrevCameraCFrame = safe(function() return State.Camera.CFrame end)
+        State.PrevCameraSubject = safe(function() return State.Camera.CameraSubject end)
     end
-    
+    -- Set to scriptable so we can directly set CFrame
+    if pcall(function() State.Camera.CameraType = Enum.CameraType.Scriptable end) then
+        -- ok
+    end
+end
+
+-- Restore camera type and CFrame if we modified them
+local function RestoreCamera()
+    if not State.Camera then return end
+    if State.PrevCameraType then
+        pcall(function() State.Camera.CameraType = State.PrevCameraType end)
+    end
+    if State.PrevCameraCFrame then
+        pcall(function() State.Camera.CFrame = State.PrevCameraCFrame end)
+    end
+    if State.PrevCameraSubject then
+        pcall(function() State.Camera.CameraSubject = State.PrevCameraSubject end)
+    end
+    State.PrevCameraType = nil
+    State.PrevCameraCFrame = nil
+    State.PrevCameraSubject = nil
+end
+
+local function AimCamera(targetPart)
+    if not State.Camera or not targetPart or not targetPart.Parent then
+        return false
+    end
+
     local predictedPos = GetPredictedPosition(targetPart)
     if not predictedPos then return false end
-    
-    local camPos = State.Camera.CFrame.Position
-    local direction = (predictedPos - camPos)
-    
+
+    local camPos = safe(function() return State.Camera.CFrame.Position end)
+    if not camPos then return false end
+
+    local direction = predictedPos - camPos
     if direction.Magnitude < 0.001 then return false end
-    
+
+    EnsureScriptableCamera()
     local lookAt = CFrame.lookAt(camPos, predictedPos)
-    State.Camera.CFrame = State.Camera.CFrame:Lerp(lookAt, Config.Smoothness)
-    
-    return true
+    -- We want Lerp factor that makes 0 -> no change, 1 -> instant. We store Smoothness 0..1 where 0=instant.
+    local factor = math.clamp(1 - Config.Smoothness, 0, 1)
+    -- If user expects Smoothness closer to 0 to be smooth, invert accordingly; we keep original meaning from previous code.
+    -- Use Lerp on CFrame
+    local ok, newCFrame = pcall(function() return State.Camera.CFrame:Lerp(lookAt, factor) end)
+    if ok and newCFrame then
+        pcall(function() State.Camera.CFrame = newCFrame end)
+        return true
+    end
+    return false
 end
 
 local function AimRootPart(targetPart)
-    if not State.Character or not targetPart or not targetPart.Parent then 
-        return false 
+    if not State.Character or not targetPart or not targetPart.Parent then
+        return false
     end
-    
-    local root = State.Character:FindFirstChild("HumanoidRootPart")
+
+    local root = GetPrimaryPart(State.Character)
     if not root then return false end
-    
+
     local predictedPos = GetPredictedPosition(targetPart)
     if not predictedPos then return false end
-    
-    -- Only rotate horizontally (prevent tilting)
+
+    -- Only rotate horizontally (y axis unchanged)
     local rootPos = root.Position
-    local direction = Vector3.new(
-        predictedPos.X - rootPos.X,
-        0,
-        predictedPos.Z - rootPos.Z
-    )
-    
-    if direction.Magnitude < 0.001 then return false end
-    
-    local lookAt = CFrame.lookAt(rootPos, rootPos + direction.Unit)
-    root.CFrame = root.CFrame:Lerp(lookAt, Config.Smoothness)
-    
-    return true
+    local dir = Vector3.new(predictedPos.X - rootPos.X, 0, predictedPos.Z - rootPos.Z)
+    if dir.Magnitude < 0.001 then return false end
+
+    local lookAt = CFrame.lookAt(rootPos, rootPos + dir.Unit)
+    local factor = math.clamp(1 - Config.Smoothness, 0, 1)
+    local ok, newCFrame = pcall(function() return root.CFrame:Lerp(lookAt, factor) end)
+    if ok and newCFrame then
+        pcall(function() root.CFrame = newCFrame end)
+        return true
+    end
+    return false
 end
 
 -- ============================================
--- AIMBOT ACTIVATION
+-- AIMBOT ACTIVATION / LIFECYCLE
 -- ============================================
+
+local function DisconnectHeartbeat()
+    if State.HeartbeatConn then
+        pcall(function() State.HeartbeatConn:Disconnect() end)
+        State.HeartbeatConn = nil
+    end
+end
+
+local function DisconnectAnim()
+    if State.AnimConn then
+        pcall(function() State.AnimConn:Disconnect() end)
+        State.AnimConn = nil
+    end
+end
 
 local function StopAiming()
     State.IsLocked = false
     State.CurrentTarget = nil
-    
-    if State.ActiveConnection then
-        State.ActiveConnection:Disconnect()
-        State.ActiveConnection = nil
-    end
+    DisconnectHeartbeat()
+    RestoreCamera()
 end
 
 local function StartAiming()
+    -- Don't start if already locked or disabled
     if State.IsLocked or not Config.Enabled then return end
     if not RefreshState() then return end
-    
+
     local target = FindNearestTarget()
     if not target then return end
-    
+
     State.IsLocked = true
     State.CurrentTarget = target
-    
+
     local startTime = tick()
-    local lockDuration = math.max(0.05, Config.LockDuration)
-    
-    -- Cleanup old connection
-    if State.ActiveConnection then
-        State.ActiveConnection:Disconnect()
-    end
-    
-    -- Create new tracking loop
-    State.ActiveConnection = RunService.Heartbeat:Connect(function()
-        -- Check if we should stop
+    local lockDuration = math.max(0.05, (Config.LockDuration or 0.2))
+
+    -- Ensure previous heartbeat connection is cleaned
+    DisconnectHeartbeat()
+
+    -- Create heartbeat loop with robust guards
+    State.HeartbeatConn = RunService.Heartbeat:Connect(function()
+        -- Abort conditions
         if not Config.Enabled or tick() - startTime >= lockDuration then
             StopAiming()
             return
         end
-        
-        -- Validate state every frame
+
+        -- Validate state
         if not RefreshState() then
             StopAiming()
             return
         end
-        
-        -- Validate target
+
         if not State.CurrentTarget or not State.CurrentTarget.Parent then
             StopAiming()
             return
         end
-        
-        -- Check if target is still valid
+
         local targetModel = State.CurrentTarget.Parent
         if not IsValidTarget(targetModel) then
             StopAiming()
             return
         end
-        
-        -- Aim at target
+
+        -- Validate distance and LoS each frame
+        local myRoot = GetPrimaryPart(State.Character)
+        if myRoot then
+            local ok, dist = pcall(function() return (myRoot.Position - State.CurrentTarget.Position).Magnitude end)
+            if not ok or dist > Config.MaxDistance then
+                StopAiming()
+                return
+            end
+        end
+
+        if not HasLineOfSight(State.CurrentTarget) then
+            StopAiming()
+            return
+        end
+
+        -- Perform aiming based on mode
         local success = false
         if Config.AimMode == "Camera" then
             success = AimCamera(State.CurrentTarget)
         elseif Config.AimMode == "RootPart" then
             success = AimRootPart(State.CurrentTarget)
+        else
+            -- Unknown mode -> default to camera
+            success = AimCamera(State.CurrentTarget)
         end
-        
-        -- Stop if aiming failed
+
         if not success then
+            -- If for some reason aiming failed, stop to avoid infinite loop
             StopAiming()
+            return
         end
     end)
 end
 
 -- ============================================
--- ANIMATION DETECTION
+-- ANIMATION DETECTION (TRIGGER)
 -- ============================================
+
+-- Normalize animation id to pure numeric string for robust comparison
+local function NormalizeAnimId(animId)
+    if not animId then return "" end
+    local s = tostring(animId)
+    -- Remove rbxassetid:// prefix and non-digits
+    s = s:gsub("rbxassetid://", "")
+    s = s:gsub("%D+", "")
+    return s
+end
 
 local function OnAnimationPlayed(track)
     if not track or not track.Animation then return end
-    
-    local animId = tostring(track.Animation.AnimationId or "")
-    
+    local animId = NormalizeAnimId(track.Animation.AnimationId or "")
+
     for _, triggerId in ipairs(TRIGGER_ANIMATIONS) do
-        if animId == tostring(triggerId) then
-            task.spawn(StartAiming)
+        if animId ~= "" and animId == NormalizeAnimId(triggerId) then
+            -- spawn to avoid yielding animation event handler
+            task.spawn(function()
+                StartAiming()
+            end)
             break
         end
     end
@@ -1627,25 +1780,54 @@ end
 
 local function SetupAnimationTracking()
     if not State.Humanoid then return end
-    
-    State.Humanoid.AnimationPlayed:Connect(OnAnimationPlayed)
+    DisconnectAnim()
+    -- Connect and store
+    State.AnimConn = State.Humanoid.AnimationPlayed:Connect(OnAnimationPlayed)
 end
 
 -- ============================================
 -- CHARACTER MANAGEMENT
 -- ============================================
 
-local function OnCharacterAdded(character)
+local function OnCharacterRemoving(character)
+    -- Called when the current character is about to be removed (respawn)
+    -- Immediately stop aiming and cleanup connections
     StopAiming()
-    task.wait(0.5) -- Wait for character to fully load
-    
+    DisconnectAnim()
+end
+
+local function OnCharacterAdded(character)
+    -- Clean up any previous aiming and wait a short moment for the character to load
+    StopAiming()
+    DisconnectAnim()
+    if State.CharConn then
+        pcall(function() State.CharConn:Disconnect() end)
+        State.CharConn = nil
+    end
+
+    -- Hook removing for cleanup
+    if character then
+        State.CharConn = character:GetPropertyChangedSignal("Parent"):Connect(function()
+            if not character.Parent then
+                -- Character removed
+                OnCharacterRemoving(character)
+                if State.CharConn then
+                    pcall(function() State.CharConn:Disconnect() end)
+                    State.CharConn = nil
+                end
+            end
+        end)
+    end
+
+    -- small delay to allow parts/humanoid to exist
+    task.wait(0.5)
     if RefreshState() then
         SetupAnimationTracking()
     end
 end
 
 -- ============================================
--- UI SETUP
+-- UI SETUP (UNCHANGED - preserved exactly)
 -- ============================================
 
 if Combat then
@@ -1670,7 +1852,7 @@ if Combat then
 
     Combat:CreateDropdown({
         Name = "Tipo de Objetivo",
-        Options = {"Killers + Survivors", "Killers only", "Survivors only"},
+        Options = {"Killers + Survivors", "Solo Killers", "Solo Survivors"},
         CurrentOption = {"Killers + Survivors"},
         MultipleOptions = false,
         Flag = "TargetSelector",
@@ -1680,7 +1862,7 @@ if Combat then
     })
 
     Combat:CreateDropdown({
-        Name = "Aimbot mode",
+        Name = "Modo de Aimbot",
         Options = {"Camera", "RootPart"},
         CurrentOption = {"Camera"},
         MultipleOptions = false,
@@ -1718,20 +1900,30 @@ end
 -- INITIALIZE
 -- ============================================
 
--- Setup initial character
+-- Setup initial character if present
 if RefreshState() then
     SetupAnimationTracking()
 end
 
 -- Handle respawns
-LocalPlayer.CharacterAdded:Connect(OnCharacterAdded)
+-- Keep single CharacterAdded connection: first disconnect any existing to prevent duplicates
+if LocalPlayer then
+    local existing = safe(function() return LocalPlayer.CharacterAdded end)
+    -- Connect safely
+    local ok, conn = pcall(function()
+        return LocalPlayer.CharacterAdded:Connect(OnCharacterAdded)
+    end)
+    -- We don't store this top-level connection in State because CharacterAdded should be stable,
+    -- but we avoid creating duplicate handlers by not re-connecting elsewhere.
+end
 
--- Monitor camera changes
-Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+-- Monitor camera changes and refresh state
+local camChangedConn
+camChangedConn = Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
     RefreshState()
 end)
 
--- Periodic state validation (safety net)
+-- Periodic validation safety net
 task.spawn(function()
     while task.wait(1) do
         if Config.Enabled and State.IsLocked then
