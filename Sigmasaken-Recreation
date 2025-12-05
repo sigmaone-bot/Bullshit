@@ -1432,6 +1432,71 @@ Combat:CreateSlider({
     end
 })
 
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local player = Players.LocalPlayer
+local remote = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent")
+
+if remote and remote.ClassName == "RemoteEvent" then
+    local blockEnabled = true
+    local blockedName = player.Name .. "ChanceFireShot"
+    local delayDuration = 3
+    local mt = getrawmetatable(game)
+    local oldNamecall = mt.__namecall
+    
+    setreadonly(mt, false)
+    mt.__namecall = function(self, ...)
+        local method = getnamecallmethod()
+        local args = {...}
+        
+        if blockEnabled and method == "FireServer" then
+            local firstArg = args[1]
+            if type(firstArg) == "string" and firstArg == blockedName then
+                task.delay(delayDuration, function()
+                    blockEnabled = false
+                    local character = player.Character
+                    local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+                    
+                    if rootPart then
+                        local lookVector = rootPart.CFrame.LookVector
+                        local data = {Vector3.new(lookVector.X, lookVector.Y, lookVector.Z)}
+                        remote:FireServer(firstArg, data)
+                        blockEnabled = true
+                    else
+                        blockEnabled = true
+                    end
+                end)
+                return
+            end
+        end
+        
+        return oldNamecall(self, ...)
+    end
+    setreadonly(mt, true)
+
+    Combat:CreateToggle({
+        Name = "Storing Hitbox Gun",
+        Flag = "StoringHitboxGun",
+        CurrentValue = true,
+        Callback = function(value)
+            blockEnabled = value
+        end
+    })
+
+    Combat:CreateInput({
+        Name = "Delay Duration (seconds)",
+        Flag = "DelayDurationseconds",
+        PlaceholderText = "2",
+        RemoveTextAfterFocusLost = false,
+        Callback = function(input)
+            local num = tonumber(input)
+            if num and num > 0 then
+                delayDuration = num
+            end
+        end
+    })
+end
+
 local Gens = Window:CreateTab("Generators", "swords")
 
 Gens:CreateButton({
