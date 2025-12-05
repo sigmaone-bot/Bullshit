@@ -1506,3 +1506,152 @@ Gens:CreateButton({
         --WindUI:Notify({ Title = "Fix generator manual", Content = "hi from bublik6241", Duration = 2 })
     end
 })
+
+local Anims = Window:CreateTab("Animations", "swords")
+
+local player = Players.LocalPlayer
+
+-- IDs de animaciones
+local triggerAnimId = "rbxassetid://83685305553364"
+local replaceAnimId = "rbxassetid://70447634862911"
+
+local animationToggleEnabled = false
+local currentCharacter = nil
+local currentReplacementTrack = nil
+local connection = nil
+
+local function setupAnimationReplacement(char)
+    if not char then return end
+    
+    local humanoid = char:WaitForChild("Humanoid")
+    
+    local replacementAnim = Instance.new("Animation")
+    replacementAnim.AnimationId = replaceAnimId
+    currentReplacementTrack = humanoid:LoadAnimation(replacementAnim)
+    
+    connection = humanoid.AnimationPlayed:Connect(function(track)
+        if not animationToggleEnabled then return end
+        
+        if track.Animation and track.Animation.AnimationId == triggerAnimId then
+            track:Stop()
+            currentReplacementTrack:Play()
+        end
+    end)
+end
+
+local function cleanup()
+    if connection then
+        connection:Disconnect()
+        connection = nil
+    end
+    
+    if currentReplacementTrack then
+        currentReplacementTrack:Stop()
+        currentReplacementTrack = nil
+    end
+    
+    currentCharacter = nil
+end
+
+local function onCharacterAdded(char)
+    cleanup()
+    currentCharacter = char
+    setupAnimationReplacement(char)
+end
+
+-- Toggle system
+Anims:CreateToggle({
+    Name = "Old Hacklord mass infection",
+    Flag = "AnimationReplacer",
+    CurrentValue = animationToggleEnabled,
+    Callback = function(value)
+        animationToggleEnabled = value
+        
+        if value then
+            -- Enable the system
+            if not currentCharacter and player.Character then
+                onCharacterAdded(player.Character)
+            end
+        else
+            -- Disable the system
+            if currentReplacementTrack then
+                currentReplacementTrack:Stop()
+            end
+        end
+    end
+})
+
+-- Character handling
+player.CharacterAdded:Connect(function(char)
+    if animationToggleEnabled then
+        onCharacterAdded(char)
+    end
+end)
+
+if player.Character and animationToggleEnabled then
+    onCharacterAdded(player.Character)
+end
+
+local animToStopId = "rbxassetid://91758760621955"
+
+local stopAnimToggleEnabled = false
+local currentCharacter = nil
+local connection = nil
+
+local function setupAnimationStopper(char)
+    if not char then return end
+    
+    local humanoid = char:WaitForChild("Humanoid")
+    
+    connection = humanoid.AnimationPlayed:Connect(function(track)
+        if not stopAnimToggleEnabled then return end
+        
+        if track.Animation and track.Animation.AnimationId == animToStopId then
+            track:Stop()
+        end
+    end)
+end
+
+local function cleanup()
+    if connection then
+        connection:Disconnect()
+        connection = nil
+    end
+    
+    currentCharacter = nil
+end
+
+local function onCharacterAdded(char)
+    cleanup()
+    currentCharacter = char
+    if stopAnimToggleEnabled then
+        setupAnimationStopper(char)
+    end
+end
+
+-- Toggle system
+Anims:CreateToggle({
+    Name = "Remove Void Rush Charge up",
+    Flag = "StopSpecificAnimation",
+    CurrentValue = stopAnimToggleEnabled,
+    Callback = function(value)
+        stopAnimToggleEnabled = value
+        
+        if value then
+            -- Enable the system
+            if not currentCharacter and player.Character then
+                onCharacterAdded(player.Character)
+            end
+        else
+            -- Disable the system
+            cleanup()
+        end
+    end
+})
+
+-- Character handling
+player.CharacterAdded:Connect(onCharacterAdded)
+
+if player.Character then
+    onCharacterAdded(player.Character)
+end
