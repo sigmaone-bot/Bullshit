@@ -1293,6 +1293,141 @@ Combat:CreateSlider({
 --    CONFIG
 --////////////////////////////////////////////////////////
 
-Combat:CreateSection("Aimbot")
+Combat:CreateSection("Reach")
 
---                                     
+                              
+_G.JasonHitbox = _G.JasonHitbox or false
+_G.hitboxnearestdist = _G.hitboxnearestdist or 10
+
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local AttackAnimations = loadstring(game:HttpGet("https://raw.githubusercontent.com/sigmaone-bot/Bullshit/refs/heads/main/AttackAnims"))()
+
+local hitboxConnection -- conexión principal (única)
+
+---------------------------------------------------------
+-- INICIAR EL SISTEMA DE HITBOX
+---------------------------------------------------------
+local function startHitbox()
+    -- Si ya existe una conexión, desconectarla para reemplazarla
+    if hitboxConnection then
+        hitboxConnection:Disconnect()
+        hitboxConnection = nil
+    end
+
+    hitboxConnection = RunService.Heartbeat:Connect(function()
+        if not _G.JasonHitbox then return end
+
+        -- seguridad máxima
+        local reach = tonumber(_G.hitboxnearestdist) or 10
+        if reach <= 0 then reach = 10 end
+
+        local char = LocalPlayer.Character
+        if not char then return end
+
+        local humanoid = char:FindFirstChild("Humanoid")
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if not humanoid or not hrp then return end
+
+        ---------------------------------------------------------
+        -- DETECTAR SI ESTÁ ATACANDO
+        ---------------------------------------------------------
+        local isAttacking = false
+
+        for _, track in humanoid:GetPlayingAnimationTracks() do
+            local id = track.Animation.AnimationId
+            if AttackAnimations[id] and (track.TimePosition / track.Length < 0.75) then
+                isAttacking = true
+                break
+            end
+        end
+
+        if not isAttacking then return end
+
+        ---------------------------------------------------------
+        -- BUSCAR AL TARGET MÁS CERCANO
+        ---------------------------------------------------------
+        local nearestTarget = nil
+        local nearestDistance = math.huge
+
+        local function findNearest(folder)
+            if not folder then return end
+            for _, model in pairs(folder:GetChildren()) do
+                local hrp2 = model:FindFirstChild("HumanoidRootPart")
+                if hrp2 then
+                    local dist = (hrp2.Position - hrp.Position).Magnitude
+                    if dist < nearestDistance then
+                        nearestDistance = dist
+                        nearestTarget = model
+                    end
+                end
+            end
+        end
+
+        local parentName = char.Parent and char.Parent.Name
+
+        if parentName == "Killers" then
+            findNearest(workspace.Players:FindFirstChild("Survivors"))
+            findNearest(workspace.Map:FindFirstChild("NPCs", true))
+        else
+            findNearest(workspace.Players:FindFirstChild("Killers"))
+            findNearest(workspace.Map:FindFirstChild("NPCs", true))
+        end
+
+        if not nearestTarget then return end
+
+        ---------------------------------------------------------
+        -- COMPARACIÓN SEGURA (NUNCA CRASHEA)
+        ---------------------------------------------------------
+        local distNum = tonumber(nearestDistance) or math.huge
+        if distNum > reach then return end
+
+        ---------------------------------------------------------
+        -- MOVERSE HACIA EL TARGET
+        ---------------------------------------------------------
+        local targetPos = nearestTarget.HumanoidRootPart.Position
+        local oldVel = hrp.Velocity
+
+        local neededVel = (targetPos - hrp.Position) * 12
+
+        hrp.Velocity = neededVel
+        RunService.RenderStepped:Wait()
+        hrp.Velocity = oldVel
+    end)
+end
+
+---------------------------------------------------------
+-- REINICIAR AL RESPAWN
+---------------------------------------------------------
+LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(0.5)
+    startHitbox()
+end)
+
+-- inicio inicial
+startHitbox()
+
+---------------------------------------------------------
+-- UI
+---------------------------------------------------------
+
+Combat:CreateToggle({
+    Name = "Reach",
+    CurrentValue = false,
+    Callback = function(state)
+        _G.JasonHitbox = state
+    end
+})
+
+Combat:CreateSlider({
+    Name = "Reach Distance",
+    Increment = 0.5,
+    CurrentValud = 7,
+    Range = {1, 10},
+    Suffix = " studs",
+    Callback = function(val)
+        _G.hitboxnearestdist = val
+    end
+})
