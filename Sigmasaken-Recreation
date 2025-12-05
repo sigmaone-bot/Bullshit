@@ -1331,8 +1331,8 @@ local Settings = {
     MaxDistance = 1000,
     RequireLOS = false,
     AimSmoothing = {
-        Camera = 0.2,
-        RootPart = 0.2
+        Camera = 0.75,  -- Higher = more responsive (inverted in UI)
+        RootPart = 0.75
     },
 }
 
@@ -1475,13 +1475,16 @@ if Combat then
 
     Combat:CreateSlider({
        Name = "Aim Smoothing",
-       Range = {0.05, 1},
-       Increment = 0.05,
-       CurrentValue = 0.2,
+       Range = {1, 20},
+       Increment = 1,
+       CurrentValue = 5,
        Flag = "SmoothingSlider",
        Callback = function(Value)
-          Settings.AimSmoothing.Camera = Value
-          Settings.AimSmoothing.RootPart = Value
+          -- Invert: lower slider value = less smoothing (more responsive)
+          -- Convert slider range (1-20) to smoothing (0.95-0.05)
+          local smoothness = 1 - (Value / 21)
+          Settings.AimSmoothing.Camera = smoothness
+          Settings.AimSmoothing.RootPart = smoothness
        end,
     })
 end
@@ -1562,15 +1565,22 @@ local function CalculateLateralPrediction(targetHRP)
         -- Get target velocity
         local velocity = targetHRP.AssemblyLinearVelocity or Vector3.new()
         
+        -- If target is barely moving, don't predict
+        if velocity.Magnitude < 0.5 then
+            return targetHRP.Position
+        end
+        
         -- Get camera's look direction (forward vector)
         local cameraLook = Camera.CFrame.LookVector
         
-        -- Project velocity onto a plane perpendicular to camera look direction
-        -- This removes the forward/backward component relative to camera
-        local forwardComponent = velocity:Dot(cameraLook) * cameraLook
+        -- Calculate the component of velocity that's moving TOWARD or AWAY from camera
+        local forwardSpeed = velocity:Dot(cameraLook)
+        
+        -- Remove the toward/away component, keeping only lateral (strafe) movement
+        local forwardComponent = forwardSpeed * cameraLook
         local lateralVelocity = velocity - forwardComponent
         
-        -- Calculate predicted position using only lateral movement
+        -- Apply prediction ONLY to lateral movement
         local predictedPos = targetHRP.Position + (lateralVelocity * Settings.PredictionTime)
         
         return predictedPos
@@ -1641,9 +1651,14 @@ local function AimCameraAt(targetHRP)
 
         -- Center on target's center position
         local camPos = Camera.CFrame.Position
-        local direction = (predictedPos - camPos).Unit
+        local direction = (predictedPos - camPos)
+        
+        if direction.Magnitude < 0.01 then return end
+        direction = direction.Unit
         
         local goalCFrame = CFrame.new(camPos, camPos + direction)
+        
+        -- Higher smoothing value = more responsive (less lag)
         Camera.CFrame = Camera.CFrame:Lerp(goalCFrame, Settings.AimSmoothing.Camera)
     end)
     
@@ -1671,7 +1686,7 @@ local function AimRootAt(targetHRP)
         -- This prevents the character from tilting up/down
         local horizontalDirection = Vector3.new(direction.X, 0, direction.Z)
         
-        if horizontalDirection.Magnitude > 0 then
+        if horizontalDirection.Magnitude > 0.01 then
             horizontalDirection = horizontalDirection.Unit
             
             -- Create goal CFrame that only rotates horizontally
@@ -1680,7 +1695,7 @@ local function AimRootAt(targetHRP)
             -- Preserve Y position (height) while rotating
             goalCFrame = goalCFrame + Vector3.new(0, rootPos.Y - goalCFrame.Position.Y, 0)
             
-            -- Apply smooth interpolation
+            -- Apply smooth interpolation (higher value = more responsive)
             root.CFrame = root.CFrame:Lerp(goalCFrame, Settings.AimSmoothing.RootPart)
         end
     end)
