@@ -1,10 +1,11 @@
 -- ESP por modelo (único highlight + billboard por modelo)
--- Script completo y optimizado
+-- Script OPTIMIZADO para rendimiento
 
 -- Servicios
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
 local Players = game.Players
+local Workspace = game:GetService("Workspace")
 local LocalPlayer = Players.LocalPlayer
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local sk8module = require(game:GetService("ReplicatedStorage").Assets.Survivors.Veeronica.Config)
@@ -36,36 +37,55 @@ local defaultColors = {
 
 espConfig.colors = table.clone(defaultColors)
 
--- Storage para evitar duplicados y controlar objetos
+-- Storage optimizado
 local modelHighlights = {}   -- [model] = Highlight
 local modelBillboards = {}   -- [model] = BillboardGui
 local processedModels = {}   -- [model] = true
 local espConnections = {}    -- guardamos conexiones para desconectar luego
 
--- Limpieza
+-- Cache de búsquedas frecuentes
+local workspaceCache = {}
+local function getCachedChild(parent, name)
+    if not parent then return nil end
+    local key = parent:GetFullName() .. "_" .. name
+    if workspaceCache[key] == nil then
+        workspaceCache[key] = parent:FindFirstChild(name)
+    end
+    return workspaceCache[key]
+end
+
+-- Limpieza optimizada
 local function cleanupESP()
+    -- Destruir highlights
     for model, h in pairs(modelHighlights) do
-        if h and h.Parent then
-            pcall(function() h:Destroy() end)
+        if h then
+            task.spawn(function()
+                pcall(h.Destroy, h)
+            end)
         end
     end
-    modelHighlights = {}
-
+    table.clear(modelHighlights)
+    
+    -- Destruir billboards
     for model, b in pairs(modelBillboards) do
-        if b and b.Parent then
-            pcall(function() b:Destroy() end)
+        if b then
+            task.spawn(function()
+                pcall(b.Destroy, b)
+            end)
         end
     end
-    modelBillboards = {}
-
+    table.clear(modelBillboards)
+    
+    -- Desconectar conexiones
     for _, conn in pairs(espConnections) do
-        if conn and conn.Disconnect then
-            pcall(function() conn:Disconnect() end)
+        if conn then
+            pcall(conn.Disconnect, conn)
         end
     end
-    espConnections = {}
-
-    processedModels = {}
+    table.clear(espConnections)
+    
+    table.clear(processedModels)
+    table.clear(workspaceCache)
 end
 
 -- Helpers: consigue una parte válida para adornear (PrimaryPart preferida)
@@ -85,9 +105,24 @@ local function getAdorneePartForModel(model)
     return nil
 end
 
--- Aplica highlight y billboard a UN modelo (no partes)
+-- Aplica highlight y billboard a UN modelo (no partes) - OPTIMIZADO
 local function applyModelESP(model, colorConfig, objectType)
     if not model or typeof(model) ~= "Instance" then return end
+    
+    -- Verificar si el modelo sigue existiendo
+    if not model.Parent then
+        if modelHighlights[model] then
+            pcall(modelHighlights[model].Destroy, modelHighlights[model])
+            modelHighlights[model] = nil
+        end
+        if modelBillboards[model] then
+            pcall(modelBillboards[model].Destroy, modelBillboards[model])
+            modelBillboards[model] = nil
+        end
+        processedModels[model] = nil
+        return
+    end
+    
     if processedModels[model] then
         -- si ya fue procesado, aseguramos que el highlight/billboard existan y actualizamos valores
         local existingHighlight = modelHighlights[model]
@@ -140,7 +175,7 @@ local function applyModelESP(model, colorConfig, objectType)
     if espConfig.billboardEnabled then
         local success, billboard = pcall(function()
             local b = Instance.new("BillboardGui")
-            b.Name = "ESP_Billboard_" .. (objectType or "Object") .. "_" .. tostring(model:GetDebugIdAsync()):gsub(":", "_")
+            b.Name = "ESP_Billboard_" .. (objectType or "Object")
             b.Adornee = adornPart
             b.Size = UDim2.new(0, 200, 0, 40)
             b.StudsOffset = Vector3.new(0, 3, 0)
@@ -169,21 +204,21 @@ local function applyModelESP(model, colorConfig, objectType)
     processedModels[model] = true
 end
 
--- Buscadores (modelos o partes) - optimizados para map/players estándar
+-- Buscadores OPTIMIZADOS (sin escaneos completos de workspace)
 local function findKillersAndSurvivors()
     local killers = {}
     local survivors = {}
 
-    local playersFolder = workspace:FindFirstChild("Players")
+    local playersFolder = getCachedChild(Workspace, "Players")
     if playersFolder then
-        local killersFolder = playersFolder:FindFirstChild("Killers")
+        local killersFolder = getCachedChild(playersFolder, "Killers")
         if killersFolder then
             for _, k in ipairs(killersFolder:GetChildren()) do
                 if k:IsA("Model") then table.insert(killers, k) end
             end
         end
 
-        local survivorsFolder = playersFolder:FindFirstChild("Survivors")
+        local survivorsFolder = getCachedChild(playersFolder, "Survivors")
         if survivorsFolder then
             for _, s in ipairs(survivorsFolder:GetChildren()) do
                 if s:IsA("Model") then table.insert(survivors, s) end
@@ -197,9 +232,9 @@ end
 local function findGenerators()
     local generators = {}
     local fakeGenerators = {}
-    local map = workspace:FindFirstChild("Map")
+    local map = getCachedChild(Workspace, "Map")
     if not map then return generators, fakeGenerators end
-    local ingame = map:FindFirstChild("Ingame")
+    local ingame = getCachedChild(map, "Ingame")
     if not ingame then return generators, fakeGenerators end
 
     for _, obj in ipairs(ingame:GetChildren()) do
@@ -213,51 +248,168 @@ local function findGenerators()
     return generators, fakeGenerators
 end
 
-local function findShadowParts()
-    local parts = {}
-    -- Buscamos BaseParts con "shadow" en su nombre. Limitamos profundidad iterando todo workspace (pcall para safety).
-    pcall(function()
-        for _, obj in ipairs(workspace:GetDescendants()) do
-            if obj:IsA("BasePart") then
-                local lname = obj.Name:lower()
-                if lname:find("Shadow") then
-                    table.insert(parts, obj)
-                end
+-- Sistema de eventos para Shadow Parts (NO escaneos completos)
+local shadowParts = {}
+local function setupShadowDetection()
+    -- Solo busca una vez y luego usa eventos
+    local function initialShadowScan()
+        for _, obj in ipairs(Workspace:GetDescendants()) do
+            if obj:IsA("BasePart") and obj.Name:lower():find("shadow") then
+                shadowParts[obj] = true
+            end
+        end
+    end
+    
+    task.spawn(initialShadowScan)
+    
+    -- Eventos para nuevos objetos
+    local shadowAdded = Workspace.DescendantAdded:Connect(function(descendant)
+        if descendant:IsA("BasePart") and descendant.Name:lower():find("shadow") then
+            shadowParts[descendant] = true
+            if espConfig.enabled then
+                task.defer(function()
+                    if not modelHighlights[descendant] then
+                        local ok, highlight = pcall(function()
+                            local h = Instance.new("Highlight")
+                            h.Name = "ESP_Highlight_Shadow"
+                            h.Adornee = descendant
+                            h.Parent = CoreGui
+                            h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                            h.FillTransparency = espConfig.refillTransparency
+                            h.OutlineTransparency = espConfig.transparency
+                            h.FillColor = espConfig.colors.shadow.fill
+                            h.OutlineColor = espConfig.colors.shadow.highlight
+                            return h
+                        end)
+                        if ok and highlight then
+                            modelHighlights[descendant] = highlight
+                        end
+                    end
+                end)
             end
         end
     end)
-    return parts
+    
+    local shadowRemoved = Workspace.DescendantRemoving:Connect(function(descendant)
+        if shadowParts[descendant] then
+            shadowParts[descendant] = nil
+            local highlight = modelHighlights[descendant]
+            if highlight then
+                pcall(highlight.Destroy, highlight)
+                modelHighlights[descendant] = nil
+            end
+        end
+    end)
+    
+    table.insert(espConnections, shadowAdded)
+    table.insert(espConnections, shadowRemoved)
 end
 
-local function findMinionModels()
-    local minions = {}
-    pcall(function()
-        for _, obj in ipairs(workspace:GetDescendants()) do
+-- Sistema similar para Minions
+local minionModels = {}
+local function setupMinionDetection()
+    local function initialMinionScan()
+        for _, obj in ipairs(Workspace:GetDescendants()) do
             if obj:IsA("Model") then
                 local nameLower = obj.Name:lower()
                 if nameLower:find("minion") or nameLower:find("zombie") then
-                    table.insert(minions, obj)
+                    minionModels[obj] = true
+                end
+            end
+        end
+    end
+    
+    task.spawn(initialMinionScan)
+    
+    local minionAdded = Workspace.DescendantAdded:Connect(function(descendant)
+        if descendant:IsA("Model") then
+            local nameLower = descendant.Name:lower()
+            if nameLower:find("minion") or nameLower:find("zombie") then
+                minionModels[descendant] = true
+                if espConfig.enabled and espConfig.minionEnabled then
+                    task.defer(function()
+                        applyModelESP(descendant, espConfig.colors.minion, "Minion")
+                    end)
                 end
             end
         end
     end)
-    return minions
-end
-
-local function findRitualParts()
-    local rituals = {}
-    pcall(function()
-        for _, obj in ipairs(workspace:GetDescendants()) do
-            if obj:IsA("BasePart") and obj.Name:find("RespawnLocation") then
-                table.insert(rituals, obj)
+    
+    local minionRemoved = Workspace.DescendantRemoving:Connect(function(descendant)
+        if minionModels[descendant] then
+            minionModels[descendant] = nil
+            local highlight = modelHighlights[descendant]
+            if highlight then
+                pcall(highlight.Destroy, highlight)
+                modelHighlights[descendant] = nil
             end
         end
     end)
-    return rituals
+    
+    table.insert(espConnections, minionAdded)
+    table.insert(espConnections, minionRemoved)
 end
 
--- Función principal de actualización
+-- Sistema para Rituals
+local ritualParts = {}
+local function setupRitualDetection()
+    local function initialRitualScan()
+        for _, obj in ipairs(Workspace:GetDescendants()) do
+            if obj:IsA("BasePart") and obj.Name:find("RespawnLocation") then
+                ritualParts[obj] = true
+            end
+        end
+    end
+    
+    task.spawn(initialRitualScan)
+    
+    local ritualAdded = Workspace.DescendantAdded:Connect(function(descendant)
+        if descendant:IsA("BasePart") and descendant.Name:find("RespawnLocation") then
+            ritualParts[descendant] = true
+            if espConfig.enabled and espConfig.ritualEnabled then
+                task.defer(function()
+                    if not modelHighlights[descendant] then
+                        local ok, highlight = pcall(function()
+                            local h = Instance.new("Highlight")
+                            h.Name = "ESP_Highlight_Ritual"
+                            h.Adornee = descendant
+                            h.Parent = CoreGui
+                            h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                            h.FillTransparency = espConfig.refillTransparency
+                            h.OutlineTransparency = espConfig.transparency
+                            h.FillColor = espConfig.colors.ritual.fill
+                            h.OutlineColor = espConfig.colors.ritual.highlight
+                            return h
+                        end)
+                        if ok and highlight then
+                            modelHighlights[descendant] = highlight
+                        end
+                    end
+                end)
+            end
+        end
+    end)
+    
+    local ritualRemoved = Workspace.DescendantRemoving:Connect(function(descendant)
+        if ritualParts[descendant] then
+            ritualParts[descendant] = nil
+            local highlight = modelHighlights[descendant]
+            if highlight then
+                pcall(highlight.Destroy, highlight)
+                modelHighlights[descendant] = nil
+            end
+        end
+    end)
+    
+    table.insert(espConnections, ritualAdded)
+    table.insert(espConnections, ritualRemoved)
+end
+
+-- Función principal de actualización OPTIMIZADA
 local updating = false
+local lastUpdateTime = 0
+local updateCooldown = 10 -- 10 segundos entre actualizaciones completas (en lugar de 3)
+
 local function updateESP()
     if updating then return end
     updating = true
@@ -266,6 +418,14 @@ local function updateESP()
         cleanupESP()
         updating = false
         return
+    end
+
+    -- Actualizar configuraciones existentes primero (rápido)
+    for model, highlight in pairs(modelHighlights) do
+        if highlight and highlight.Parent then
+            highlight.FillTransparency = espConfig.refillTransparency
+            highlight.OutlineTransparency = espConfig.transparency
+        end
     end
 
     -- Killers & Survivors
@@ -281,83 +441,51 @@ local function updateESP()
     local gens, fakeGens = findGenerators()
     for _, g in ipairs(gens) do
         applyModelESP(g, espConfig.colors.generator, "Generator")
-        task.wait(0.001)
     end
     for _, fg in ipairs(fakeGens) do
         applyModelESP(fg, espConfig.colors.fakeGenerator, "FakeGenerator")
-        task.wait(0.001)
     end
 
-    -- Shadows (partes)
-    local shadowParts = findShadowParts()
-    for _, p in ipairs(shadowParts) do
-        -- Para partes individuales creamos un "model-like" temporary key (no queremos procesar parte como modelo)
-        -- Usaremos la propia parte como clave en modelHighlights/modelBillboards sólo si no existe ya
-        if not modelHighlights[p] then
-            local ok, highlight = pcall(function()
-                local h = Instance.new("Highlight")
-                h.Name = "ESP_Highlight_Shadow"
-                h.Adornee = p
-                h.Parent = CoreGui
-                h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                h.FillTransparency = espConfig.refillTransparency
-                h.OutlineTransparency = espConfig.transparency
-                h.FillColor = espConfig.colors.shadow.fill
-                h.OutlineColor = espConfig.colors.shadow.highlight
-                return h
-            end)
-            if ok and highlight then
-                modelHighlights[p] = highlight
-            end
-
-            if espConfig.billboardEnabled and not modelBillboards[p] then
-                local success, billboard = pcall(function()
-                    local b = Instance.new("BillboardGui")
-                    b.Name = "ESP_Billboard_Shadow_" .. tostring(p:GetDebugIdAsync()):gsub(":", "_")
-                    b.Adornee = p
-                    b.Size = UDim2.new(0, 200, 0, 40)
-                    b.StudsOffset = Vector3.new(0, 3, 0)
-                    b.AlwaysOnTop = true
-                    b.Parent = CoreGui
-                    b.Enabled = true
-
-                    local label = Instance.new("TextLabel")
-                    label.Size = UDim2.new(1,0,1,0)
-                    label.BackgroundTransparency = 1
-                    label.Text = "Shadow"
-                    label.TextColor3 = espConfig.colors.shadow.highlight
-                    label.TextSize = 14
-                    label.Font = Enum.Font.GothamBold
-                    label.Parent = b
-
-                    return b
+    -- Shadow Parts (ya están en caché)
+    if espConfig.enabled then
+        for part in pairs(shadowParts) do
+            if part.Parent and not modelHighlights[part] then
+                local ok, highlight = pcall(function()
+                    local h = Instance.new("Highlight")
+                    h.Name = "ESP_Highlight_Shadow"
+                    h.Adornee = part
+                    h.Parent = CoreGui
+                    h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                    h.FillTransparency = espConfig.refillTransparency
+                    h.OutlineTransparency = espConfig.transparency
+                    h.FillColor = espConfig.colors.shadow.fill
+                    h.OutlineColor = espConfig.colors.shadow.highlight
+                    return h
                 end)
-                if success and billboard then
-                    modelBillboards[p] = billboard
+                if ok and highlight then
+                    modelHighlights[part] = highlight
                 end
             end
         end
     end
 
-    -- Minions
+    -- Minions (si están habilitados)
     if espConfig.minionEnabled then
-        local minions = findMinionModels()
-        for _, m in ipairs(minions) do
-            applyModelESP(m, espConfig.colors.minion, "Minion")
-            task.wait(0.002)
+        for model in pairs(minionModels) do
+            if model.Parent then
+                applyModelESP(model, espConfig.colors.minion, "Minion")
+            end
         end
     end
 
-    -- Rituals
+    -- Rituals (si están habilitados)
     if espConfig.ritualEnabled then
-        local rituals = findRitualParts()
-        for _, r in ipairs(rituals) do
-            -- r es BasePart; manejamos igual que shadow
-            if not modelHighlights[r] then
+        for part in pairs(ritualParts) do
+            if part.Parent and not modelHighlights[part] then
                 local ok, highlight = pcall(function()
                     local h = Instance.new("Highlight")
                     h.Name = "ESP_Highlight_Ritual"
-                    h.Adornee = r
+                    h.Adornee = part
                     h.Parent = CoreGui
                     h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
                     h.FillTransparency = espConfig.refillTransparency
@@ -367,40 +495,30 @@ local function updateESP()
                     return h
                 end)
                 if ok and highlight then
-                    modelHighlights[r] = highlight
-                end
-
-                if espConfig.billboardEnabled and not modelBillboards[r] then
-                    local success, billboard = pcall(function()
-                        local b = Instance.new("BillboardGui")
-                        b.Name = "ESP_Billboard_Ritual_" .. tostring(r:GetDebugIdAsync()):gsub(":", "_")
-                        b.Adornee = r
-                        b.Size = UDim2.new(0,200,0,40)
-                        b.StudsOffset = Vector3.new(0,3,0)
-                        b.AlwaysOnTop = true
-                        b.Parent = CoreGui
-                        b.Enabled = true
-
-                        local label = Instance.new("TextLabel")
-                        label.Size = UDim2.new(1,0,1,0)
-                        label.BackgroundTransparency = 1
-                        label.Text = "Ritual"
-                        label.TextColor3 = espConfig.colors.ritual.highlight
-                        label.TextSize = 14
-                        label.Font = Enum.Font.GothamBold
-                        label.Parent = b
-
-                        return b
-                    end)
-                    if success and billboard then
-                        modelBillboards[r] = billboard
-                    end
+                    modelHighlights[part] = highlight
                 end
             end
         end
     end
 
+    -- Limpiar objetos que ya no existen
+    for model, highlight in pairs(modelHighlights) do
+        if not highlight.Parent or (model.Parent == nil) then
+            pcall(highlight.Destroy, highlight)
+            modelHighlights[model] = nil
+            processedModels[model] = nil
+        end
+    end
+    
+    for model, billboard in pairs(modelBillboards) do
+        if not billboard.Parent or (model.Parent == nil) then
+            pcall(billboard.Destroy, billboard)
+            modelBillboards[model] = nil
+        end
+    end
+
     updating = false
+    lastUpdateTime = tick()
 end
 
 -- Setup UI con Rayfield (tu configuración original, adaptada a este script)
@@ -596,12 +714,16 @@ Tab:CreateColorPicker({
 
 Rayfield:LoadConfiguration()
 
--- Detección dinámica (ChildAdded) --- guardamos conexiones para desconectar luego
+-- Detección dinámica OPTIMIZADA
 local function setupDynamicDetection()
+    setupShadowDetection()
+    setupMinionDetection()
+    setupRitualDetection()
+    
     -- Players folders
-    local playersFolder = workspace:FindFirstChild("Players")
+    local playersFolder = getCachedChild(Workspace, "Players")
     if playersFolder then
-        local killersFolder = playersFolder:FindFirstChild("Killers")
+        local killersFolder = getCachedChild(playersFolder, "Killers")
         if killersFolder then
             local conn = killersFolder.ChildAdded:Connect(function(child)
                 if espConfig.enabled and child:IsA("Model") then
@@ -612,7 +734,7 @@ local function setupDynamicDetection()
             table.insert(espConnections, conn)
         end
 
-        local survivorsFolder = playersFolder:FindFirstChild("Survivors")
+        local survivorsFolder = getCachedChild(playersFolder, "Survivors")
         if survivorsFolder then
             local conn = survivorsFolder.ChildAdded:Connect(function(child)
                 if espConfig.enabled and child:IsA("Model") then
@@ -625,9 +747,9 @@ local function setupDynamicDetection()
     end
 
     -- Map.Ingame children
-    local map = workspace:FindFirstChild("Map")
+    local map = getCachedChild(Workspace, "Map")
     if map then
-        local ingame = map:FindFirstChild("Ingame")
+        local ingame = getCachedChild(map, "Ingame")
         if ingame then
             local conn = ingame.ChildAdded:Connect(function(child)
                 if not espConfig.enabled then return end
@@ -641,40 +763,6 @@ local function setupDynamicDetection()
                     if lname:find("minion") or lname:find("zombie") then
                         applyModelESP(child, espConfig.colors.minion, "Minion")
                     end
-                elseif child:IsA("BasePart") then
-                    local lname = child.Name:lower()
-                    if lname:find("shadow") then
-                        -- apply as shadow part if needed
-                        if not modelHighlights[child] then
-                            local ok, h = pcall(function()
-                                local newh = Instance.new("Highlight")
-                                newh.Adornee = child
-                                newh.Parent = CoreGui
-                                newh.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                                newh.FillTransparency = espConfig.refillTransparency
-                                newh.OutlineTransparency = espConfig.transparency
-                                newh.FillColor = espConfig.colors.shadow.fill
-                                newh.OutlineColor = espConfig.colors.shadow.highlight
-                                return newh
-                            end)
-                            if ok and h then modelHighlights[child] = h end
-                        end
-                    elseif child.Name:find("RespawnLocation") and espConfig.ritualEnabled then
-                        if not modelHighlights[child] then
-                            local ok, h = pcall(function()
-                                local newh = Instance.new("Highlight")
-                                newh.Adornee = child
-                                newh.Parent = CoreGui
-                                newh.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                                newh.FillTransparency = espConfig.refillTransparency
-                                newh.OutlineTransparency = espConfig.transparency
-                                newh.FillColor = espConfig.colors.ritual.fill
-                                newh.OutlineColor = espConfig.colors.ritual.highlight
-                                return newh
-                            end)
-                            if ok and h then modelHighlights[child] = h end
-                        end
-                    end
                 end
             end)
             table.insert(espConnections, conn)
@@ -682,61 +770,32 @@ local function setupDynamicDetection()
     end
 end
 
--- Heartbeat periodic check (evita re-scans constantes; solo reescanea cada X segundos)
-local lastUpdateTime = 0
-local updateCooldown = 3
+-- Heartbeat optimizado (solo limpieza periódica)
 RunService.Heartbeat:Connect(function(deltaTime)
     if not espConfig.enabled then return end
-    lastUpdateTime = lastUpdateTime + deltaTime
-    if lastUpdateTime >= updateCooldown then
-        -- Comprobación rápida: si hay modelos sin process, forzamos update
-        local needsUpdate = false
-        local playersFolder = workspace:FindFirstChild("Players")
-        if playersFolder then
-            local killersFolder = playersFolder:FindFirstChild("Killers")
-            if killersFolder then
-                for _, k in ipairs(killersFolder:GetChildren()) do
-                    if k:IsA("Model") and not processedModels[k] then
-                        needsUpdate = true
-                        break
-                    end
-                end
-            end
-            if not needsUpdate then
-                local survivorsFolder = playersFolder:FindFirstChild("Survivors")
-                if survivorsFolder then
-                    for _, s in ipairs(survivorsFolder:GetChildren()) do
-                        if s:IsA("Model") and not processedModels[s] then
-                            needsUpdate = true
-                            break
-                        end
-                    end
-                end
-            end
-        end
-
-        if needsUpdate then
-            updateESP()
-        end
-
-        lastUpdateTime = 0
+    
+    -- Actualización periódica muy lenta (10 segundos)
+    if tick() - lastUpdateTime >= updateCooldown then
+        task.spawn(updateESP)
     end
 end)
 
--- Inicialización (spawn para no bloquear)
+-- Inicialización
 task.spawn(function()
-    task.wait(1.5)
+    task.wait(2) -- Esperar a que el juego cargue
     setupDynamicDetection()
-    if espConfig.enabled then updateESP() end
+    if espConfig.enabled then 
+        updateESP() 
+    end
 end)
 
----------------------------------------------------------------------
--- TAB
----------------------------------------------------------------------
+-- Función para limpiar cuando se deshabilita el script
+local function onExit()
+    cleanupESP()
+end
+
+-------------------------------------------------------------------
 local StaminaTab = Window:CreateTab("Stamina Settings", "arrow-big-right-dash")
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
 
 local sprintingModule = require(game:GetService("ReplicatedStorage").Systems.Character.Game.Sprinting)
 
