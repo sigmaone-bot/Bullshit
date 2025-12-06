@@ -1239,6 +1239,102 @@ Misc:CreateButton({
     end
 })
 
+MiscTab:CreateSection("Device Spoofer FE")
+local UserInputService = game:GetService("UserInputService")
+
+local Network
+pcall(function()
+    if ReplicatedStorage:FindFirstChild("Modules") and ReplicatedStorage.Modules:FindFirstChild("Network") then
+        Network = require(ReplicatedStorage.Modules.Network)
+    elseif ReplicatedStorage:FindFirstChild("Network") then
+        Network = require(ReplicatedStorage.Network)
+    end
+end)
+
+local function detectOriginalDevice()
+    local input = UserInputService:GetLastInputType()
+    if input.Name:find("Gamepad") then return "Console" end
+    if input.Name:find("Touch") then return "Mobile" end
+    return "PC"
+end
+
+local spoofEnabled = false
+local ForcedDevice = nil
+local applyInProgress = false
+local appliedDevice = nil
+local originalDevice = detectOriginalDevice()
+
+local DeviceSpoof = {}
+DeviceSpoof._bind = Instance.new("BindableEvent")
+DeviceSpoof.Changed = DeviceSpoof._bind.Event
+DeviceSpoof.Value = originalDevice
+
+local function getDeviceLabel()
+    local spoofDisplay = appliedDevice or "None"
+    return "Device: " .. tostring(originalDevice) .. " | Spoofed: " .. tostring(spoofDisplay)
+end
+
+local statusLabel = MiscTab:CreateLabel(getDeviceLabel())
+
+local function ApplySpoof()
+    if not spoofEnabled then
+        safeNotify({Title="Device Spoofer", Content="Enable spoofing first!", Duration=2})
+        return
+    end
+    if applyInProgress then return end
+    applyInProgress = true
+    local deviceToApply = ForcedDevice or originalDevice
+    if deviceToApply == "Disable" then deviceToApply = originalDevice end
+    DeviceSpoof.Value = deviceToApply
+    pcall(function() DeviceSpoof._bind:Fire(deviceToApply) end)
+    appliedDevice = deviceToApply
+    task.spawn(function()
+        pcall(function()
+            if Network then
+                Network:FireServerConnection("SetDevice", "REMOTE_EVENT", deviceToApply)
+            end
+        end)
+        applyInProgress = false
+    end)
+    statusLabel:Set(getDeviceLabel())
+    safeNotify({Title="Device Spoofer", Content="Device set to " .. deviceToApply, Duration=2})
+end
+
+local dropdownOptions = {"Disable", "Console", "Mobile", "PC", "Unknown"}
+
+Misc:CreateDropdown({
+    Name = "Select Device",
+    Options = dropdownOptions,
+    CurrentOption = {"Disable"},
+    MultipleOptions = false,
+    Callback = function(opts)
+        local selected = opts[1]
+        if selected == "Disable" then
+            spoofEnabled = false
+            ForcedDevice = nil
+            appliedDevice = nil
+            DeviceSpoof.Value = originalDevice
+            pcall(function() DeviceSpoof._bind:Fire(originalDevice) end)
+            statusLabel:Set(getDeviceLabel())
+            --safeNotify({Title="Device Spoofer", Content="Spoofing disabled", Duration=2})
+        else
+            ForcedDevice = selected == "Unknown" and "Idk" or selected
+        end
+    end
+})
+
+Misc:CreateButton({
+    Name = "Apply Device Spoof",
+    Callback = function()
+        ApplySpoof()
+        spoofEnabled = val
+        if spoofEnabled then
+            UserInputService.LastInputTypeChanged:Connect(function()
+                if spoofEnabled then ApplySpoof() end
+            end)
+        end
+    end
+})
 
 local Combat = Window:CreateTab("Combat", "swords")
 Combat:CreateSection("Sk8 Bumper")
