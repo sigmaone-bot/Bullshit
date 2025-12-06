@@ -1239,7 +1239,7 @@ Misc:CreateButton({
     end
 })
 
-MiscTab:CreateSection("Device Spoofer FE")
+Misc:CreateSection("Device Spoofer FE")
 local UserInputService = game:GetService("UserInputService")
 
 local Network
@@ -1274,7 +1274,7 @@ local function getDeviceLabel()
     return "Device: " .. tostring(originalDevice) .. " | Spoofed: " .. tostring(spoofDisplay)
 end
 
-local statusLabel = MiscTab:CreateLabel(getDeviceLabel())
+local statusLabel = Misc:CreateLabel(getDeviceLabel())
 
 local function ApplySpoof()
     if not spoofEnabled then
@@ -1633,8 +1633,6 @@ Combat:CreateSlider({
     end
 })
 
-local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer
 local remote = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent")
 
