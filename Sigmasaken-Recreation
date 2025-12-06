@@ -1194,6 +1194,52 @@ Misc:CreateToggle({
     end
 })
 
+Misc:CreateSection("Other")
+
+Misc:CreateButton({
+    Name = "See Hidden Stats",
+    Callback = function()
+        -- WARNING: Heads up! This script has not been verified by ScriptBlox. Use at your own risk!
+        for _, player in ipairs(Players:GetPlayers()) do
+            local privacy = player:FindFirstChild("PlayerData") 
+                and player.PlayerData:FindFirstChild("Settings") 
+                and player.PlayerData.Settings:FindFirstChild("Privacy")
+            
+            if privacy then
+                local function disableValue(valueName)
+                    local val = privacy:FindFirstChild(valueName)
+                    if val and val:IsA("BoolValue") then
+                        val.Value = false
+                    end
+                end
+                
+                disableValue("HideSurvivorWins")
+                disableValue("HidePlaytime")
+                disableValue("HideKillerWins")
+            end
+        end
+
+        Players.PlayerAdded:Connect(function(player)
+            player.CharacterAdded:Wait()
+            task.wait()
+            
+            local privacy = player:FindFirstChild("PlayerData") 
+                and player.PlayerData:FindFirstChild("Settings") 
+                and player.PlayerData.Settings:FindFirstChild("Privacy")
+            
+            if privacy then
+                for _, name in ipairs({"HideSurvivorWins", "HidePlaytime", "HideKillerWins"}) do
+                    local val = privacy:FindFirstChild(name)
+                    if val and val:IsA("BoolValue") then
+                        val.Value = false
+                    end
+                end
+            end
+        end)
+    end
+})
+
+
 local Combat = Window:CreateTab("Combat", "swords")
 Combat:CreateSection("Sk8 Bumper")
 --Combat:CreateLabel("Sk8 turn speed, trick power, and Sk8 base speed should be applied before round begins!", 4483362458, Color3.fromRGB(255,100,100), false)
