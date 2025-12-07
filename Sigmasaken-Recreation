@@ -808,7 +808,7 @@ local staminaValues = {
     StaminaGain = sprintingModule.StaminaGain,
     MinStamina = sprintingModule.MinStamina,
     MaxStamina = sprintingModule.MaxStamina,
-    StaminaSpeed = sprintingModule.StaminaSpeed,
+    SprintSpeed = sprintingModule.SprintSpeed,
 }
 
 ---------------------------------------------------------------------
@@ -826,7 +826,7 @@ local function applyStaminaSettings()
     sprintingModule.StaminaGain = staminaValues.StaminaGain
     sprintingModule.MinStamina = staminaValues.MinStamina
     sprintingModule.MaxStamina = staminaValues.MaxStamina
-    sprintingModule.StaminaSpeed = staminaValues.StaminaSpeed
+    sprintingModule.SprintSpeed = staminaValues.SprintSpeed
 
     -- Toggle de drenaje
     sprintingModule.StaminaLossDisabled = disableLoss
@@ -862,7 +862,7 @@ createInput("Stamina Loss", "StaminaLoss")
 createInput("Stamina Gain", "StaminaGain")
 createInput("Min Stamina", "MinStamina")
 createInput("Max Stamina", "MaxStamina")
-createInput("Sprint Speed", "StaminaSpeed")
+createInput("Sprint Speed", "SprintSpeed")
 
 StaminaTab:CreateToggle({
     Name = "Disable Stamina Drain",
@@ -986,7 +986,6 @@ ApplyProtection()
 
 -- Valores permitidos (NO se tocan)
 local Allowed = {
-    DirectionalMovement = true,
     NosFlying = true,
     NosFlySlow = true,
     NosCataclysm = true,
@@ -995,6 +994,7 @@ local Allowed = {
     Sprinting = true,
     Sk8Trick = true,
     ManicFixation = true,
+    FixingGenerator = true,
     Sk8 = true
 }
 
@@ -1163,6 +1163,131 @@ Misc:CreateSlider({
    end,
 })
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local RemoteEvent = ReplicatedStorage.Modules.Network.RemoteEvent
+local UIS = game:GetService("UserInputService")
+local device = "Mobile"
+
+local function getBehaviorFolder()
+	return ReplicatedStorage:WaitForChild("Assets")
+		:WaitForChild("Survivors")
+		:WaitForChild("Veeronica")
+		:WaitForChild("Behavior")
+end
+
+local function getSprintingButton()
+	return player.PlayerGui:WaitForChild("MainUI"):WaitForChild("SprintingButton")
+end
+
+local behaviorFolder = getBehaviorFolder()
+
+-- Safe connection helper
+local function safeConnectPropertyChanged(instance, prop, fn)
+	local ok, signal = pcall(function() return instance:GetPropertyChangedSignal(prop) end)
+	if ok and signal then
+		return signal:Connect(fn)
+	end
+	return nil
+end
+
+-- Manager state
+local enabled = false
+local activeMonitors = {}
+local descendantAddedConn = nil
+
+-- === Internal Functions ===
+
+local function monitorHighlight(h)
+	if not h or activeMonitors[h] then return end
+	local connections = {}
+	local prevState = false
+
+	local function cleanup()
+		for _, conn in ipairs(connections) do
+			if conn and conn.Connected then conn:Disconnect() end
+		end
+		activeMonitors[h] = nil
+	end
+
+	local function adorneeIsPlayerCharacter(h)
+		local adornee = h and h.Adornee
+		local char = player.Character
+		if not adornee or not char then return false end
+		return adornee == char or adornee:IsDescendantOf(char)
+	end
+
+	local function onChanged()
+		if not enabled then return end
+		if not h or not h.Parent then cleanup(); return end
+
+		local currState = adorneeIsPlayerCharacter(h)
+		if prevState ~= currState then
+			if currState and device == "Mobile" then
+				local ok, btn = pcall(getSprintingButton)
+				if ok and btn then
+					for _, v in pairs(getconnections(btn.MouseButton1Down)) do
+						pcall(function() v:Fire() end)
+						pcall(function() if v.Function then v:Function() end end)
+					end
+				end
+			end
+		end
+		prevState = currState
+	end
+
+	table.insert(connections, safeConnectPropertyChanged(h, "Adornee", onChanged))
+	table.insert(connections, h.AncestryChanged:Connect(function(_, parent)
+		if not parent then cleanup() else onChanged() end
+	end))
+	table.insert(connections, player.CharacterAdded:Connect(onChanged))
+	table.insert(connections, player.CharacterRemoving:Connect(onChanged))
+
+	activeMonitors[h] = cleanup
+	task.spawn(onChanged)
+end
+
+local function startManager()
+	if descendantAddedConn then return end
+	for _, desc in ipairs(behaviorFolder:GetDescendants()) do
+		if desc:IsA("Highlight") then monitorHighlight(desc) end
+	end
+	descendantAddedConn = behaviorFolder.DescendantAdded:Connect(function(child)
+		if child:IsA("Highlight") then monitorHighlight(child) end
+	end)
+end
+
+local function stopManager()
+	if descendantAddedConn and descendantAddedConn.Connected then
+		descendantAddedConn:Disconnect()
+	end
+	descendantAddedConn = nil
+
+	for _, cleanup in pairs(activeMonitors) do
+		if type(cleanup) == "function" then pcall(cleanup) end
+	end
+	activeMonitors = {}
+end
+
+local function setEnabled(v)
+	if enabled == v then return end
+	enabled = v
+	if enabled then startManager() else stopManager() end
+end
+
+-- === Exposed Function (para toggle externo) ===
+getgenv().AutoSprintToggle = setEnabled
+
+Misc:CreateToggle({
+    Name = "Sk8 Auto Trick",
+    CurrentValue = false,
+    Callback = function(state)
+        AutoSprintToggle(state)
+    end
+})
+
 getgenv()._oldFireServer = getgenv()._oldFireServer or nil
 getgenv()._VoidRushBypass = getgenv()._VoidRushBypass or false -- toggle СЃРѕСЃС‚РѕСЏРЅРёРµ
 
@@ -1327,7 +1452,7 @@ Misc:CreateButton({
     Name = "Apply Device Spoof",
     Callback = function()
         ApplySpoof()
-        spoofEnabled = val
+        spoofEnabled = true
         if spoofEnabled then
             UserInputService.LastInputTypeChanged:Connect(function()
                 if spoofEnabled then ApplySpoof() end
