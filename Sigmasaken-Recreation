@@ -936,6 +936,103 @@ task.spawn(function()
     end
 end)
 
+Misc:CreateSection("Items")
+
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+local droppedTools = {}               -- tool names dropped on death
+local autoPickupEnabled = false
+local hasDropped = false
+local currentCharacter
+
+--// Simple alive checker
+local function isAlive(char)
+	if not char then return false end
+	local hum = char:FindFirstChildOfClass("Humanoid")
+	return hum and hum.Health > 0
+end
+
+--// Drop all tools from backpack + character
+local function dropAllTools(char)
+	if not char then return end
+	table.clear(droppedTools)
+
+	-- Drop all tools from Backpack
+	for _, tool in ipairs(LocalPlayer.Backpack:GetChildren()) do
+		if tool:IsA("Tool") then
+			table.insert(droppedTools, tool.Name)
+			tool.Parent = Workspace
+		end
+	end
+
+	-- Drop all tools from Character
+	for _, tool in ipairs(char:GetChildren()) do
+		if tool:IsA("Tool") then
+			table.insert(droppedTools, tool.Name)
+			tool.Parent = Workspace
+		end
+	end
+
+	hasDropped = true
+end
+
+--// Character Added
+LocalPlayer.CharacterAdded:Connect(function(char)
+	currentCharacter = char
+	hasDropped = false
+
+	char:WaitForChild("Humanoid").Died:Connect(function()
+		if autoPickupEnabled then
+			dropAllTools(char)
+		end
+	end)
+end)
+
+--// Optimized tool pickup loop
+task.spawn(function()
+	while task.wait(0.25) do  -- 4× more efficient than running every frame
+		if not autoPickupEnabled then continue end
+		local char = currentCharacter
+		if not isAlive(char) then continue end
+
+		local humanoid = char:FindFirstChildOfClass("Humanoid")
+		if not humanoid then continue end
+
+		-- Get Map.Ingame reference once
+		local map = Workspace:FindFirstChild("Map")
+		local ingame = map and map:FindFirstChild("Ingame")
+
+		--// 1. Pick up tools lying in Map.Ingame
+		if ingame then
+			for _, obj in ipairs(ingame:GetChildren()) do
+				if obj:IsA("Tool") then
+					humanoid:EquipTool(obj)
+				end
+			end
+		end
+
+		--// 2. Recover tools dropped on death
+		for _, toolName in ipairs(droppedTools) do
+			local found = Workspace:FindFirstChild(toolName, true)
+			if found and found:IsA("Tool") then
+				humanoid:EquipTool(found)
+			end
+		end
+	end
+end)
+
+--// UI Toggle
+Misc:CreateToggle({
+	Name = "Auto Pickup Drop Items",
+	CurrentValue = false,
+	Flag = "AutoPickupTool",
+	Callback = function(state)
+		autoPickupEnabled = state
+	end
+})
+
+
 Misc:CreateSection("Antis")
 
 if not game:IsLoaded() then game.Loaded:Wait() end
