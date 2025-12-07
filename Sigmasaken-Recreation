@@ -18,7 +18,7 @@ local espConfig = {
     enabled = false,
     billboardEnabled = false,
     transparency = 0.5,
-    refillTransparency = 0.5,
+    refillTransparency = 0.75,
     minionEnabled = false,
     ritualEnabled = false,
     footprintEnabled = false,
@@ -1103,7 +1103,7 @@ Misc:CreateSlider({
 Misc:CreateSlider({
    Name = "Base Speed",
    Range = {0, 2},
-   Increment = 1,
+   Increment = 0.05,
    CurrentValue = 1.2,
    Callback = function(val)
         sk8module.Sk8Speed = val
@@ -1113,7 +1113,7 @@ Misc:CreateSlider({
 Misc:CreateSlider({
    Name = "Turn Speed",
    Range = {0, 15},
-   Increment = 1,
+   Increment = 0.5,
    CurrentValue = 2.5,
    Callback = function(val)
         sk8module.Sk8TurnControl = val
