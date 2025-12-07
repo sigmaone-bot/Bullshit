@@ -936,6 +936,69 @@ task.spawn(function()
     end
 end)
 
+local Network = ReplicatedStorage
+    :WaitForChild("Modules")
+    :WaitForChild("Network")
+    :WaitForChild("RemoteEvent")
+
+local function unlockAchievement(id)
+    if not id then return end
+
+    -- The server expects a buffer-wrapped string
+    local encoded = buffer.fromstring('"' .. id .. '"')
+    Network:FireServer("UnlockAchievement", { encoded })
+end
+
+-- Helper for cleaner button creation
+local function createAchButton(tab, name, id)
+    tab:CreateButton({
+        Name = name,
+        Callback = function()
+            unlockAchievement(id)
+        end
+    })
+end
+
+Misc:CreateSection("Archievements")
+
+createAchButton(
+    Misc,
+    "[.] (Meet ogologl's best friend for the first time)",
+    "MeetBrandon"
+)
+
+createAchButton(
+    Misc,
+    "[Meow meow meow] (Interact with the cat in the lobby more than 15 times)",
+    "ILoveCats"
+)
+
+createAchButton(
+    Misc,
+    "[Coming straight from YOUR house.] (??? - I Love TV)",
+    "TVTIME"
+)
+
+createAchButton(
+    Misc,
+    "[A Captain and his Ship] (Hear his tale)",
+    "MeetDemophon"
+)
+
+createAchButton(
+    Misc,
+    "[Black, White, and Gray.] (There is nothing either good or bad, but thinking makes it so...)",
+    "Morality"
+)
+
+Misc:CreateSection("Survivor Specific")
+
+createAchButton(
+    Misc,
+    "[You're Quick as Hell] (As Noob, run as far as possible with one Bloxy Cola)",
+    "NoobQuick"
+)
+
 Misc:CreateSection("Items")
 
 local Workspace = game:GetService("Workspace")
