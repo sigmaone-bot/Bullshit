@@ -1090,6 +1090,67 @@ Misc:CreateButton({
 Misc:CreateSection("Sk8 stuff")
 Misc:CreateLabel("Sk8 turn speed, trick power, and base speed should be applied before round begins!", 4483362458, Color3.fromRGB(255,100,100), false)
 
+--// Skateboard Anti-Rebound (Cleaned + Editable)
+
+local PlayerName = LocalPlayer.Name
+
+-- Global toggle (used by the hook)
+getgenv().BlockSkateRebound = false
+
+-- RemoteEvent reference
+local NetworkRemote = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent")
+
+-- Safety: store original __namecall only once
+local originalNamecall
+originalNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+    local args = {...}
+
+    -- Make sure we’re hooking a FireServer call
+    if not checkcaller() and getnamecallmethod() == "FireServer" then
+        
+        if getgenv().BlockSkateRebound then
+            local remoteName = tostring(args[1])
+
+            --// 1. Block SkateRebound event
+            if remoteName == PlayerName .. "SkateRebound" then
+                return nil -- block completely
+            end
+
+            --// 2. Handle StopSkate event with collision table
+            if remoteName == PlayerName .. "StopSkate" and typeof(args[2]) == "table" then
+
+                for _, value in ipairs(args[2]) do
+                    if typeof(value) == "Instance" then
+                        
+                        -- Replace collision stop with "manual" stop
+                        local spoofPacket = {
+                            PlayerName .. "StopSkate",
+                            { buffer.fromstring("\"Manual\"") }
+                        }
+
+                        NetworkRemote:FireServer(unpack(spoofPacket))
+                        return nil
+                    end
+                end
+            end
+        end
+    end
+
+    -- fallback to original
+    return originalNamecall(self, ...)
+end)
+
+
+--// UI Toggle
+Misc:CreateToggle({
+    Name = "Skateboard Ignore Objectables (Anti Rebound)",
+    CurrentValue = false,
+    Flag = "BlockSkateRebound",
+    Callback = function(state)
+        getgenv().BlockSkateRebound = state
+    end
+})
+
 Misc:CreateSlider({
    Name = "Trick Power",
    Range = {0, 1},
