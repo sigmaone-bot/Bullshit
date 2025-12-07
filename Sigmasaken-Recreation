@@ -232,11 +232,14 @@ end
 local function findGenerators()
     local generators = {}
     local fakeGenerators = {}
+
     local map = getCachedChild(Workspace, "Map")
     if not map then return generators, fakeGenerators end
+
     local ingame = getCachedChild(map, "Ingame")
     if not ingame then return generators, fakeGenerators end
 
+    -- scan ingame
     for _, obj in ipairs(ingame:GetChildren()) do
         if obj.Name == "Generator" and obj:IsA("Model") then
             table.insert(generators, obj)
@@ -245,65 +248,68 @@ local function findGenerators()
         end
     end
 
+    -- check for nested Map inside ingame and scan that too
+    local nestedMap = ingame:FindFirstChild("Map")
+    if nestedMap then
+        for _, obj in ipairs(nestedMap:GetChildren()) do
+            if obj.Name == "Generator" and obj:IsA("Model") then
+                table.insert(generators, obj)
+            elseif obj.Name == "FakeGenerator" and obj:IsA("Model") then
+                table.insert(fakeGenerators, obj)
+            end
+        end
+    end
+
     return generators, fakeGenerators
 end
 
 -- Sistema de eventos para Shadow Parts (NO escaneos completos)
 local shadowParts = {}
+
 local function setupShadowDetection()
-    -- Solo busca una vez y luego usa eventos
-    local function initialShadowScan()
-        for _, obj in ipairs(Workspace:GetDescendants()) do
-            if obj:IsA("BasePart") and obj.Name:lower():find("shadow") then
-                shadowParts[obj] = true
+    local map = Workspace:FindFirstChild("Map")
+    if not map then return end
+
+    local ingame = map:FindFirstChild("Ingame")
+    if not ingame then return end
+
+    local nestedMap = ingame:FindFirstChild("Map")
+
+    -- If nested Map isn’t there yet, wait for it safely
+    if not nestedMap then
+        ingame.ChildAdded:Connect(function(child)
+            if child.Name == "Map" then
+                nestedMap = child
             end
+        end)
+        -- Stop here until nestedMap appears
+        repeat task.wait() until nestedMap
+    end
+
+    -- Initial scan
+    for _, obj in ipairs(nestedMap:GetDescendants()) do
+        if obj:IsA("BasePart") and obj.Name:lower():find("shadow") then
+            shadowParts[obj] = true
         end
     end
-    
-    task.spawn(initialShadowScan)
-    
-    -- Eventos para nuevos objetos
-    local shadowAdded = Workspace.DescendantAdded:Connect(function(descendant)
+
+    -- EVENTS ONLY ON THE NESTED MAP
+    local addedConn = nestedMap.DescendantAdded:Connect(function(descendant)
         if descendant:IsA("BasePart") and descendant.Name:lower():find("shadow") then
             shadowParts[descendant] = true
-            if espConfig.enabled then
-                task.defer(function()
-                    if not modelHighlights[descendant] then
-                        local ok, highlight = pcall(function()
-                            local h = Instance.new("Highlight")
-                            h.Name = "ESP_Highlight_Shadow"
-                            h.Adornee = descendant
-                            h.Parent = CoreGui
-                            h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                            h.FillTransparency = espConfig.refillTransparency
-                            h.OutlineTransparency = espConfig.transparency
-                            h.FillColor = espConfig.colors.shadow.fill
-                            h.OutlineColor = espConfig.colors.shadow.highlight
-                            return h
-                        end)
-                        if ok and highlight then
-                            modelHighlights[descendant] = highlight
-                        end
-                    end
-                end)
-            end
         end
     end)
-    
-    local shadowRemoved = Workspace.DescendantRemoving:Connect(function(descendant)
+
+    local removedConn = nestedMap.DescendantRemoving:Connect(function(descendant)
         if shadowParts[descendant] then
             shadowParts[descendant] = nil
-            local highlight = modelHighlights[descendant]
-            if highlight then
-                pcall(highlight.Destroy, highlight)
-                modelHighlights[descendant] = nil
-            end
         end
     end)
-    
-    table.insert(espConnections, shadowAdded)
-    table.insert(espConnections, shadowRemoved)
+
+    table.insert(espConnections, addedConn)
+    table.insert(espConnections, removedConn)
 end
+
 
 -- Sistema similar para Minions
 local minionModels = {}
@@ -526,7 +532,7 @@ local Window = Rayfield:CreateWindow({
    Name = "Sigmasaken RE-Made",
    Icon = 0,
    LoadingTitle = "Made By: FaZ",
-   LoadingSubtitle = "Version: 1",
+   LoadingSubtitle = "Sigmasaken but more features",
    Theme = "Default",
    DisableRayfieldPrompts = false,
    DisableBuildWarnings = false,
@@ -1367,7 +1373,6 @@ Misc:CreateButton({
 Misc:CreateSection("Device Spoofer FE")
 local UserInputService = game:GetService("UserInputService")
 
-local Network
 pcall(function()
     if ReplicatedStorage:FindFirstChild("Modules") and ReplicatedStorage.Modules:FindFirstChild("Network") then
         Network = require(ReplicatedStorage.Modules.Network)
@@ -1376,6 +1381,7 @@ pcall(function()
     end
 end)
 
+-- Detect real device
 local function detectOriginalDevice()
     local input = UserInputService:GetLastInputType()
     if input.Name:find("Gamepad") then return "Console" end
@@ -1388,7 +1394,9 @@ local ForcedDevice = nil
 local applyInProgress = false
 local appliedDevice = nil
 local originalDevice = detectOriginalDevice()
+local deviceConn = false -- prevents duplicate event connections
 
+-- DeviceSpoof object
 local DeviceSpoof = {}
 DeviceSpoof._bind = Instance.new("BindableEvent")
 DeviceSpoof.Changed = DeviceSpoof._bind.Event
@@ -1396,11 +1404,12 @@ DeviceSpoof.Value = originalDevice
 
 local function getDeviceLabel()
     local spoofDisplay = appliedDevice or "None"
-    return "Device: " .. tostring(originalDevice) .. " | Spoofed: " .. tostring(spoofDisplay)
+    return ("Device: %s | Spoofed: %s"):format(originalDevice, spoofDisplay)
 end
 
 local statusLabel = Misc:CreateLabel(getDeviceLabel())
 
+-- Apply spoof
 local function ApplySpoof()
     if not spoofEnabled then
         safeNotify({Title="Device Spoofer", Content="Enable spoofing first!", Duration=2})
@@ -1408,23 +1417,31 @@ local function ApplySpoof()
     end
     if applyInProgress then return end
     applyInProgress = true
-    local deviceToApply = ForcedDevice or originalDevice
-    if deviceToApply == "Disable" then deviceToApply = originalDevice end
-    DeviceSpoof.Value = deviceToApply
-    pcall(function() DeviceSpoof._bind:Fire(deviceToApply) end)
-    appliedDevice = deviceToApply
+
+    local chosen = ForcedDevice or originalDevice
+    if chosen == "Disable" then chosen = originalDevice end
+
+    DeviceSpoof.Value = chosen
+    appliedDevice = chosen
+
+    pcall(function()
+        DeviceSpoof._bind:Fire(chosen)
+    end)
+
     task.spawn(function()
         pcall(function()
             if Network then
-                Network:FireServerConnection("SetDevice", "REMOTE_EVENT", deviceToApply)
+                Network:FireServerConnection("SetDevice", "REMOTE_EVENT", chosen)
             end
         end)
         applyInProgress = false
     end)
+
     statusLabel:Set(getDeviceLabel())
-    safeNotify({Title="Device Spoofer", Content="Device set to " .. deviceToApply, Duration=2})
+    safeNotify({Title="Device Spoofer", Content="Device set to " .. chosen, Duration=2})
 end
 
+-- Dropdown
 local dropdownOptions = {"Disable", "Console", "Mobile", "PC", "Unknown"}
 
 Misc:CreateDropdown({
@@ -1434,32 +1451,46 @@ Misc:CreateDropdown({
     MultipleOptions = false,
     Callback = function(opts)
         local selected = opts[1]
+
         if selected == "Disable" then
             spoofEnabled = false
             ForcedDevice = nil
             appliedDevice = nil
             DeviceSpoof.Value = originalDevice
-            pcall(function() DeviceSpoof._bind:Fire(originalDevice) end)
+
+            pcall(function()
+                DeviceSpoof._bind:Fire(originalDevice)
+            end)
+
             statusLabel:Set(getDeviceLabel())
-            --safeNotify({Title="Device Spoofer", Content="Spoofing disabled", Duration=2})
-        else
-            ForcedDevice = selected == "Unknown" and "Idk" or selected
+            return
         end
+
+        -- Set to actual forced value
+        ForcedDevice = (selected == "Unknown") and "Idk" or selected
     end
 })
 
+-- Apply Button
 Misc:CreateButton({
     Name = "Apply Device Spoof",
     Callback = function()
-        ApplySpoof()
         spoofEnabled = true
-        if spoofEnabled then
+        ApplySpoof()
+
+        -- Prevent connecting multiple times
+        if not deviceConn then
+            deviceConn = true
+
             UserInputService.LastInputTypeChanged:Connect(function()
-                if spoofEnabled then ApplySpoof() end
+                if spoofEnabled then
+                    ApplySpoof()
+                end
             end)
         end
     end
 })
+
 
 local Combat = Window:CreateTab("Combat", "swords")
 Combat:CreateSection("Sk8 Bumper")
