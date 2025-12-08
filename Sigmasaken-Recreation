@@ -936,71 +936,6 @@ task.spawn(function()
     end
 end)
 
-local Network = ReplicatedStorage
-    :WaitForChild("Modules")
-    :WaitForChild("Network")
-    :WaitForChild("RemoteEvent")
-
-local function unlockAchievement(id)
-    if not id then return end
-
-    -- The server expects a buffer-wrapped string
-    local encoded = buffer.fromstring('"' .. id .. '"')
-    Network:FireServer("UnlockAchievement", { encoded })
-end
-
--- Helper for cleaner button creation
-local function createAchButton(tab, name, id)
-    tab:CreateButton({
-        Name = name,
-        Callback = function()
-            unlockAchievement(id)
-        end
-    })
-end
-
-Misc:CreateSection("Archievements")
-
-createAchButton(
-    Misc,
-    "[.] (Meet ogologl's best friend for the first time)",
-    "MeetBrandon"
-)
-
-createAchButton(
-    Misc,
-    "[Meow meow meow] (Interact with the cat in the lobby more than 15 times)",
-    "ILoveCats"
-)
-
-createAchButton(
-    Misc,
-    "[Coming straight from YOUR house.] (??? - I Love TV)",
-    "TVTIME"
-)
-
-createAchButton(
-    Misc,
-    "[A Captain and his Ship] (Hear his tale)",
-    "MeetDemophon"
-)
-
-createAchButton(
-    Misc,
-    "[Black, White, and Gray.] (There is nothing either good or bad, but thinking makes it so...)",
-    "Morality"
-)
-
-Misc:CreateSection("Survivor Specific")
-
-createAchButton(
-    Misc,
-    "[You're Quick as Hell] (As Noob, run as far as possible with one Bloxy Cola)",
-    "NoobQuick"
-)
-
-Misc:CreateSection("Items")
-
 local Workspace = game:GetService("Workspace")
 
 local LocalPlayer = Players.LocalPlayer
@@ -1866,10 +1801,240 @@ Combat:CreateSlider({
    end,
 })
 
+Combat:CreateSection("Chance")
 
---////////////////////////////////////////////////////////
---    CONFIG
---////////////////////////////////////////////////////////
+local autoAimEnabled = false
+local predictionValue = 4
+local friendlyFire = false
+
+--// UI ELEMENTS
+
+Combat:CreateToggle({
+    Name = "Auto Aim",
+    CurrentValue = false,
+    Flag = "AutoAim",
+    Callback = function(v)
+        autoAimEnabled = v
+    end
+})
+
+Combat:CreateSlider({
+    Name = "Prediction",
+    Range = {0, 20},
+    Increment = 1,
+    Suffix = " studs",
+    CurrentValue = 4,
+    Flag = "AimPrediction",
+    Callback = function(val)
+        predictionValue = val
+    end
+})
+
+Combat:CreateToggle({
+    Name = "Friendly Fire Mode",
+    CurrentValue = false,
+    Flag = "FriendlyFire",
+    Callback = function(v)
+        friendlyFire = v
+    end
+})
+
+
+--// STATE
+local Humanoid, HRP = nil, nil
+local lastTriggerTime = 0
+local aimDuration = 1.7
+local aiming = false
+
+local originalWS, originalJP, originalAutoRotate = nil, nil, nil
+
+--// TRACKED ANIMATION IDS FOR TRIGGERING AIM
+local trackedAnimations = {
+    ["103601716322988"] = true,
+    ["133491532453922"] = true,
+    ["86371356500204"] = true,
+    ["76649505662612"] = true,
+    ["81698196845041"] = true
+}
+
+--// Character Setup
+local function setupCharacter(char)
+    Humanoid = char:WaitForChild("Humanoid")
+    HRP = char:WaitForChild("HumanoidRootPart")
+end
+
+if LocalPlayer.Character then
+    setupCharacter(LocalPlayer.Character)
+end
+LocalPlayer.CharacterAdded:Connect(setupCharacter)
+
+
+--// Helper → Get currently playing animation IDs
+local function getPlayingAnimationIds()
+    local ids = {}
+    if Humanoid then
+        for _, track in ipairs(Humanoid:GetPlayingAnimationTracks()) do
+            if track.Animation and track.Animation.AnimationId then
+                local id = track.Animation.AnimationId:match("%d+")
+                if id then ids[id] = true end
+            end
+        end
+    end
+    return ids
+end
+
+
+--// MAIN TARGETING: Finds nearest target in Killers OR Survivors
+local function getValidTarget()
+    if not HRP then return nil end
+
+    local base = workspace:FindFirstChild("Players")
+    if not base then return nil end
+
+    local targetFolder
+
+    if friendlyFire then
+        -- Friendly Fire Mode → Aim at Survivors (but not myself)
+        targetFolder = base:FindFirstChild("Survivors")
+    else
+        -- Normal Mode → Aim at Killers
+        targetFolder = base:FindFirstChild("Killers")
+    end
+
+    if not targetFolder then return nil end
+
+    local closest, closestDist = nil, math.huge
+
+    for _, model in ipairs(targetFolder:GetChildren()) do
+        if model ~= LocalPlayer.Character and model:FindFirstChild("HumanoidRootPart") then
+            local targetHRP = model.HumanoidRootPart
+            local dist = (targetHRP.Position - HRP.Position).Magnitude
+
+            if dist < closestDist then
+                closestDist = dist
+                closest = targetHRP
+            end
+        end
+    end
+
+    return closest
+end
+
+
+--// MAIN AIM LOOP
+RunService.RenderStepped:Connect(function()
+    if not autoAimEnabled or not Humanoid or not HRP then return end
+
+    local playing = getPlayingAnimationIds()
+    local triggered = false
+
+    for id in pairs(trackedAnimations) do
+        if playing[id] then
+            triggered = true
+            break
+        end
+    end
+
+    if triggered then
+        lastTriggerTime = tick()
+        aiming = true
+    end
+
+    if aiming and tick() - lastTriggerTime <= aimDuration then
+
+        if not originalWS then
+            originalWS = Humanoid.WalkSpeed
+            originalJP = Humanoid.JumpPower
+            originalAutoRotate = Humanoid.AutoRotate
+        end
+
+        Humanoid.AutoRotate = false
+        HRP.AssemblyAngularVelocity = Vector3.zero
+
+        local targetHRP = getValidTarget()
+        if targetHRP then
+            -- Prediction applied HERE
+            local predictedPos = targetHRP.Position + (targetHRP.CFrame.LookVector * predictionValue)
+            local direction = (predictedPos - HRP.Position).Unit
+            local yRot = math.atan2(-direction.X, -direction.Z)
+
+            HRP.CFrame = CFrame.new(HRP.Position) * CFrame.Angles(0, yRot, 0)
+        end
+
+    elseif aiming then
+        aiming = false
+
+        if originalWS then
+            Humanoid.WalkSpeed = originalWS
+            Humanoid.JumpPower = originalJP
+            Humanoid.AutoRotate = originalAutoRotate
+            originalWS, originalJP, originalAutoRotate = nil, nil, nil
+        end
+    end
+end)
+
+local player = Players.LocalPlayer
+local remote = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent")
+
+if remote and remote.ClassName == "RemoteEvent" then
+    local blockEnabled = true
+    local blockedName = player.Name .. "ChanceFireShot"
+    local delayDuration = 3
+    local mt = getrawmetatable(game)
+    local oldNamecall = mt.__namecall
+    
+    setreadonly(mt, false)
+    mt.__namecall = function(self, ...)
+        local method = getnamecallmethod()
+        local args = {...}
+        
+        if blockEnabled and method == "FireServer" then
+            local firstArg = args[1]
+            if type(firstArg) == "string" and firstArg == blockedName then
+                task.delay(delayDuration, function()
+                    blockEnabled = false
+                    local character = player.Character
+                    local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+                    
+                    if rootPart then
+                        local lookVector = rootPart.CFrame.LookVector
+                        local data = {Vector3.new(lookVector.X, lookVector.Y, lookVector.Z)}
+                        remote:FireServer(firstArg, data)
+                        blockEnabled = true
+                    else
+                        blockEnabled = true
+                    end
+                end)
+                return
+            end
+        end
+        
+        return oldNamecall(self, ...)
+    end
+    setreadonly(mt, true)
+
+    Combat:CreateToggle({
+        Name = "Flintlock Hitbox delay",
+        Flag = "StoringHitboxGun",
+        CurrentValue = False,
+        Callback = function(value)
+            blockEnabled = value
+        end
+    })
+
+    Combat:CreateInput({
+        Name = "Delay",
+        Flag = "DelayDurationseconds",
+        PlaceholderText = "2",
+        RemoveTextAfterFocusLost = false,
+        Callback = function(input)
+            local num = tonumber(input)
+            if num and num > 0 then
+                delayDuration = num
+            end
+        end
+    })
+end
 
 Combat:CreateSection("Reach")
 
@@ -2009,69 +2174,6 @@ Combat:CreateSlider({
         _G.hitboxnearestdist = val
     end
 })
-
-local player = Players.LocalPlayer
-local remote = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent")
-
-if remote and remote.ClassName == "RemoteEvent" then
-    local blockEnabled = true
-    local blockedName = player.Name .. "ChanceFireShot"
-    local delayDuration = 3
-    local mt = getrawmetatable(game)
-    local oldNamecall = mt.__namecall
-    
-    setreadonly(mt, false)
-    mt.__namecall = function(self, ...)
-        local method = getnamecallmethod()
-        local args = {...}
-        
-        if blockEnabled and method == "FireServer" then
-            local firstArg = args[1]
-            if type(firstArg) == "string" and firstArg == blockedName then
-                task.delay(delayDuration, function()
-                    blockEnabled = false
-                    local character = player.Character
-                    local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-                    
-                    if rootPart then
-                        local lookVector = rootPart.CFrame.LookVector
-                        local data = {Vector3.new(lookVector.X, lookVector.Y, lookVector.Z)}
-                        remote:FireServer(firstArg, data)
-                        blockEnabled = true
-                    else
-                        blockEnabled = true
-                    end
-                end)
-                return
-            end
-        end
-        
-        return oldNamecall(self, ...)
-    end
-    setreadonly(mt, true)
-
-    Combat:CreateToggle({
-        Name = "Storing Hitbox Gun",
-        Flag = "StoringHitboxGun",
-        CurrentValue = true,
-        Callback = function(value)
-            blockEnabled = value
-        end
-    })
-
-    Combat:CreateInput({
-        Name = "Delay Duration (seconds)",
-        Flag = "DelayDurationseconds",
-        PlaceholderText = "2",
-        RemoveTextAfterFocusLost = false,
-        Callback = function(input)
-            local num = tonumber(input)
-            if num and num > 0 then
-                delayDuration = num
-            end
-        end
-    })
-end
 
 local Gens = Window:CreateTab("Generators", "swords")
 
