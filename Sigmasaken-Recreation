@@ -1277,8 +1277,6 @@ Misc:CreateSlider({
    end,
 })
 
-local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer
 local Remote = ReplicatedStorage.Modules.Network.RemoteEvent
 
@@ -1326,10 +1324,7 @@ Misc:CreateSlider({
    end,
 })
 
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Players = game:GetService("Players")
 local player = Players.LocalPlayer
-local RunService = game:GetService("RunService")
 local RemoteEvent = ReplicatedStorage.Modules.Network.RemoteEvent
 local UIS = game:GetService("UserInputService")
 local device = "Mobile"
@@ -1804,15 +1799,38 @@ Combat:CreateSlider({
 
 Combat:CreateSection("Chance")
 
+--// Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+
+--// UI Setup (Rayfield / existing Combat tab)
+local Combat = Tabs.Combat  -- IMPORTANT: Your UI library's Combat tab
+
+--// Config / state
 local autoAimEnabled = false
-local predictionValue = 4
+local predictionValue = 4            -- user-facing slider (see comment below)
+local smartPrediction = true        -- only predict when target is moving
 local friendlyFire = false
+
 local Humanoid, HRP = nil, nil
 local lastTriggerTime = 0
 local aimDuration = 1.7
 local aiming = false
 
---// UI ELEMENTS
+local originalWS, originalJP, originalAutoRotate = nil, nil, nil
+
+--// Tracked animation IDs that trigger aim
+local trackedAnimations = {
+    ["103601716322988"] = true,
+    ["133491532453922"] = true,
+    ["86371356500204"] = true,
+    ["76649505662612"] = true,
+    ["81698196845041"] = true
+}
+
+--// UI Elements
 
 Combat:CreateToggle({
     Name = "Auto Aim",
@@ -1823,29 +1841,31 @@ Combat:CreateToggle({
     end
 })
 
+-- Prediction slider:
+-- NOTE: The slider value is the "prediction scale" used with target velocity.
+-- For compatibility with your previous slider (0..20) we interpret the slider as a *time factor* in tenths of a second:
+-- predicted_position = pos + velocity * (predictionValue / 10)
+-- So: slider=4 -> 0.4s lead; slider=10 -> 1.0s lead
 Combat:CreateSlider({
     Name = "Prediction",
     Range = {0, 20},
     Increment = 1,
-    Suffix = " studs",
-    CurrentValue = 4,
+    Suffix = " (scale)",
+    CurrentValue = predictionValue,
     Flag = "AimPrediction",
     Callback = function(val)
         predictionValue = val
     end
 })
 
-Combat:CreateSlider({
-    Name = "Aim duration ",
-    Range = {0, 10},
-    Increment = 0.5,
-    Suffix = " secs",
-    CurrentValue = 1,
-    Callback = function(val)
-        aimDuration = val
+Combat:CreateToggle({
+    Name = "Smart Prediction (Only On Movement)",
+    CurrentValue = true,
+    Flag = "SmartPrediction",
+    Callback = function(v)
+        smartPrediction = v
     end
 })
-
 
 Combat:CreateToggle({
     Name = "Friendly Fire Mode",
@@ -1856,21 +1876,7 @@ Combat:CreateToggle({
     end
 })
 
-
---// STAT
-
-local originalWS, originalJP, originalAutoRotate = nil, nil, nil
-
---// TRACKED ANIMATION IDS FOR TRIGGERING AIM
-local trackedAnimations = {
-    ["103601716322988"] = true,
-    ["133491532453922"] = true,
-    ["86371356500204"] = true,
-    ["76649505662612"] = true,
-    ["81698196845041"] = true
-}
-
---// Character Setup
+--// Character setup
 local function setupCharacter(char)
     Humanoid = char:WaitForChild("Humanoid")
     HRP = char:WaitForChild("HumanoidRootPart")
@@ -1881,8 +1887,8 @@ if LocalPlayer.Character then
 end
 LocalPlayer.CharacterAdded:Connect(setupCharacter)
 
+--// Helpers
 
---// Helper → Get currently playing animation IDs
 local function getPlayingAnimationIds()
     local ids = {}
     if Humanoid then
@@ -1896,33 +1902,20 @@ local function getPlayingAnimationIds()
     return ids
 end
 
-
---// MAIN TARGETING: Finds nearest target in Killers OR Survivors
+-- Returns the nearest HumanoidRootPart from the selected folder (Killers or Survivors).
 local function getValidTarget()
     if not HRP then return nil end
-
     local base = workspace:FindFirstChild("Players")
     if not base then return nil end
 
-    local targetFolder
-
-    if friendlyFire then
-        -- Friendly Fire Mode → Aim at Survivors (but not myself)
-        targetFolder = base:FindFirstChild("Survivors")
-    else
-        -- Normal Mode → Aim at Killers
-        targetFolder = base:FindFirstChild("Killers")
-    end
-
+    local targetFolder = friendlyFire and base:FindFirstChild("Survivors") or base:FindFirstChild("Killers")
     if not targetFolder then return nil end
 
     local closest, closestDist = nil, math.huge
-
     for _, model in ipairs(targetFolder:GetChildren()) do
         if model ~= LocalPlayer.Character and model:FindFirstChild("HumanoidRootPart") then
             local targetHRP = model.HumanoidRootPart
             local dist = (targetHRP.Position - HRP.Position).Magnitude
-
             if dist < closestDist then
                 closestDist = dist
                 closest = targetHRP
@@ -1933,14 +1926,33 @@ local function getValidTarget()
     return closest
 end
 
+-- Velocity-based prediction:
+-- predictionValue (slider) is interpreted as tenths of a second (predictionSeconds = predictionValue / 10).
+-- If smartPrediction is enabled and target velocity is tiny, we return the current position (no lead).
+local function getPredictedPosition(targetHRP)
+    if not targetHRP then return nil end
 
---// MAIN AIM LOOP
+    local vel = targetHRP.AssemblyLinearVelocity or Vector3.new()
+    local speed = vel.Magnitude
+
+    local predictionSeconds = predictionValue / 10
+
+    if smartPrediction and speed < 0.1 then
+        -- target effectively stationary -> no prediction
+        return targetHRP.Position
+    end
+
+    -- Use full velocity-based prediction (pos + velocity * time)
+    return targetHRP.Position + (vel * predictionSeconds)
+end
+
+--// Main aim loop
 RunService.RenderStepped:Connect(function()
     if not autoAimEnabled or not Humanoid or not HRP then return end
 
+    -- animation trigger check
     local playing = getPlayingAnimationIds()
     local triggered = false
-
     for id in pairs(trackedAnimations) do
         if playing[id] then
             triggered = true
@@ -1954,29 +1966,32 @@ RunService.RenderStepped:Connect(function()
     end
 
     if aiming and tick() - lastTriggerTime <= aimDuration then
-
+        -- store original movement properties once
         if not originalWS then
             originalWS = Humanoid.WalkSpeed
             originalJP = Humanoid.JumpPower
             originalAutoRotate = Humanoid.AutoRotate
         end
 
+        -- lock rotation and zero angular velocity
         Humanoid.AutoRotate = false
         HRP.AssemblyAngularVelocity = Vector3.zero
 
         local targetHRP = getValidTarget()
         if targetHRP then
-            -- Prediction applied HERE
-            local predictedPos = targetHRP.Position + (targetHRP.CFrame.LookVector * predictionValue)
-            local direction = (predictedPos - HRP.Position).Unit
-            local yRot = math.atan2(-direction.X, -direction.Z)
+            local predictedPos = getPredictedPosition(targetHRP) or targetHRP.Position
 
-            HRP.CFrame = CFrame.new(HRP.Position) * CFrame.Angles(0, yRot, 0)
+            local dir = predictedPos - HRP.Position
+            if dir.Magnitude > 0 then
+                local direction = dir.Unit
+                local yRot = math.atan2(-direction.X, -direction.Z)
+                HRP.CFrame = CFrame.new(HRP.Position) * CFrame.Angles(0, yRot, 0)
+            end
         end
 
     elseif aiming then
+        -- restore state
         aiming = false
-
         if originalWS then
             Humanoid.WalkSpeed = originalWS
             Humanoid.JumpPower = originalJP
@@ -1985,6 +2000,7 @@ RunService.RenderStepped:Connect(function()
         end
     end
 end)
+
 
 local player = Players.LocalPlayer
 local remote = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent")
