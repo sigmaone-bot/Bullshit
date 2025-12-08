@@ -936,9 +936,10 @@ task.spawn(function()
     end
 end)
 
+Misc:CreateSection("Items")
+
 local Workspace = game:GetService("Workspace")
 
-local LocalPlayer = Players.LocalPlayer
 local droppedTools = {}               -- tool names dropped on death
 local autoPickupEnabled = false
 local hasDropped = false
@@ -1806,6 +1807,10 @@ Combat:CreateSection("Chance")
 local autoAimEnabled = false
 local predictionValue = 4
 local friendlyFire = false
+local Humanoid, HRP = nil, nil
+local lastTriggerTime = 0
+local aimDuration = 1.7
+local aiming = false
 
 --// UI ELEMENTS
 
@@ -1830,6 +1835,18 @@ Combat:CreateSlider({
     end
 })
 
+Combat:CreateSlider({
+    Name = "Aim duration ",
+    Range = {0, 10},
+    Increment = 0.5,
+    Suffix = " secs",
+    CurrentValue = 1,
+    Callback = function(val)
+        aimDuration = val
+    end
+})
+
+
 Combat:CreateToggle({
     Name = "Friendly Fire Mode",
     CurrentValue = false,
@@ -1840,11 +1857,7 @@ Combat:CreateToggle({
 })
 
 
---// STATE
-local Humanoid, HRP = nil, nil
-local lastTriggerTime = 0
-local aimDuration = 1.7
-local aiming = false
+--// STAT
 
 local originalWS, originalJP, originalAutoRotate = nil, nil, nil
 
@@ -2023,7 +2036,7 @@ if remote and remote.ClassName == "RemoteEvent" then
     })
 
     Combat:CreateInput({
-        Name = "Delay",
+        Name = "Delay (recommended under 10)",
         Flag = "DelayDurationseconds",
         PlaceholderText = "2",
         RemoveTextAfterFocusLost = false,
