@@ -1799,16 +1799,6 @@ Combat:CreateSlider({
 
 Combat:CreateSection("Chance")
 
---// Services
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-
-local LocalPlayer = Players.LocalPlayer
-
---// UI Setup (Rayfield / existing Combat tab)
-local Combat = Tabs.Combat  -- IMPORTANT: Your UI library's Combat tab
-
---// Config / state
 local autoAimEnabled = false
 local predictionValue = 4            -- user-facing slider (see comment below)
 local smartPrediction = true        -- only predict when target is moving
@@ -1841,11 +1831,6 @@ Combat:CreateToggle({
     end
 })
 
--- Prediction slider:
--- NOTE: The slider value is the "prediction scale" used with target velocity.
--- For compatibility with your previous slider (0..20) we interpret the slider as a *time factor* in tenths of a second:
--- predicted_position = pos + velocity * (predictionValue / 10)
--- So: slider=4 -> 0.4s lead; slider=10 -> 1.0s lead
 Combat:CreateSlider({
     Name = "Prediction",
     Range = {0, 20},
