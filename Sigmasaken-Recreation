@@ -1912,12 +1912,46 @@ end
 
 RunService.RenderStepped:Connect(function(dt)
     if not autoAimEnabled or not Humanoid or not HRP then return end
+
+    --// === ANIMATION CHECK ===
+    local playing = getPlayingAnimationIds()
+    local triggered = false
+
+    for id in pairs(trackedAnimations) do
+        if playing[id] then
+            triggered = true
+            break
+        end
+    end
+
+    -- Animation just started
+    if triggered and not autoRotateLocked then
+        autoRotateLocked = true
+        originalAutoRotate = Humanoid.AutoRotate
+        Humanoid.AutoRotate = false
+
+        lastTriggerTime = tick()
+        aiming = true
+    end
+
+    -- Animation ended
+    if not triggered and autoRotateLocked then
+        autoRotateLocked = false
+        Humanoid.AutoRotate = (originalAutoRotate ~= nil) and originalAutoRotate or true
+    end
+
+    -- Aim duration expired
+    if not triggered and (tick() - lastTriggerTime) > aimDuration then
+        aiming = false
+    end
+
     if not aiming then return end
 
+    --// === TARGET SECTION ===
     local targetHRP = getValidTarget()
     if not targetHRP then return end
 
-    -- prediction
+    --// === PREDICTION ===
     local velocity = getVelocity(targetHRP)
     local predictedPos = targetHRP.Position + velocity
 
@@ -1927,13 +1961,11 @@ RunService.RenderStepped:Connect(function(dt)
 
     -- yaw only
     local yaw = math.atan2(-dir.X, -dir.Z)
+    local degYaw = math.deg(yaw)
 
-    -- **natural rotation CF**
-    local current = HRP.CFrame
-    local new = CFrame.new(current.Position) * CFrame.Angles(0, yaw, 0)
-
-    -- smoothness
-    HRP.CFrame = current:Lerp(new, 0.25)  -- adjust speed here
+    --// === NATURAL ROTATION (NO POSITION CHANGE) ===
+    local rot = HRP.Rotation
+    HRP.Rotation = Vector3.new(rot.X, degYaw, rot.Z)
 end)
 
 
