@@ -1807,6 +1807,14 @@ Combat:CreateToggle({
     Flag = "AutoAim",
     Callback = function(v)
         autoAimEnabled = v
+        if not v then
+            -- Reset aiming state when disabled
+            aiming = false
+            if autoRotateLocked and Humanoid then
+                autoRotateLocked = false
+                Humanoid.AutoRotate = originalAutoRotate == nil or originalAutoRotate
+            end
+        end
     end
 })
 
@@ -1836,10 +1844,11 @@ local Humanoid, HRP = nil, nil
 local lastTriggerTime = 0
 local aimDuration = 1.7
 local aiming = false
+local autoRotateLocked = false
 
 local originalWS, originalJP, originalAutoRotate = nil, nil, nil
 
---// Tracked animations (same as your script)
+--// Tracked animations
 local trackedAnimations = {
     ["103601716322988"] = true,
     ["133491532453922"] = true,
@@ -1848,10 +1857,27 @@ local trackedAnimations = {
     ["81698196845041"] = true
 }
 
+--// Smoothing variables
+local lastRotationTime = tick()
+local targetYaw = 0
+local currentYaw = 0
+local rotationLerpSpeed = 0.15 -- Adjust for smoother/faster rotation
+local lastValidTarget = nil
+local velocityHistory = {}
+local lastFramePositions = {}
+local smoothPrediction = true
+
 --// Character setup
 local function setupCharacter(char)
     Humanoid = char:WaitForChild("Humanoid")
     HRP = char:WaitForChild("HumanoidRootPart")
+    currentYaw = HRP.Rotation.Y
+    targetYaw = HRP.Rotation.Y
+    
+    -- Reset tracking
+    velocityHistory = {}
+    lastFramePositions = {}
+    lastValidTarget = nil
 end
 
 if LocalPlayer.Character then
@@ -1873,14 +1899,92 @@ local function getPlayingAnimationIds()
     return ids
 end
 
---// Track velocities for prediction smoothing
-local lastPositions = {}
-
-local function getVelocity(targetHRP)
-    local lastPos = lastPositions[targetHRP] or targetHRP.Position
-    local velocity = (targetHRP.Position - lastPos) * 10 -- approx studs per second
-    lastPositions[targetHRP] = targetHRP.Position
+--// Smoothed velocity prediction
+local function getSmoothedVelocity(targetHRP)
+    local currentTime = tick()
+    local velocity = targetHRP.Velocity
+    
+    -- Store recent velocities for smoothing
+    table.insert(velocityHistory, 1, {
+        velocity = velocity,
+        time = currentTime,
+        position = targetHRP.Position
+    })
+    
+    -- Clean old entries (keep last 0.3 seconds)
+    local maxAge = 0.3
+    while #velocityHistory > 0 and (currentTime - velocityHistory[#velocityHistory].time) > maxAge do
+        velocityHistory[#velocityHistory] = nil
+    end
+    
+    -- If we have enough history, use weighted average
+    if #velocityHistory > 1 then
+        local totalWeight = 0
+        local weightedVel = Vector3.zero
+        
+        for i, entry in ipairs(velocityHistory) do
+            -- Recent entries get more weight
+            local age = currentTime - entry.time
+            local weight = 1 - (age / maxAge)
+            weight = math.max(weight, 0.1) -- Minimum weight
+            
+            weightedVel = weightedVel + (entry.velocity * weight)
+            totalWeight = totalWeight + weight
+        end
+        
+        if totalWeight > 0.01 then
+            velocity = weightedVel / totalWeight
+        end
+    end
+    
+    -- Also use position-based velocity for more accuracy
+    if lastFramePositions[targetHRP] then
+        local lastPos = lastFramePositions[targetHRP]
+        local frameTime = currentTime - (lastFramePositions[targetHRP].time or currentTime)
+        if frameTime > 0 then
+            local posVelocity = (targetHRP.Position - lastPos.pos) / frameTime
+            -- Blend position-based velocity with physics velocity
+            velocity = velocity:Lerp(posVelocity, 0.3)
+        end
+    end
+    
+    lastFramePositions[targetHRP] = {
+        pos = targetHRP.Position,
+        time = currentTime
+    }
+    
     return velocity
+end
+
+--// Adjust prediction based on distance
+local function getDistanceBasedPrediction(targetPos, targetVelocity, ourPos)
+    local distance = (targetPos - ourPos).Magnitude
+    
+    -- Dynamic prediction: less prediction at close range, more at distance
+    local basePrediction = manualPrediction
+    local predictionFactor = 0
+    
+    if distance < 10 then
+        -- Very close: minimal prediction
+        predictionFactor = 0.1
+    elseif distance < 30 then
+        -- Close-mid range: moderate prediction
+        predictionFactor = 0.3
+    elseif distance < 60 then
+        -- Mid range: normal prediction
+        predictionFactor = 0.7
+    else
+        -- Long range: full prediction
+        predictionFactor = 1.0
+    end
+    
+    -- Adjust based on target's speed
+    local speed = targetVelocity.Magnitude
+    if speed > 50 then
+        predictionFactor = math.min(predictionFactor * 1.5, 1.0)
+    end
+    
+    return targetVelocity * (basePrediction * predictionFactor)
 end
 
 --// Get nearest target from correct folder
@@ -1895,21 +1999,38 @@ local function getValidTarget()
     if not targetFolder then return nil end
 
     local closest, closestDist = nil, math.huge
+    local ourPos = HRP.Position
 
     for _, model in ipairs(targetFolder:GetChildren()) do
         if model ~= LocalPlayer.Character and model:FindFirstChild("HumanoidRootPart") then
             local root = model.HumanoidRootPart
-            local dist = (root.Position - HRP.Position).Magnitude
-            if dist < closestDist then
-                closestDist = dist
-                closest = root
+            
+            -- Check line of sight (optional but recommended)
+            local direction = (root.Position - ourPos).Unit
+            local ray = Ray.new(ourPos + Vector3.new(0, 2, 0), direction * 500)
+            local hit, pos = workspace:FindPartOnRayWithIgnoreList(ray, {LocalPlayer.Character})
+            
+            if hit and hit:IsDescendantOf(model) then
+                local dist = (root.Position - ourPos).Magnitude
+                if dist < closestDist then
+                    closestDist = dist
+                    closest = root
+                end
+            elseif not hit then
+                -- Fallback if ray misses
+                local dist = (root.Position - ourPos).Magnitude
+                if dist < closestDist then
+                    closestDist = dist
+                    closest = root
+                end
             end
         end
     end
 
-    return closest
+    return closest, closestDist
 end
 
+--// Animation detection and aiming system
 RunService.RenderStepped:Connect(function(dt)
     if not autoAimEnabled or not Humanoid or not HRP then return end
 
@@ -1929,15 +2050,25 @@ RunService.RenderStepped:Connect(function(dt)
         autoRotateLocked = true
         originalAutoRotate = Humanoid.AutoRotate
         Humanoid.AutoRotate = false
-
+        
         lastTriggerTime = tick()
         aiming = true
+        
+        -- Get current rotation for smooth start
+        currentYaw = HRP.Rotation.Y
+        targetYaw = HRP.Rotation.Y
     end
 
     -- Animation ended
     if not triggered and autoRotateLocked then
         autoRotateLocked = false
-        Humanoid.AutoRotate = (originalAutoRotate ~= nil) and originalAutoRotate or true
+        Humanoid.AutoRotate = originalAutoRotate == nil or originalAutoRotate
+        
+        -- Smoothly return to normal rotation if no longer aiming
+        if not aiming then
+            local targetForward = HRP.CFrame.LookVector
+            targetYaw = math.atan2(-targetForward.X, -targetForward.Z)
+        end
     end
 
     -- Aim duration expired
@@ -1945,29 +2076,87 @@ RunService.RenderStepped:Connect(function(dt)
         aiming = false
     end
 
-    if not aiming then return end
-
     --// === TARGET SECTION ===
-    local targetHRP = getValidTarget()
-    if not targetHRP then return end
+    if not aiming then 
+        -- Smooth rotation back to movement direction when not aiming
+        if Humanoid.MoveDirection.Magnitude > 0.1 then
+            local moveDir = Humanoid.MoveDirection
+            targetYaw = math.atan2(-moveDir.X, -moveDir.Z)
+        end
+        
+        -- Apply smooth rotation even when not aiming
+        local deltaTime = math.min(tick() - lastRotationTime, 0.033)
+        lastRotationTime = tick()
+        
+        local lerpFactor = 1.0 - math.exp(-rotationLerpSpeed * deltaTime * 60)
+        currentYaw = currentYaw + (math.rad(targetYaw) - currentYaw) * lerpFactor
+        
+        local rot = HRP.Rotation
+        HRP.Rotation = Vector3.new(rot.X, math.deg(currentYaw), rot.Z)
+        return 
+    end
 
-    --// === PREDICTION ===
-    local velocity = getVelocity(targetHRP)
-    local predictedPos = targetHRP.Position + velocity
+    local targetHRP, targetDistance = getValidTarget()
+    if not targetHRP then 
+        -- If we lose target, slowly return to forward direction
+        if aiming then
+            targetYaw = HRP.Rotation.Y
+        end
+        return 
+    end
 
-    local dir = (predictedPos - HRP.Position)
+    --// === PREDICTION WITH DISTANCE ADJUSTMENT ===
+    local velocity = getSmoothedVelocity(targetHRP)
+    local prediction = getDistanceBasedPrediction(targetHRP.Position, velocity, HRP.Position)
+    
+    -- Adjust for distance overhead (aim at torso instead of feet)
+    local targetPos = targetHRP.Position
+    local ourPos = HRP.Position
+    
+    -- Calculate height adjustment based on distance
+    local verticalOffset = 0
+    if targetDistance then
+        -- Aim higher at close range to avoid aiming at feet
+        if targetDistance < 15 then
+            verticalOffset = 1.5 -- Aim at torso
+        elseif targetDistance < 30 then
+            verticalOffset = 0.8 -- Mid height
+        else
+            verticalOffset = 0.3 -- Slight upward angle for distance
+        end
+    end
+    
+    targetPos = targetPos + Vector3.new(0, verticalOffset, 0)
+    
+    -- Add prediction
+    local predictedPos = targetPos + prediction
+    
+    --// === SMOOTH ROTATION ===
+    local dir = (predictedPos - ourPos)
     if dir.Magnitude < 0.01 then return end
     dir = dir.Unit
 
-    -- yaw only
-    local yaw = math.atan2(-dir.X, -dir.Z)
-    local degYaw = math.deg(yaw)
-
-    --// === NATURAL ROTATION (NO POSITION CHANGE) ===
+    -- Calculate target yaw
+    local newTargetYaw = math.atan2(-dir.X, -dir.Z)
+    
+    -- Clamp rotation change to prevent snapping
+    local maxYawChange = math.rad(180) * dt * 2 -- Max 180 degrees per second
+    
+    local yawDiff = (newTargetYaw - targetYaw + math.pi) % (2 * math.pi) - math.pi
+    yawDiff = math.clamp(yawDiff, -maxYawChange, maxYawChange)
+    targetYaw = targetYaw + yawDiff
+    
+    -- Smooth interpolation
+    local deltaTime = math.min(tick() - lastRotationTime, 0.033)
+    lastRotationTime = tick()
+    
+    local lerpFactor = 1.0 - math.exp(-rotationLerpSpeed * deltaTime * 60)
+    currentYaw = currentYaw + (targetYaw - currentYaw) * lerpFactor
+    
+    -- Apply smooth rotation (yaw only)
     local rot = HRP.Rotation
-    HRP.Rotation = Vector3.new(rot.X, degYaw, rot.Z)
+    HRP.Rotation = Vector3.new(rot.X, math.deg(currentYaw), rot.Z)
 end)
-
 
 local player = Players.LocalPlayer
 local remote = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent")
