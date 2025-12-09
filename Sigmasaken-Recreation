@@ -1653,8 +1653,6 @@ _G.TiltPitch = _G.TiltPitch or 40
 _G.TiltForward = _G.TiltForward or 0.06
 _G.TiltUp = _G.TiltUp or 0.08
 
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 
 local ANIM_ID = "117058860640843" -- anim a detectar
@@ -1800,28 +1798,10 @@ Combat:CreateSlider({
 Combat:CreateSection("Chance")
 
 local autoAimEnabled = false
-local predictionValue = 4            -- user-facing slider (see comment below)
-local smartPrediction = true        -- only predict when target is moving
+local predictionValue = 4
 local friendlyFire = false
 
-local Humanoid, HRP = nil, nil
-local lastTriggerTime = 0
-local aimDuration = 1.7
-local aiming = false
-
-local originalWS, originalJP, originalAutoRotate = nil, nil, nil
-
---// Tracked animation IDs that trigger aim
-local trackedAnimations = {
-    ["103601716322988"] = true,
-    ["133491532453922"] = true,
-    ["86371356500204"] = true,
-    ["76649505662612"] = true,
-    ["81698196845041"] = true
-}
-
---// UI Elements
-
+-- UI
 Combat:CreateToggle({
     Name = "Auto Aim",
     CurrentValue = false,
@@ -1835,20 +1815,11 @@ Combat:CreateSlider({
     Name = "Prediction",
     Range = {0, 20},
     Increment = 1,
-    Suffix = " (scale)",
-    CurrentValue = predictionValue,
+    Suffix = " studs",
+    CurrentValue = 4,
     Flag = "AimPrediction",
     Callback = function(val)
         predictionValue = val
-    end
-})
-
-Combat:CreateToggle({
-    Name = "Smart Prediction (Only On Movement)",
-    CurrentValue = true,
-    Flag = "SmartPrediction",
-    Callback = function(v)
-        smartPrediction = v
     end
 })
 
@@ -1861,7 +1832,22 @@ Combat:CreateToggle({
     end
 })
 
---// Character setup
+--// STATE
+local Humanoid, HRP = nil, nil
+local lastTriggerTime = 0
+local aimDuration = 1.7
+local aiming = false
+
+local originalWS, originalJP, originalAutoRotate = nil, nil, nil
+
+local trackedAnimations = {
+    ["103601716322988"] = true,
+    ["133491532453922"] = true,
+    ["86371356500204"] = true,
+    ["76649505662612"] = true,
+    ["81698196845041"] = true
+}
+
 local function setupCharacter(char)
     Humanoid = char:WaitForChild("Humanoid")
     HRP = char:WaitForChild("HumanoidRootPart")
@@ -1872,13 +1858,11 @@ if LocalPlayer.Character then
 end
 LocalPlayer.CharacterAdded:Connect(setupCharacter)
 
---// Helpers
-
 local function getPlayingAnimationIds()
     local ids = {}
     if Humanoid then
         for _, track in ipairs(Humanoid:GetPlayingAnimationTracks()) do
-            if track.Animation and track.Animation.AnimationId then
+            if track.Animation then
                 local id = track.Animation.AnimationId:match("%d+")
                 if id then ids[id] = true end
             end
@@ -1887,23 +1871,29 @@ local function getPlayingAnimationIds()
     return ids
 end
 
--- Returns the nearest HumanoidRootPart from the selected folder (Killers or Survivors).
+--// NEW: Smart target selection
 local function getValidTarget()
     if not HRP then return nil end
+
     local base = workspace:FindFirstChild("Players")
     if not base then return nil end
 
-    local targetFolder = friendlyFire and base:FindFirstChild("Survivors") or base:FindFirstChild("Killers")
+    local targetFolder = friendlyFire
+        and base:FindFirstChild("Survivors")
+        or base:FindFirstChild("Killers")
+
     if not targetFolder then return nil end
 
     local closest, closestDist = nil, math.huge
+
     for _, model in ipairs(targetFolder:GetChildren()) do
         if model ~= LocalPlayer.Character and model:FindFirstChild("HumanoidRootPart") then
-            local targetHRP = model.HumanoidRootPart
-            local dist = (targetHRP.Position - HRP.Position).Magnitude
+            local hrp = model.HumanoidRootPart
+            local dist = (hrp.Position - HRP.Position).Magnitude
+
             if dist < closestDist then
                 closestDist = dist
-                closest = targetHRP
+                closest = hrp
             end
         end
     end
@@ -1911,33 +1901,14 @@ local function getValidTarget()
     return closest
 end
 
--- Velocity-based prediction:
--- predictionValue (slider) is interpreted as tenths of a second (predictionSeconds = predictionValue / 10).
--- If smartPrediction is enabled and target velocity is tiny, we return the current position (no lead).
-local function getPredictedPosition(targetHRP)
-    if not targetHRP then return nil end
 
-    local vel = targetHRP.AssemblyLinearVelocity or Vector3.new()
-    local speed = vel.Magnitude
-
-    local predictionSeconds = predictionValue / 10
-
-    if smartPrediction and speed < 0.1 then
-        -- target effectively stationary -> no prediction
-        return targetHRP.Position
-    end
-
-    -- Use full velocity-based prediction (pos + velocity * time)
-    return targetHRP.Position + (vel * predictionSeconds)
-end
-
---// Main aim loop
+--// MAIN AIM LOOP (Improved)
 RunService.RenderStepped:Connect(function()
     if not autoAimEnabled or not Humanoid or not HRP then return end
 
-    -- animation trigger check
     local playing = getPlayingAnimationIds()
     local triggered = false
+
     for id in pairs(trackedAnimations) do
         if playing[id] then
             triggered = true
@@ -1951,32 +1922,48 @@ RunService.RenderStepped:Connect(function()
     end
 
     if aiming and tick() - lastTriggerTime <= aimDuration then
-        -- store original movement properties once
+
         if not originalWS then
             originalWS = Humanoid.WalkSpeed
             originalJP = Humanoid.JumpPower
             originalAutoRotate = Humanoid.AutoRotate
         end
 
-        -- lock rotation and zero angular velocity
         Humanoid.AutoRotate = false
         HRP.AssemblyAngularVelocity = Vector3.zero
 
         local targetHRP = getValidTarget()
         if targetHRP then
-            local predictedPos = getPredictedPosition(targetHRP) or targetHRP.Position
 
-            local dir = predictedPos - HRP.Position
-            if dir.Magnitude > 0 then
-                local direction = dir.Unit
+            --// === IMPROVED PREDICTION ===
+            -- Detect actual velocity of target
+            local velocity = targetHRP.Velocity
+            local speed = velocity.Magnitude
+
+            -- If the target is basically standing still, do NOT predict ahead
+            local autoPrediction =
+                speed < 2
+                and 0
+                or (velocity.Unit * predictionValue)
+
+            local predictedPos = targetHRP.Position + autoPrediction
+
+            --// === SMOOTHER, MORE ACCURATE ROTATION ===
+            local direction = (predictedPos - HRP.Position)
+            if direction.Magnitude > 0.001 then
+                direction = direction.Unit
                 local yRot = math.atan2(-direction.X, -direction.Z)
-                HRP.CFrame = CFrame.new(HRP.Position) * CFrame.Angles(0, yRot, 0)
+
+                -- Smooth rotation prevents jitter
+                local newCF = CFrame.new(HRP.Position) * CFrame.Angles(0, yRot, 0)
+                HRP.CFrame = HRP.CFrame:Lerp(newCF, 0.35)
             end
         end
 
     elseif aiming then
-        -- restore state
         aiming = false
+
+        -- Restore movement
         if originalWS then
             Humanoid.WalkSpeed = originalWS
             Humanoid.JumpPower = originalJP
