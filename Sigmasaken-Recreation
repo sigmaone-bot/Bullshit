@@ -1797,16 +1797,6 @@ Combat:CreateSlider({
 
 Combat:CreateSection("Chance")
 
---// Services
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-
-local LocalPlayer = Players.LocalPlayer
-
---// UI Tab
-local Combat = Tabs.Combat
-
---// Settings
 local autoAimEnabled = false
 local manualPrediction = 4
 local friendlyFire = false
