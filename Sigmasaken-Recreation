@@ -2030,14 +2030,12 @@ local function getValidTarget()
     return closest, closestDist
 end
 
---// Animation detection and aiming system
+-- Solo la parte de rotación suave del aimbot
 RunService.RenderStepped:Connect(function(dt)
-    if not autoAimEnabled or not Humanoid or not HRP then return end
+    if not active or not Humanoid or not HRP then return end
 
-    --// === ANIMATION CHECK ===
     local playing = getPlayingAnimationIds()
     local triggered = false
-
     for id in pairs(trackedAnimations) do
         if playing[id] then
             triggered = true
@@ -2045,117 +2043,34 @@ RunService.RenderStepped:Connect(function(dt)
         end
     end
 
-    -- Animation just started
-    if triggered and not autoRotateLocked then
-        autoRotateLocked = true
-        originalAutoRotate = Humanoid.AutoRotate
-        Humanoid.AutoRotate = false
-        
+    if triggered then
         lastTriggerTime = tick()
         aiming = true
-        
-        -- Get current rotation for smooth start
-        currentYaw = HRP.Rotation.Y
-        targetYaw = HRP.Rotation.Y
     end
 
-    -- Animation ended
-    if not triggered and autoRotateLocked then
-        autoRotateLocked = false
-        Humanoid.AutoRotate = originalAutoRotate == nil or originalAutoRotate
-        
-        -- Smoothly return to normal rotation if no longer aiming
-        if not aiming then
-            local targetForward = HRP.CFrame.LookVector
-            targetYaw = math.atan2(-targetForward.X, -targetForward.Z)
+    if aiming and tick() - lastTriggerTime <= aimDuration then
+        -- Freeze pero mantenerse derecho
+        Humanoid.AutoRotate = false
+        HRP.AssemblyAngularVelocity = Vector3.zero
+
+        local targetHRP = getValidTarget()
+        if targetHRP then
+            -- Posición predicha
+            local predictedPos = targetHRP.Position + (targetHRP.Velocity * prediction)
+            
+            -- Calcular dirección
+            local direction = (predictedPos - HRP.Position)
+            if direction.Magnitude < 0.01 then return end
+            direction = direction.Unit
+            
+            -- Rotación suave usando Lerp
+            local targetCFrame = CFrame.new(HRP.Position, HRP.Position + Vector3.new(direction.X, 0, direction.Z))
+            HRP.CFrame = HRP.CFrame:Lerp(targetCFrame, 0.3) -- Ajusta este número para más suavidad
         end
-    end
-
-    -- Aim duration expired
-    if not triggered and (tick() - lastTriggerTime) > aimDuration then
+    elseif aiming then
         aiming = false
+        Humanoid.AutoRotate = true
     end
-
-    --// === TARGET SECTION ===
-    if not aiming then 
-        -- Smooth rotation back to movement direction when not aiming
-        if Humanoid.MoveDirection.Magnitude > 0.1 then
-            local moveDir = Humanoid.MoveDirection
-            targetYaw = math.atan2(-moveDir.X, -moveDir.Z)
-        end
-        
-        -- Apply smooth rotation even when not aiming
-        local deltaTime = math.min(tick() - lastRotationTime, 0.033)
-        lastRotationTime = tick()
-        
-        local lerpFactor = 1.0 - math.exp(-rotationLerpSpeed * deltaTime * 60)
-        currentYaw = currentYaw + (math.rad(targetYaw) - currentYaw) * lerpFactor
-        
-        local rot = HRP.Rotation
-        HRP.Rotation = Vector3.new(rot.X, math.deg(currentYaw), rot.Z)
-        return 
-    end
-
-    local targetHRP, targetDistance = getValidTarget()
-    if not targetHRP then 
-        -- If we lose target, slowly return to forward direction
-        if aiming then
-            targetYaw = HRP.Rotation.Y
-        end
-        return 
-    end
-
-    --// === PREDICTION WITH DISTANCE ADJUSTMENT ===
-    local velocity = getSmoothedVelocity(targetHRP)
-    local prediction = getDistanceBasedPrediction(targetHRP.Position, velocity, HRP.Position)
-    
-    -- Adjust for distance overhead (aim at torso instead of feet)
-    local targetPos = targetHRP.Position
-    local ourPos = HRP.Position
-    
-    -- Calculate height adjustment based on distance
-    local verticalOffset = 0
-    if targetDistance then
-        -- Aim higher at close range to avoid aiming at feet
-        if targetDistance < 15 then
-            verticalOffset = 1.5 -- Aim at torso
-        elseif targetDistance < 30 then
-            verticalOffset = 0.8 -- Mid height
-        else
-            verticalOffset = 0.3 -- Slight upward angle for distance
-        end
-    end
-    
-    targetPos = targetPos + Vector3.new(0, verticalOffset, 0)
-    
-    -- Add prediction
-    local predictedPos = targetPos + prediction
-    
-    --// === SMOOTH ROTATION ===
-    local dir = (predictedPos - ourPos)
-    if dir.Magnitude < 0.01 then return end
-    dir = dir.Unit
-
-    -- Calculate target yaw
-    local newTargetYaw = math.atan2(-dir.X, -dir.Z)
-    
-    -- Clamp rotation change to prevent snapping
-    local maxYawChange = math.rad(180) * dt * 2 -- Max 180 degrees per second
-    
-    local yawDiff = (newTargetYaw - targetYaw + math.pi) % (2 * math.pi) - math.pi
-    yawDiff = math.clamp(yawDiff, -maxYawChange, maxYawChange)
-    targetYaw = targetYaw + yawDiff
-    
-    -- Smooth interpolation
-    local deltaTime = math.min(tick() - lastRotationTime, 0.033)
-    lastRotationTime = tick()
-    
-    local lerpFactor = 1.0 - math.exp(-rotationLerpSpeed * deltaTime * 60)
-    currentYaw = currentYaw + (targetYaw - currentYaw) * lerpFactor
-    
-    -- Apply smooth rotation (yaw only)
-    local rot = HRP.Rotation
-    HRP.Rotation = Vector3.new(rot.X, math.deg(currentYaw), rot.Z)
 end)
 
 local player = Players.LocalPlayer
