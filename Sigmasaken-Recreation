@@ -1910,57 +1910,30 @@ local function getValidTarget()
     return closest
 end
 
-RunService.RenderStepped:Connect(function()
+RunService.RenderStepped:Connect(function(dt)
     if not autoAimEnabled or not Humanoid or not HRP then return end
+    if not aiming then return end
 
-    -- Trigger detection via animations
-    local playing = getPlayingAnimationIds()
-    local triggered = false
-    for id in pairs(trackedAnimations) do
-        if playing[id] then
-            triggered = true
-            break
-        end
-    end
+    local targetHRP = getValidTarget()
+    if not targetHRP then return end
 
-    if triggered then
-        lastTriggerTime = tick()
-        aiming = true
-    end
+    -- prediction
+    local velocity = getVelocity(targetHRP)
+    local predictedPos = targetHRP.Position + velocity
 
-    if aiming and tick() - lastTriggerTime <= aimDuration then
+    local dir = (predictedPos - HRP.Position)
+    if dir.Magnitude < 0.01 then return end
+    dir = dir.Unit
 
-        -- FIRST FIX: Do NOT disable AutoRotate
-        -- SECOND FIX: Do NOT modify WalkSpeed or JumpPower
-        -- THIRD FIX: Do NOT freeze assembly angular velocity
+    -- yaw only
+    local yaw = math.atan2(-dir.X, -dir.Z)
 
-        local targetHRP = getValidTarget()
-        if targetHRP then
+    -- **natural rotation CF**
+    local current = HRP.CFrame
+    local new = CFrame.new(current.Position) * CFrame.Angles(0, yaw, 0)
 
-            -- Calculate velocity-based prediction
-            local velocity = getVelocity(targetHRP)
-            local speed = velocity.Magnitude
-
-            local movementFactor = math.clamp(speed / 16, 0, 1.4)
-
-            local dist = (targetHRP.Position - HRP.Position).Magnitude
-            local distanceScale = math.clamp(dist / 30, 0.2, 1)
-
-            local prediction = manualPrediction * movementFactor * distanceScale
-
-            local predictedPos = targetHRP.Position + (velocity.Unit * prediction)
-            local direction = (predictedPos - HRP.Position).Unit
-
-            -- Rotation angle
-            local yRot = math.atan2(-direction.X, -direction.Z)
-
-            -- FIX: Only rotate the character, don’t touch movement / camera
-            HRP.CFrame = CFrame.new(HRP.Position) * CFrame.Angles(0, yRot, 0)
-        end
-
-    else
-        aiming = false
-    end
+    -- smoothness
+    HRP.CFrame = current:Lerp(new, 0.25)  -- adjust speed here
 end)
 
 
