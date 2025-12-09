@@ -1797,11 +1797,20 @@ Combat:CreateSlider({
 
 Combat:CreateSection("Chance")
 
+--// Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+
+--// UI Tab
+local Combat = Tabs.Combat
+
+--// Settings
 local autoAimEnabled = false
-local predictionValue = 4
+local manualPrediction = 4
 local friendlyFire = false
 
--- UI
 Combat:CreateToggle({
     Name = "Auto Aim",
     CurrentValue = false,
@@ -1819,7 +1828,7 @@ Combat:CreateSlider({
     CurrentValue = 4,
     Flag = "AimPrediction",
     Callback = function(val)
-        predictionValue = val
+        manualPrediction = val
     end
 })
 
@@ -1832,7 +1841,7 @@ Combat:CreateToggle({
     end
 })
 
---// STATE
+--// State
 local Humanoid, HRP = nil, nil
 local lastTriggerTime = 0
 local aimDuration = 1.7
@@ -1840,6 +1849,7 @@ local aiming = false
 
 local originalWS, originalJP, originalAutoRotate = nil, nil, nil
 
+--// Tracked animations (same as your script)
 local trackedAnimations = {
     ["103601716322988"] = true,
     ["133491532453922"] = true,
@@ -1848,6 +1858,7 @@ local trackedAnimations = {
     ["81698196845041"] = true
 }
 
+--// Character setup
 local function setupCharacter(char)
     Humanoid = char:WaitForChild("Humanoid")
     HRP = char:WaitForChild("HumanoidRootPart")
@@ -1858,11 +1869,12 @@ if LocalPlayer.Character then
 end
 LocalPlayer.CharacterAdded:Connect(setupCharacter)
 
+--// Get animation IDs currently playing
 local function getPlayingAnimationIds()
     local ids = {}
     if Humanoid then
         for _, track in ipairs(Humanoid:GetPlayingAnimationTracks()) do
-            if track.Animation then
+            if track.Animation and track.Animation.AnimationId then
                 local id = track.Animation.AnimationId:match("%d+")
                 if id then ids[id] = true end
             end
@@ -1871,29 +1883,36 @@ local function getPlayingAnimationIds()
     return ids
 end
 
---// NEW: Smart target selection
+--// Track velocities for prediction smoothing
+local lastPositions = {}
+
+local function getVelocity(targetHRP)
+    local lastPos = lastPositions[targetHRP] or targetHRP.Position
+    local velocity = (targetHRP.Position - lastPos) * 10 -- approx studs per second
+    lastPositions[targetHRP] = targetHRP.Position
+    return velocity
+end
+
+--// Get nearest target from correct folder
 local function getValidTarget()
     if not HRP then return nil end
 
     local base = workspace:FindFirstChild("Players")
     if not base then return nil end
 
-    local targetFolder = friendlyFire
-        and base:FindFirstChild("Survivors")
-        or base:FindFirstChild("Killers")
-
+    local folder = friendlyFire and "Survivors" or "Killers"
+    local targetFolder = base:FindFirstChild(folder)
     if not targetFolder then return nil end
 
     local closest, closestDist = nil, math.huge
 
     for _, model in ipairs(targetFolder:GetChildren()) do
         if model ~= LocalPlayer.Character and model:FindFirstChild("HumanoidRootPart") then
-            local hrp = model.HumanoidRootPart
-            local dist = (hrp.Position - HRP.Position).Magnitude
-
+            local root = model.HumanoidRootPart
+            local dist = (root.Position - HRP.Position).Magnitude
             if dist < closestDist then
                 closestDist = dist
-                closest = hrp
+                closest = root
             end
         end
     end
@@ -1901,8 +1920,7 @@ local function getValidTarget()
     return closest
 end
 
-
---// MAIN AIM LOOP (Improved)
+--// Main aim loop
 RunService.RenderStepped:Connect(function()
     if not autoAimEnabled or not Humanoid or not HRP then return end
 
@@ -1935,35 +1953,37 @@ RunService.RenderStepped:Connect(function()
         local targetHRP = getValidTarget()
         if targetHRP then
 
-            --// === IMPROVED PREDICTION ===
-            -- Detect actual velocity of target
-            local velocity = targetHRP.Velocity
+            --// IMPROVED PREDICTION
+            local velocity = getVelocity(targetHRP)
             local speed = velocity.Magnitude
 
-            -- If the target is basically standing still, do NOT predict ahead
-            local autoPrediction =
-                speed < 2
-                and 0
-                or (velocity.Unit * predictionValue)
+            -- Prediction multiplier based on movement
+            local movementFactor = math.clamp(speed / 16, 0, 1.4)
 
-            local predictedPos = targetHRP.Position + autoPrediction
+            -- Distance scaling (less prediction up close)
+            local dist = (targetHRP.Position - HRP.Position).Magnitude
+            local distanceScale = math.clamp(dist / 30, 0.2, 1)
 
-            --// === SMOOTHER, MORE ACCURATE ROTATION ===
-            local direction = (predictedPos - HRP.Position)
-            if direction.Magnitude > 0.001 then
-                direction = direction.Unit
-                local yRot = math.atan2(-direction.X, -direction.Z)
+            -- Final prediction value
+            local prediction =
+                manualPrediction * movementFactor * distanceScale
 
-                -- Smooth rotation prevents jitter
-                local newCF = CFrame.new(HRP.Position) * CFrame.Angles(0, yRot, 0)
-                HRP.CFrame = HRP.CFrame:Lerp(newCF, 0.35)
-            end
+            local predictedPos = targetHRP.Position + (velocity.Unit * prediction)
+
+            local direction = (predictedPos - HRP.Position).Unit
+            local yRot = math.atan2(-direction.X, -direction.Z)
+
+            -- Smooth rotate instead of snapping
+            local smooth = 0.25
+            HRP.CFrame = HRP.CFrame:Lerp(
+                CFrame.new(HRP.Position) * CFrame.Angles(0, yRot, 0),
+                smooth
+            )
         end
 
     elseif aiming then
         aiming = false
 
-        -- Restore movement
         if originalWS then
             Humanoid.WalkSpeed = originalWS
             Humanoid.JumpPower = originalJP
@@ -1972,7 +1992,6 @@ RunService.RenderStepped:Connect(function()
         end
     end
 end)
-
 
 local player = Players.LocalPlayer
 local remote = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent")
