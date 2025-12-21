@@ -9,6 +9,7 @@ local Workspace = game:GetService("Workspace")
 local LocalPlayer = Players.LocalPlayer
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local sk8module = require(game:GetService("ReplicatedStorage").Assets.Survivors.Veeronica.Config)
+local nolimodule = require(game:GetService("ReplicatedStorage").Assets.Killers.Noli.Config)
 
 -- Rayfield (UI) loader (mantén tu URL)
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
@@ -1181,6 +1182,17 @@ Misc:CreateButton({
             warn("Anti-wall break error:", err)
         end
     end
+})
+
+Misc:CreateSlider({
+   Name = "Noli turn speed",
+   Range = {0, 10},
+   Increment = 0.5,
+   CurrentValue = 1,
+   Suffix = "Stud (s)",
+   Callback = function(val)
+        nolimodule.VoidRushTurnSpeed = val
+   end,
 })
 
 Misc:CreateSection("Sk8 stuff")
