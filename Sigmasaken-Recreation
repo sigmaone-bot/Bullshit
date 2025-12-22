@@ -289,14 +289,14 @@ local function setupShadowDetection()
 
     -- Initial scan
     for _, obj in ipairs(nestedMap:GetDescendants()) do
-        if obj:IsA("BasePart") and obj.Name:lower():find("shadow") then
+        if obj:IsA("BasePart") and obj.Name:lower():match("hadow") then
             shadowParts[obj] = true
         end
     end
 
     -- EVENTS ONLY ON THE NESTED MAP
     local addedConn = nestedMap.DescendantAdded:Connect(function(descendant)
-        if descendant:IsA("BasePart") and descendant.Name:lower():find("shadow") then
+        if descendant:IsA("BasePart") and descendant.Name:lower():match("hadow") then
             shadowParts[descendant] = true
         end
     end)
@@ -316,10 +316,10 @@ end
 local minionModels = {}
 local function setupMinionDetection()
     local function initialMinionScan()
-        for _, obj in ipairs(Workspace:GetDescendants()) do
+        for _, obj in ipairs(Workspace.Map:GetDescendants()) do
             if obj:IsA("Model") then
                 local nameLower = obj.Name:lower()
-                if nameLower:find("minion") or nameLower:find("zombie") then
+                if nameLower:match("inion") or nameLower:match("ombie") then
                     minionModels[obj] = true
                 end
             end
@@ -331,7 +331,7 @@ local function setupMinionDetection()
     local minionAdded = Workspace.DescendantAdded:Connect(function(descendant)
         if descendant:IsA("Model") then
             local nameLower = descendant.Name:lower()
-            if nameLower:find("minion") or nameLower:find("zombie") then
+            if nameLower:match("minion") or nameLower:match("zombie") then
                 minionModels[descendant] = true
                 if espConfig.enabled and espConfig.minionEnabled then
                     task.defer(function()
@@ -362,7 +362,7 @@ local ritualParts = {}
 local function setupRitualDetection()
     local function initialRitualScan()
         for _, obj in ipairs(Workspace:GetDescendants()) do
-            if obj:IsA("BasePart") and obj.Name:find("RespawnLocation") then
+            if obj:IsA("BasePart") and obj.Name:match("RespawnLocation") then
                 ritualParts[obj] = true
             end
         end
@@ -371,7 +371,7 @@ local function setupRitualDetection()
     task.spawn(initialRitualScan)
     
     local ritualAdded = Workspace.DescendantAdded:Connect(function(descendant)
-        if descendant:IsA("BasePart") and descendant.Name:find("RespawnLocation") then
+        if descendant:IsA("BasePart") and descendant.Name:match("RespawnLocation") then
             ritualParts[descendant] = true
             if espConfig.enabled and espConfig.ritualEnabled then
                 task.defer(function()
