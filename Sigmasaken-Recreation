@@ -1094,6 +1094,10 @@ local Allowed = {
     NosCataclysm = true,
     VoidRushDash = true,
     SpeedStatus = true,
+    HitSpeedBonus = true,
+    Guest1337Charge = true,
+    BeheadAbility = true,
+    ENRAGED = true,
     Sprinting = true,
     Sk8Trick = true,
     ManicFixation = true,
@@ -1113,12 +1117,10 @@ local function AntiSlowLoop()
     if not speedMultipliers then return end
 
     for _, obj in ipairs(speedMultipliers:GetChildren()) do
-        if obj:IsA("NumberValue") then
+        if obj then
             -- Sólo se salvan los permitidos
             if not Allowed[obj.Name] then
-                --[[if obj.Value ~= 1 then
-                    obj.Value = 1
-                end]]
+                
                 obj:Destroy()
             end
         end
