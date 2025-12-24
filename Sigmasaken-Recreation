@@ -1184,6 +1184,8 @@ Misc:CreateButton({
     end
 })
 
+Misc:CreateSection("Noli")
+
 Misc:CreateSlider({
    Name = "Noli turn speed",
    Range = {0, 10},
