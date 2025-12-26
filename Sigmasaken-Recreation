@@ -149,11 +149,8 @@ local function applyModelESP(model, colorConfig, objectType)
 
     local adornPart = getAdorneePartForModel(model)
     if not adornPart then
-        -- si no hay parte para adornear, marcamos como procesado para evitar reintentos continuos
-        processedModels[model] = true
-        return
-    end
-
+    return
+end
     -- Crear Highlight
     local ok, highlight = pcall(function()
         local h = Instance.new("Highlight")
@@ -418,8 +415,10 @@ local lastUpdateTime = 0
 local updateCooldown = 10 -- 10 segundos entre actualizaciones completas (en lugar de 3)
 
 local function updateESP()
-    if updating then return end
-    updating = true
+    if tick() - lastUpdateTime < updateCooldown then
+    updating = false
+    return
+end
 
     if not espConfig.enabled then
         cleanupESP()
@@ -1614,7 +1613,7 @@ local statusLabel = Misc:CreateLabel(getDeviceLabel())
 -- Apply spoof
 local function ApplySpoof()
     if not spoofEnabled then
-        safeNotify({Title="Device Spoofer", Content="Enable spoofing first!", Duration=2})
+        --safeNotify({Title="Device Spoofer", Content="Enable spoofing first!", Duration=2})
         return
     end
     if applyInProgress then return end
@@ -1640,7 +1639,7 @@ local function ApplySpoof()
     end)
 
     statusLabel:Set(getDeviceLabel())
-    safeNotify({Title="Device Spoofer", Content="Device set to " .. chosen, Duration=2})
+   -- safeNotify({Title="Device Spoofer", Content="Device set to " .. chosen, Duration=2})
 end
 
 -- Dropdown
@@ -1841,7 +1840,7 @@ Combat:CreateSlider({
    Increment = 0.01,
    CurrentValue = 0.08,
    Callback = function(val)
-        _G.TiltPitch = val
+        _G.TiltUp = val
    end,
 })
 
@@ -2166,7 +2165,7 @@ if remote and remote.ClassName == "RemoteEvent" then
     Combat:CreateToggle({
         Name = "Flintlock Hitbox delay",
         Flag = "StoringHitboxGun",
-        CurrentValue = False,
+        CurrentValue = fallse,
         Callback = function(value)
             blockEnabled = value
         end
