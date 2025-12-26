@@ -2298,7 +2298,7 @@ local function TrueDash()
 end
 
 -- Toggle principal
-MainTab11:CreateToggle({
+Combat:CreateToggle({
     Name = "Auto Dash en Puñetazos",
     CurrentValue = false,
     Callback = function(v)
