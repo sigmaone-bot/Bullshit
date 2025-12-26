@@ -2190,8 +2190,10 @@ Combat:CreateSection("Guest 1337")
 
 local dashing = false
 local dashTask = nil
-local DashDuration = 0.5 -- Segundos que dura el dash
-local hrpCache = nil -- Cache para HumanoidRootPart
+local monitorTask = nil
+local DashDuration = 0.3 -- Duración del dash
+local DashDelay = 0.55 -- Espera ANTES del dash
+local isEnabled = false
 
 -- IDs de animaciones de puñetazo
 local PUNCH_ANIM_IDS = {
@@ -2205,12 +2207,11 @@ local PUNCH_ANIM_IDS = {
     ["86096387000557"] = true
 }
 
--- Detectar animaciones de puñetazo más eficiente
+-- Función para detectar animaciones
 local function isPunchAnimationPlaying()
-    local character = LocalPlayer.Character
-    if not character then return false end
+    if not LocalPlayer or not LocalPlayer.Character then return false end
     
-    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
     if not humanoid then return false end
     
     local animator = humanoid:FindFirstChildOfClass("Animator")
@@ -2218,112 +2219,137 @@ local function isPunchAnimationPlaying()
     
     for _, track in pairs(animator:GetPlayingAnimationTracks()) do
         if track.IsPlaying then
-            local animId = track.Animation and track.Animation.AnimationId
-            if animId then
-                local idNumber = tostring(animId:match("%d+"))
-                if PUNCH_ANIM_IDS[idNumber] then
+            local anim = track.Animation
+            if anim and anim.AnimationId then
+                local idNum = tostring(anim.AnimationId:match("%d+"))
+                if PUNCH_ANIM_IDS[idNum] then
                     return true
                 end
             end
         end
     end
-    
     return false
 end
 
--- Función mejorada del dash
+-- Función del dash (sin verificación de animación después del delay)
 local function TrueDash()
-    if dashing then return end
+    if dashing or not isEnabled then return end
     
-    -- Verificar si hay animación de puñetazo
-    if not isPunchAnimationPlaying() then return end
-    
-    -- Obtener HumanoidRootPart (con cache)
-    local character = LocalPlayer.Character
-    if not character then return end
-    
-    if not hrpCache or hrpCache.Parent ~= character then
-        hrpCache = character:FindFirstChild("HumanoidRootPart") or character:WaitForChild("HumanoidRootPart", 1)
-    end
-    
-    if not hrpCache then return end
-    
-    -- Obtener la fuerza del dash desde AimPrediction (si existe)
-    local dashForce = manualPrediction or 4 -- Valor por defecto si no existe
-    dashForce = dashForce * 10 -- Convertir a fuerza adecuada (4 studs = 40 fuerza)
-    
-    -- Aplicar física para dash mejorado
     dashing = true
     
-    -- Crear BodyVelocity para impulso inicial fuerte
-    local bv = Instance.new("BodyVelocity")
-    bv.MaxForce = Vector3.new(1e5, 1e5, 1e5) -- Fuerza en todas direcciones
-    bv.Velocity = hrpCache.CFrame.LookVector * dashForce
-    bv.Parent = hrpCache
+    -- ESPERAR el delay de 0.55 segundos
+    local waitStart = tick()
+    while tick() - waitStart < DashDelay do
+        if not isEnabled then 
+            dashing = false
+            return 
+        end
+        task.wait(0.05)
+    end
     
-    -- Crear BodyGyro para mantener dirección
+    -- Después de 0.55s, HACER DASH SIEMPRE (sin verificar animación)
+    if not isEnabled then
+        dashing = false
+        return
+    end
+    
+    local character = LocalPlayer.Character
+    if not character then
+        dashing = false
+        return
+    end
+    
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then
+        dashing = false
+        return
+    end
+    
+    -- Calcular fuerza
+    local dashForce = manualPrediction or 4
+    dashForce = dashForce * 15 -- Más fuerza
+    
+    -- Aplicar físicas
+    local bv = Instance.new("BodyVelocity")
+    bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+    bv.Velocity = hrp.CFrame.LookVector * dashForce
+    bv.Parent = hrp
+    
     local bg = Instance.new("BodyGyro")
     bg.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
-    bg.CFrame = hrpCache.CFrame
-    bg.P = 1000
-    bg.Parent = hrpCache
+    bg.CFrame = hrp.CFrame
+    bg.P = 2000
+    bg.Parent = hrp
     
-    -- Temporizador para limpiar
-    local startTime = tick()
-    dashTask = task.spawn(function()
-        while tick() - startTime < DashDuration do
-            -- Mantener impulso durante todo el dash
-            bv.Velocity = hrpCache.CFrame.LookVector * dashForce * 0.8
+    -- Dash por 0.3 segundos
+    local dashStart = tick()
+    task.spawn(function()
+        while tick() - dashStart < DashDuration do
+            if not isEnabled or not bv or not bg then break
+            bv.Velocity = hrp.CFrame.LookVector * dashForce
             task.wait()
         end
         
-        -- Limpiar físicas
+        -- Limpiar
         if bv and bv.Parent then bv:Destroy() end
         if bg and bg.Parent then bg:Destroy() end
         dashing = false
     end)
 end
 
--- Crear Slider para configurar fuerza del dash
-Combat:CreateSlider({
-    Name = "Dash Force",
-    Range = {1, 50},
-    Increment = 1,
-    Suffix = " studs",
-    CurrentValue = 4,
-    Flag = "DashForce",
-    Callback = function(val)
-        manualPrediction = val -- Usar la misma variable que prediction
-    end
-})
-
--- Toggle principal mejorado
-Combat:CreateToggle({
+-- Toggle principal
+MainTab11:CreateToggle({
     Name = "Auto Dash en Puñetazos",
     CurrentValue = false,
     Callback = function(v)
+        isEnabled = v
+        
+        -- Limpiar todo
+        if monitorTask then
+            task.cancel(monitorTask)
+            monitorTask = nil
+        end
+        
         if dashTask then
             task.cancel(dashTask)
             dashTask = nil
-            dashing = false
         end
         
+        dashing = false
+        
+        -- Si se activa
         if v then
-            -- Task principal más eficiente
-            dashTask = task.spawn(function()
-                local lastPunch = false
-                while task.wait(0.05) do -- Check más frecuente
-                    local isPunching = isPunchAnimationPlaying()
+            monitorTask = task.spawn(function()
+                local lastPunchState = false
+                
+                while isEnabled do
+                    local currentPunch = isPunchAnimationPlaying()
                     
-                    -- Solo activar dash cuando empieza un puñetazo
-                    if isPunching and not lastPunch and not dashing then
-                        TrueDash()
+                    -- Si detecta animación Y no estaba activa antes
+                    if currentPunch and not lastPunchState and not dashing then
+                        dashTask = task.spawn(function()
+                            TrueDash()
+                        end)
                     end
                     
-                    lastPunch = isPunching
+                    lastPunchState = currentPunch
+                    task.wait(0.05)
                 end
             end)
         end
+    end
+})
+
+-- Slider para fuerza del dash (DEBAJO DEL TODO)
+Combat:CreateSlider({
+    Name = "Dash Force",
+    Range = {10, 500},
+    Increment = 10,
+    Suffix = " studs/seg",
+    CurrentValue = 200,
+    Flag = "DashForceSlider",
+    Callback = function(val)
+        manualPrediction = val -- Guarda la fuerza del dash
     end
 })
 
