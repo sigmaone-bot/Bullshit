@@ -1495,6 +1495,14 @@ Misc:CreateToggle({
 
 Misc:CreateSection("Other")
 
+Misc:CreateToggle({
+    Name = "Enable Chat", 
+    CurrentValue = false,
+    Callback = function(v)
+        game:GetService("TextChatService").ChatWindowConfiguration.Enabled = v
+    end
+})
+
 Misc:CreateButton({
     Name = "See Hidden Stats",
     Callback = function()
@@ -1538,7 +1546,7 @@ Misc:CreateButton({
     end
 })
 
-Misc:CreateSection("Device Spoofer FE")
+Misc:CreateSection("Device Spoof")
 local UserInputService = game:GetService("UserInputService")
 
 pcall(function()
