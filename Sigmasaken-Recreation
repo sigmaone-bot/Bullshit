@@ -937,6 +937,32 @@ task.spawn(function()
     end
 end)
 
+Misc:CreateToggle({Name="Anti 1x1x1x1 Popup",CurrentValue=false,Callback=function(v)
+
+    if _G.Anti1x1Loop then task.cancel(_G.Anti1x1Loop); _G.Anti1x1Loop = nil end
+
+    if v then
+
+        _G.Anti1x1Loop = task.spawn(function()
+
+            while task.wait(0.1) do
+
+                local tempUI = LocalPlayer.PlayerGui:FindFirstChild("TemporaryUI")
+
+                if tempUI and tempUI:FindFirstChild("1x1x1x1Popup") then
+
+                    tempUI["1x1x1x1Popup"]:Destroy()
+
+                end
+
+            end
+
+        end)
+
+    end
+
+end})
+
 Misc:CreateSection("Items")
 
 local Workspace = game:GetService("Workspace")
@@ -2096,6 +2122,100 @@ RunService.RenderStepped:Connect(function(dt)
         Humanoid.AutoRotate = true
     end
 end)
+
+local dashing = false
+local dashTask = nil
+local DashForce = 200 -- Estudios de fuerza del dash
+
+-- IDs de animaciones de puñetazo
+local PUNCH_ANIM_IDS = {
+    ["87259391926321"] = true,
+    ["140703210927645"] = true,
+    ["136007065400978"] = true,
+    ["129843313690921"] = true,
+    ["86709774283672"] = true,
+    ["108807732150251"] = true,
+    ["138040001965654"] = true,
+    ["86096387000557"] = true
+}
+
+-- Función para detectar si se está reproduciendo una animación de puñetazo
+local function isPunchAnimationPlaying()
+    local character = LocalPlayer.Character
+    if not character then return false end
+    
+    local humanoid = character:FindFirstChild("Humanoid")
+    if not humanoid then return false end
+    
+    local animator = humanoid:FindFirstChild("Animator")
+    if not animator then return false end
+    
+    for _, track in pairs(animator:GetPlayingAnimationTracks()) do
+        local animation = track.Animation
+        if animation and PUNCH_ANIM_IDS[tostring(animation.AnimationId:match("%d+"))] then
+            return true
+        end
+    end
+    
+    return false
+end
+
+-- Función principal del dash
+local function TrueDash()
+    if dashing then return end
+    if not isPunchAnimationPlaying() then return end
+    
+    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    
+    dashing = true
+    
+    local bv = Instance.new("BodyVelocity")
+    bv.MaxForce = Vector3.new(1e5, 0, 1e5)
+    bv.Velocity = hrp.CFrame.LookVector * DashForce
+    bv.Parent = hrp
+    
+    task.delay(0.25, function()
+        if bv and bv.Parent then
+            bv:Destroy()
+        end
+        dashing = false
+    end)
+end
+
+-- Toggle principal
+Combat:CreateToggle({
+    Name = "Guest 1337 true punch",
+    CurrentValue = false,
+    Callback = function(v)
+        if dashTask then
+            task.cancel(dashTask)
+            dashTask = nil
+        end
+        
+        if v then
+            dashTask = task.spawn(function()
+                while task.wait(0.1) do
+                    if not dashing then
+                        TrueDash()
+                    end
+                end
+            end)
+        end
+    end
+})
+
+Combat:CreateSlider({
+    Name = "true punch force",
+    Range = {2, 20},
+    Increment = 1,
+    Suffix = " studs",
+    CurrentValue = 6,
+    Callback = function(val)
+        DashForce = val
+    end
+})
+
 
 local player = Players.LocalPlayer
 local remote = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent")
