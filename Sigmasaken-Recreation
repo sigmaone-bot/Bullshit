@@ -2205,9 +2205,9 @@ local enabled = false
 local RANGE = 14
 
 local SPAM_DURATION = 1.2
-local SPAM_DELAY = 0.08
+local SPAM_DELAY = 0.15
 
-local CHECK_INTERVAL = 1
+local CHECK_INTERVAL = 0.2
 local lastCheck = 0
 local MAX_FIRES = 10
 
