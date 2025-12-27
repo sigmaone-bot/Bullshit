@@ -286,7 +286,7 @@ local function setupShadowDetection()
 
     -- Initial scan
     for _, obj in ipairs(nestedMap:GetDescendants()) do
-        if obj:IsA("BasePart") and obj.Name:lower():match("hadow") then
+        if obj.Name:lower():match("shadow") then
             shadowParts[obj] = true
         end
     end
@@ -316,7 +316,7 @@ local function setupMinionDetection()
         for _, obj in ipairs(Workspace.Map:GetDescendants()) do
             if obj:IsA("Model") then
                 local nameLower = obj.Name:lower()
-                if nameLower:match("inion") or nameLower:match("ombie") then
+                if nameLower:match("minion") or nameLower:match("zombie") then
                     minionModels[obj] = true
                 end
             end
@@ -325,7 +325,7 @@ local function setupMinionDetection()
     
     task.spawn(initialMinionScan)
     
-    local minionAdded = Workspace.DescendantAdded:Connect(function(descendant)
+    local minionAdded = Workspace.Map.DescendantAdded:Connect(function(descendant)
         if descendant:IsA("Model") then
             local nameLower = descendant.Name:lower()
             if nameLower:match("minion") or nameLower:match("zombie") then
@@ -358,8 +358,8 @@ end
 local ritualParts = {}
 local function setupRitualDetection()
     local function initialRitualScan()
-        for _, obj in ipairs(Workspace:GetDescendants()) do
-            if obj:IsA("BasePart") and obj.Name:match("RespawnLocation") then
+        for _, obj in ipairs(Workspace.Map:GetDescendants()) do
+            if obj.Name:match("RespawnLocation") then
                 ritualParts[obj] = true
             end
         end
@@ -1291,7 +1291,7 @@ Misc:CreateToggle({
 Misc:CreateSlider({
    Name = "Trick Power",
    Range = {0, 1},
-   Increment = 0.05,
+   Increment = 0.01,
    CurrentValue = 0.53,
    Callback = function(val)
         sk8module.Sk8TrickJump = val
@@ -1301,7 +1301,7 @@ Misc:CreateSlider({
 Misc:CreateSlider({
    Name = "Base Speed",
    Range = {0, 2},
-   Increment = 0.05,
+   Increment = 0.01,
    CurrentValue = 1.2,
    Callback = function(val)
         sk8module.Sk8Speed = val
