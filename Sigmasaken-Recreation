@@ -2206,13 +2206,14 @@ local RANGE = 14
 
 local SPAM_DURATION = 1.2
 local SPAM_DELAY = 0.08
-local COOLDOWN_TIME = 2
 
 local CHECK_INTERVAL = 1
 local lastCheck = 0
 local MAX_FIRES = 10
 
-local activeCooldowns = {}
+-- bloqueo por INSTANCIA de sonido
+-- activeSound[survivorModel] = SoundInstance
+local activeSound = {}
 
 --=====================
 -- HABILIDAD ACTUAL
@@ -2248,11 +2249,7 @@ local function refreshFolders()
 	survivorsFolder = playersFolder:FindFirstChild("Survivors")
 	killersFolder = playersFolder:FindFirstChild("Killers")
 
-	if not survivorsFolder or not killersFolder then
-		return false
-	end
-
-	return true
+	return survivorsFolder ~= nil and killersFolder ~= nil
 end
 
 local function amIKiller()
@@ -2296,22 +2293,23 @@ local function getSoundId(sound)
 	return tostring(sound.SoundId):match("%d+")
 end
 
+-- devuelve la INSTANCIA del sonido activo (o nil)
 local function enemyPlayingTriggerSound(model)
-	if not model then return false end
+	if not model then return nil end
 
 	for _, obj in ipairs(model:GetDescendants()) do
 		if obj:IsA("Sound") and obj.IsPlaying then
 			local id = getSoundId(obj)
 			if id and TRIGGER_SOUNDS[id] then
-				return true
+				return obj
 			end
 		end
 	end
-	return false
+	return nil
 end
 
 --=====================
--- MAIN LOOP (ROBUSTO)
+-- MAIN LOOP (DEFINITIVO)
 --=====================
 RunService.Heartbeat:Connect(function()
 	if tick() - lastCheck < CHECK_INTERVAL then return end
@@ -2333,28 +2331,35 @@ RunService.Heartbeat:Connect(function()
 			local dist = (targetHRP.Position - myHRP.Position).Magnitude
 			if dist > RANGE then continue end
 
-			if activeCooldowns[survivorModel]
-				and tick() - activeCooldowns[survivorModel] < COOLDOWN_TIME then
+			local sound = enemyPlayingTriggerSound(survivorModel)
+
+			-- si no hay sonido activo, liberar bloqueo
+			if not sound then
+				activeSound[survivorModel] = nil
 				continue
 			end
 
-			if enemyPlayingTriggerSound(survivorModel) then
-				activeCooldowns[survivorModel] = tick()
-
-				task.spawn(function()
-					local start = tick()
-					local fires = 0
-
-					while tick() - start < SPAM_DURATION
-						and fires < MAX_FIRES
-						and enabled do
-
-						remoteEvent:FireServer(unpack(fireArgs))
-						fires += 1
-						task.wait(SPAM_DELAY)
-					end
-				end)
+			-- misma instancia → no repetir
+			if activeSound[survivorModel] == sound then
+				continue
 			end
+
+			-- nueva reproducción detectada
+			activeSound[survivorModel] = sound
+
+			task.spawn(function()
+				local start = tick()
+				local fires = 0
+
+				while tick() - start < SPAM_DURATION
+					and fires < MAX_FIRES
+					and enabled do
+
+					remoteEvent:FireServer(unpack(fireArgs))
+					fires += 1
+					task.wait(SPAM_DELAY)
+				end
+			end)
 		end
 	end
 end)
