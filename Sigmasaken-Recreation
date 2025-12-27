@@ -2187,10 +2187,20 @@ end
 
 Combat:CreateSection("John doe")
 
+--=====================
+-- SERVICIOS
+--=====================
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
+
 local lp = Players.LocalPlayer
 repeat task.wait() until lp.Character
 
---======== ESTADO ========
+--=====================
+-- ESTADO
+--=====================
 local enabled = false
 local RANGE = 14
 
@@ -2198,12 +2208,20 @@ local SPAM_DURATION = 1.2
 local SPAM_DELAY = 0.08
 local COOLDOWN_TIME = 2
 
+local CHECK_INTERVAL = 1
+local lastCheck = 0
+local MAX_FIRES = 10
+
 local activeCooldowns = {}
 
---======== HABILIDAD ACTUAL ========
-local currentAbility = "404Error" -- default
+--=====================
+-- HABILIDAD ACTUAL
+--=====================
+local currentAbility = "404Error"
 
---======== REMOTE (FORMATO CORRECTO) ========
+--=====================
+-- REMOTE
+--=====================
 local remoteEvent = ReplicatedStorage
 	:WaitForChild("Modules")
 	:WaitForChild("Network")
@@ -2216,39 +2234,72 @@ local fireArgs = {
 	}
 }
 
---======== SOUNDS A DETECTAR ========
+--=====================
+-- WORKSPACE PATHS
+--=====================
+local playersFolder
+local survivorsFolder
+local killersFolder
+
+local function refreshFolders()
+	playersFolder = Workspace:FindFirstChild("Players")
+	if not playersFolder then return false end
+
+	survivorsFolder = playersFolder:FindFirstChild("Survivors")
+	killersFolder = playersFolder:FindFirstChild("Killers")
+
+	if not survivorsFolder or not killersFolder then
+		return false
+	end
+
+	return true
+end
+
+local function amIKiller()
+	if not killersFolder then return false end
+	local myChar = lp.Character
+	if not myChar then return false end
+
+	for _, model in ipairs(killersFolder:GetChildren()) do
+		if model:IsA("Model") and model == myChar then
+			return true
+		end
+	end
+	return false
+end
+
+--=====================
+-- SOUNDS A DETECTAR
+--=====================
 local TRIGGER_SOUNDS = {
 	["86710781315432"] = true,
-    ["121717335514560"] = true,
-    ["109931874166612"] = true,
-    ["100918679787313"] = true,
-    ["609342351"] = true,
-    ["86710781315432"] = true,
-    ["99820161736138"] = true,
-    ["83851356262523"] = true,
-    ["132596270805754"] = true,
-    ["74027282199279"] = true,
-	["99820161736138"] = true,
+	["121717335514560"] = true,
+	["109931874166612"] = true,
+	["100918679787313"] = true,
 	["609342351"] = true,
+	["99820161736138"] = true,
+	["83851356262523"] = true,
+	["132596270805754"] = true,
+	["74027282199279"] = true,
 	["81976396729343"] = true,
 	["12222225"] = true,
 	["80521472651047"] = true,
 	["139012439429121"] = true,
 	["91194698358028"] = true,
 	["111910850942168"] = true,
-	["83851356262523"] = true,
 }
 
---======== UTILIDADES ========
+--=====================
+-- UTILIDADES
+--=====================
 local function getSoundId(sound)
 	return tostring(sound.SoundId):match("%d+")
 end
 
-local function enemyPlayingTriggerSound(player)
-	local char = player.Character
-	if not char then return false end
+local function enemyPlayingTriggerSound(model)
+	if not model then return false end
 
-	for _, obj in ipairs(char:GetDescendants()) do
+	for _, obj in ipairs(model:GetDescendants()) do
 		if obj:IsA("Sound") and obj.IsPlaying then
 			local id = getSoundId(obj)
 			if id and TRIGGER_SOUNDS[id] then
@@ -2259,53 +2310,58 @@ local function enemyPlayingTriggerSound(player)
 	return false
 end
 
-local CHECK_INTERVAL = 0.15
-local lastCheck = 0
-local MAX_FIRES = 10
-
+--=====================
+-- MAIN LOOP (ROBUSTO)
+--=====================
 RunService.Heartbeat:Connect(function()
-    if tick() - lastCheck < CHECK_INTERVAL then return end
-    lastCheck = tick()
-    if not enabled then return end
+	if tick() - lastCheck < CHECK_INTERVAL then return end
+	lastCheck = tick()
 
-    local myChar = lp.Character
-    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    if not myHRP then return end
+	if not enabled then return end
+	if not refreshFolders() then return end
+	if not amIKiller() then return end
 
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= lp and player.Character then
-            local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
-            if not targetHRP then continue end
+	local myChar = lp.Character
+	local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+	if not myHRP then return end
 
-            local dist = (targetHRP.Position - myHRP.Position).Magnitude
-            if dist > RANGE then continue end
+	for _, survivorModel in ipairs(survivorsFolder:GetChildren()) do
+		if survivorModel:IsA("Model") then
+			local targetHRP = survivorModel:FindFirstChild("HumanoidRootPart")
+			if not targetHRP then continue end
 
-            if activeCooldowns[player] and tick() - activeCooldowns[player] < COOLDOWN_TIME then
-                continue
-            end
+			local dist = (targetHRP.Position - myHRP.Position).Magnitude
+			if dist > RANGE then continue end
 
-            if enemyPlayingTriggerSound(player) then
-                activeCooldowns[player] = tick()
+			if activeCooldowns[survivorModel]
+				and tick() - activeCooldowns[survivorModel] < COOLDOWN_TIME then
+				continue
+			end
 
-                task.spawn(function()
-                    local start = tick()
-                    local fires = 0
+			if enemyPlayingTriggerSound(survivorModel) then
+				activeCooldowns[survivorModel] = tick()
 
-                    while tick() - start < SPAM_DURATION and fires < MAX_FIRES and enabled do
-                        remoteEvent:FireServer(unpack(fireArgs))
-                        fires += 1
-                        task.wait(SPAM_DELAY)
-                    end
-                end)
-            end
-        end
-    end
+				task.spawn(function()
+					local start = tick()
+					local fires = 0
+
+					while tick() - start < SPAM_DURATION
+						and fires < MAX_FIRES
+						and enabled do
+
+						remoteEvent:FireServer(unpack(fireArgs))
+						fires += 1
+						task.wait(SPAM_DELAY)
+					end
+				end)
+			end
+		end
+	end
 end)
 
 --=====================
 -- UI EXTERNA (COMBAT)
 --=====================
-
 Combat:CreateToggle({
 	Name = "Auto Ability",
 	CurrentValue = false,
@@ -2341,7 +2397,7 @@ Combat:CreateDropdown({
 		local selected = Options[1]
 		if selected then
 			currentAbility = selected
-			fireArgs[2][1] = selected -- 🔥 CAMBIO CLAVE 🔥
+			fireArgs[2][1] = selected
 		end
 	end,
 })
