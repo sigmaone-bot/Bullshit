@@ -2185,7 +2185,158 @@ if remote and remote.ClassName == "RemoteEvent" then
     })
 end
 
-Combat:CreateSection("Guest 1337")
+Combat:CreateSection("John doe")
+
+--=====================
+-- AUTO ABILITY (Heartbeat, sin GUI propia)
+--=====================
+
+--======== SERVICIOS ========
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local lp = Players.LocalPlayer
+repeat task.wait() until lp.Character
+
+--======== ESTADO ========
+local enabled = false
+local RANGE = 14
+
+local SPAM_DURATION = 1.2
+local SPAM_DELAY = 0.08
+local COOLDOWN_TIME = 2
+
+local activeCooldowns = {}
+
+--======== HABILIDAD ACTUAL ========
+local currentAbility = "404Error" -- default
+
+--======== REMOTE (FORMATO CORRECTO) ========
+local remoteEvent = ReplicatedStorage
+	:WaitForChild("Modules")
+	:WaitForChild("Network")
+	:WaitForChild("RemoteEvent")
+
+local fireArgs = {
+	[1] = "UseActorAbility",
+	[2] = {
+		[1] = currentAbility
+	}
+}
+
+--======== SOUNDS A DETECTAR ========
+local TRIGGER_SOUNDS = {
+	["86710781315432"] = true,
+	["99820161736138"] = true,
+	["609342351"] = true,
+	["81976396729343"] = true,
+	["12222225"] = true,
+	["80521472651047"] = true,
+	["139012439429121"] = true,
+	["91194698358028"] = true,
+	["111910850942168"] = true,
+	["83851356262523"] = true,
+}
+
+--======== UTILIDADES ========
+local function getSoundId(sound)
+	return tostring(sound.SoundId):match("%d+")
+end
+
+local function enemyPlayingTriggerSound(player)
+	local char = player.Character
+	if not char then return false end
+
+	for _, obj in ipairs(char:GetDescendants()) do
+		if obj:IsA("Sound") and obj.IsPlaying then
+			local id = getSoundId(obj)
+			if id and TRIGGER_SOUNDS[id] then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+--======== MAIN LOOP ========
+RunService.Heartbeat:Connect(function()
+	if not enabled then return end
+
+	local myChar = lp.Character
+	local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+	if not myHRP then return end
+
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= lp and player.Character then
+			local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+			if not targetHRP then continue end
+
+			local dist = (targetHRP.Position - myHRP.Position).Magnitude
+			if dist > RANGE then continue end
+
+			if activeCooldowns[player] and tick() - activeCooldowns[player] < COOLDOWN_TIME then
+				continue
+			end
+
+			if enemyPlayingTriggerSound(player) then
+				activeCooldowns[player] = tick()
+
+				task.spawn(function()
+					local start = tick()
+					while tick() - start < SPAM_DURATION and enabled do
+						remoteEvent:FireServer(unpack(fireArgs))
+						task.wait(SPAM_DELAY)
+					end
+				end)
+			end
+		end
+	end
+end)
+
+--=====================
+-- UI EXTERNA (COMBAT)
+--=====================
+
+Combat:CreateToggle({
+	Name = "Auto Ability",
+	CurrentValue = false,
+	Flag = "AutoAbilityToggle",
+	Callback = function(Value)
+		enabled = Value
+	end,
+})
+
+Combat:CreateSlider({
+	Name = "Detection Range",
+	Range = {0, 100},
+	Increment = 1,
+	Suffix = "Studs",
+	CurrentValue = RANGE,
+	Flag = "AutoAbilityRange",
+	Callback = function(Value)
+		RANGE = Value
+	end,
+})
+
+Combat:CreateDropdown({
+	Name = "Ability Mode",
+	Options = {
+		"404Error",
+		"DigitalFootprint",
+		"CorruptEnergy"
+	},
+	CurrentOption = {"404Error"},
+	MultipleOptions = false,
+	Flag = "AutoAbilityDropdown",
+	Callback = function(Options)
+		local selected = Options[1]
+		if selected then
+			currentAbility = selected
+			fireArgs[2][1] = selected -- 🔥 CAMBIO CLAVE 🔥
+		end
+	end,
+})
     
 Combat:CreateSection("Reach")
 
