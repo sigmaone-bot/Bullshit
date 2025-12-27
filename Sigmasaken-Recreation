@@ -2187,15 +2187,6 @@ end
 
 Combat:CreateSection("John doe")
 
---=====================
--- AUTO ABILITY (Heartbeat, sin GUI propia)
---=====================
-
---======== SERVICIOS ========
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
 local lp = Players.LocalPlayer
 repeat task.wait() until lp.Character
 
@@ -2267,9 +2258,12 @@ local function enemyPlayingTriggerSound(player)
 	end
 	return false
 end
+local lastCheck = 0
+local CHECK_INTERVAL = 0.15
 
---======== MAIN LOOP ========
 RunService.Heartbeat:Connect(function()
+    if tick() - lastCheck < CHECK_INTERVAL then return end
+    lastCheck = tick()
 	if not enabled then return end
 
 	local myChar = lp.Character
@@ -2293,10 +2287,15 @@ RunService.Heartbeat:Connect(function()
 
 				task.spawn(function()
 					local start = tick()
-					while tick() - start < SPAM_DURATION and enabled do
-						remoteEvent:FireServer(unpack(fireArgs))
-						task.wait(SPAM_DELAY)
-					end
+					local MAX_FIRES = 10
+local fires = 0
+
+while tick() - start < SPAM_DURATION and fires < MAX_FIRES and enabled do
+    remoteEvent:FireServer(unpack(fireArgs))
+    fires += 1
+    task.wait(SPAM_DELAY)
+end
+
 				end)
 			end
 		end
