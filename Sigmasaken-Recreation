@@ -909,7 +909,7 @@ Misc:CreateToggle({
 
 -- Loop seguro
 task.spawn(function()
-    while task.wait() do
+    while task.wait(0.25) do
         if not autoQTE then
             continue
         end
@@ -944,7 +944,7 @@ Misc:CreateToggle({Name="Anti 1x1x1x1 Popup",CurrentValue=false,Callback=functio
 
         _G.Anti1x1Loop = task.spawn(function()
 
-            while task.wait(0.1) do
+            while task.wait(0.25) do
 
                 local tempUI = LocalPlayer.PlayerGui:FindFirstChild("TemporaryUI")
 
@@ -1093,7 +1093,7 @@ end
 
 -- Auto-check cada 5 segundos
 task.spawn(function()
-    while task.wait() do
+    while task.wait(5) do
         if AntiBanEnabled then
             for _, n in ipairs({"BanRemote", "KickRemote"}) do
                 if not ReplicatedStorage:FindFirstChild(n, true) then
@@ -1113,6 +1113,7 @@ ApplyProtection()
 })
 
 -- Valores permitidos (NO se tocan)
+-- Valores permitidos
 local Allowed = {
     NosFlying = true,
     NosFlySlow = true,
@@ -1131,64 +1132,55 @@ local Allowed = {
 }
 
 local AntiSlowEnabled = false
-local AntiSlowConnection = nil
+local connections = {}
 
--- Función que forza los speed multipliers
-local function AntiSlowLoop()
-    local character = LocalPlayer.Character
-    if not character then return end
-
-    local speedMultipliers = character:FindFirstChild("SpeedMultipliers")
-    if not speedMultipliers then return end
-
-    for _, obj in ipairs(speedMultipliers:GetChildren()) do
-        if obj then
-            -- Sólo se salvan los permitidos
-            if not Allowed[obj.Name] then
-                
-                obj:Destroy()
-            end
+local function setupAntiSlow(character)
+    -- Limpiar conexiones viejas
+    for _, conn in pairs(connections) do
+        pcall(conn.Disconnect, conn)
+    end
+    table.clear(connections)
+    
+    if not AntiSlowEnabled then return end
+    
+    local speedMult = character:WaitForChild("SpeedMultipliers", 5)
+    if not speedMult then return end
+    
+    -- Limpiar existentes
+    for _, obj in pairs(speedMult:GetChildren()) do
+        if not Allowed[obj.Name] then
+            pcall(obj.Destroy, obj)
         end
     end
-end
-
--- Encender Anti Slow
-local function EnableAntiSlow()
-    if AntiSlowConnection then AntiSlowConnection:Disconnect() end
-    AntiSlowEnabled = true
-
-    AntiSlowConnection = RunService.RenderStepped:Connect(function()
-        if AntiSlowEnabled then
-            AntiSlowLoop()
+    
+    -- Detectar nuevos con evento
+    table.insert(connections, speedMult.ChildAdded:Connect(function(obj)
+        if AntiSlowEnabled and not Allowed[obj.Name] then
+            task.wait(0.05)
+            pcall(obj.Destroy, obj)
         end
-    end)
+    end))
 end
 
--- Apagar Anti Slow
-local function DisableAntiSlow()
-    AntiSlowEnabled = false
-    if AntiSlowConnection then
-        AntiSlowConnection:Disconnect()
-        AntiSlowConnection = nil
-    end
-end
-
--- Reconexión automática al respawn
-LocalPlayer.CharacterAdded:Connect(function()
-    task.wait()
-    if AntiSlowEnabled then
-        EnableAntiSlow()
-    end
+-- Reconexión al respawn
+LocalPlayer.CharacterAdded:Connect(function(char)
+    task.wait(0.5)
+    setupAntiSlow(char)
 end)
 
+-- Toggle UI
 Misc:CreateToggle({
     Name = "Anti Stun",
     CurrentValue = false,
     Callback = function(state)
-        if state then
-            EnableAntiSlow()
-        else
-            DisableAntiSlow()
+        AntiSlowEnabled = state
+        if state and LocalPlayer.Character then
+            setupAntiSlow(LocalPlayer.Character)
+        elseif not state then
+            for _, conn in pairs(connections) do
+                pcall(conn.Disconnect, conn)
+            end
+            table.clear(connections)
         end
     end
 })
