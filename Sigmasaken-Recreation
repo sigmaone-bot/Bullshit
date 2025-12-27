@@ -1060,60 +1060,111 @@ Misc:CreateToggle({
 
 Misc:CreateSection("Antis")
 
-if not game:IsLoaded() then game.Loaded:Wait() end
-
+-- Anti-Kick optimizado
 getgenv().AntiBanEnabled = false
+local antiKickHooked = false
+local remoteCache = {}
 
+-- Función optimizada para aplicar protección (se llama una sola vez)
 local function ApplyProtection()
-    -- Hook Kick / Ban
+    if antiKickHooked then return end -- Evitar hooks múltiples
+    
+    -- 1. Hook Kick / Ban en metatable (una sola vez)
     local mt = getrawmetatable(game)
+    if not mt then return end
+    
     setreadonly(mt, false)
-    local old = mt.__namecall
+    local oldNamecall = mt.__namecall
     mt.__namecall = newcclosure(function(self, ...)
-        local m = getnamecallmethod()
-        if m == "Kick" or m == "kick" or tostring(self):lower():find("ban") then
-            return
+        local method = getnamecallmethod()
+        if method == "Kick" or method == "kick" or tostring(self):lower():find("ban") then
+            return nil -- Bloquear completamente
         end
-        return old(self, ...)
+        return oldNamecall(self, ...)
     end)
     setreadonly(mt, true)
-
-    -- Hook suspicious remotes
-    for _, n in ipairs({"BanRemote", "KickRemote", "LogRemote", "ExploitRemote"}) do
-        local r = ReplicatedStorage:FindFirstChild(n, true)
-        if r then
-            if r:IsA("RemoteEvent") then
-                hookfunction(r.FireServer, function() end)
-            elseif r:IsA("RemoteFunction") then
-                hookfunction(r.InvokeServer, function() end)
+    
+    -- 2. Hook remotes sospechosos (con cache para no repetir)
+    local suspiciousNames = {"BanRemote", "KickRemote", "LogRemote", "ExploitRemote", "AntiCheat"}
+    
+    for _, name in ipairs(suspiciousNames) do
+        -- Usar cache para no buscar repetidamente
+        if not remoteCache[name] then
+            local remote = ReplicatedStorage:FindFirstChild(name, true)
+            if remote then
+                if remote:IsA("RemoteEvent") then
+                    local oldFire = remote.FireServer
+                    remote.FireServer = newcclosure(function(...)
+                        return nil -- Bloquear sin warnings
+                    end)
+                elseif remote:IsA("RemoteFunction") then
+                    local oldInvoke = remote.InvokeServer
+                    remote.InvokeServer = newcclosure(function(...)
+                        return nil -- Bloquear sin warnings
+                    end)
+                end
+                remoteCache[name] = true -- Marcar como hookeado
+            else
+                remoteCache[name] = false -- Marcar como no encontrado
             end
         end
     end
+    
+    antiKickHooked = true
 end
 
--- Auto-check cada 5 segundos
-task.spawn(function()
-    while task.wait(5) do
-        if AntiBanEnabled then
-            for _, n in ipairs({"BanRemote", "KickRemote"}) do
-                if not ReplicatedStorage:FindFirstChild(n, true) then
-                    ApplyProtection()
+-- Monitoreo optimizado (sin loops pesados, usa eventos)
+local monitoringTask = nil
+
+local function startMonitoring()
+    if monitoringTask then return end
+    
+    monitoringTask = task.spawn(function()
+        while task.wait(10) do -- Check cada 10s en lugar de 5s
+            if not AntiBanEnabled then break end
+            
+            -- Solo verificar si hay nuevos remotes
+            for name, hooked in pairs(remoteCache) do
+                if not hooked then
+                    local remote = ReplicatedStorage:FindFirstChild(name, true)
+                    if remote and (remote:IsA("RemoteEvent") or remote:IsA("RemoteFunction")) then
+                        ApplyProtection() -- Aplicar hooks
+                        break -- Salir después de encontrar uno
+                    end
                 end
             end
         end
-    end
-end)
+        monitoringTask = nil
+    end)
+end
 
 Misc:CreateButton({
-   Name = "Anti Kick (fly and noclip dont really work)",
+   Name = "Anti Kick (Optimized)",
    Callback = function()
-    AntiBanEnabled = true
-ApplyProtection()
+        AntiBanEnabled = true
+        
+        -- Aplicar protección inmediata
+        ApplyProtection()
+        
+        -- Iniciar monitoreo (si no está ya corriendo)
+        if not monitoringTask then
+            startMonitoring()
+        end
    end,
 })
 
+-- Auto-aplicar si ya estaba habilitado
+if AntiBanEnabled then
+    task.spawn(function()
+        task.wait(1)
+        ApplyProtection()
+        startMonitoring()
+    end)
+end
+
 -- Valores permitidos (NO se tocan)
 -- Valores permitidos
+-- DESPUÉS (optimizado):
 local Allowed = {
     NosFlying = true,
     NosFlySlow = true,
@@ -1132,43 +1183,75 @@ local Allowed = {
 }
 
 local AntiSlowEnabled = false
-local connections = {}
+local speedMultiplierConnections = {}
+local cleanSpeedMultiplierTasks = {}
 
-local function setupAntiSlow(character)
-    -- Limpiar conexiones viejas
-    for _, conn in pairs(connections) do
+local function cleanupSpeedMultiplierConnections()
+    for _, conn in pairs(speedMultiplierConnections) do
         pcall(conn.Disconnect, conn)
     end
-    table.clear(connections)
+    table.clear(speedMultiplierConnections)
+    
+    for _, taskId in pairs(cleanSpeedMultiplierTasks) do
+        pcall(task.cancel, taskId)
+    end
+    table.clear(cleanSpeedMultiplierTasks)
+end
+
+local function setupAntiSlow(character)
+    cleanupSpeedMultiplierConnections()
     
     if not AntiSlowEnabled then return end
     
-    local speedMult = character:WaitForChild("SpeedMultipliers", 5)
-    if not speedMult then return end
+    local speedMult = character:FindFirstChild("SpeedMultipliers")
+    if not speedMult then
+        -- Esperar con timeout
+        local start = tick()
+        while tick() - start < 3 and character.Parent do
+            speedMult = character:FindFirstChild("SpeedMultipliers")
+            if speedMult then break end
+            task.wait(0.1)
+        end
+        if not speedMult then return end
+    end
     
-    -- Limpiar existentes
-    for _, obj in pairs(speedMult:GetChildren()) do
+    -- Función para limpiar un objeto no permitido
+    local function cleanObject(obj)
+        if not obj or not obj.Parent then return end
         if not Allowed[obj.Name] then
             pcall(obj.Destroy, obj)
         end
     end
     
-    -- Detectar nuevos con evento
-    table.insert(connections, speedMult.ChildAdded:Connect(function(obj)
+    -- Limpiar existentes de inmediato (sin esperar)
+    for _, obj in pairs(speedMult:GetChildren()) do
+        cleanObject(obj)
+    end
+    
+    -- ChildAdded optimizado (sin task.wait innecesario)
+    local childAddedConn = speedMult.ChildAdded:Connect(function(obj)
         if AntiSlowEnabled and not Allowed[obj.Name] then
-            task.wait(0.05)
-            pcall(obj.Destroy, obj)
+            -- Destruir inmediatamente
+            task.spawn(function()
+                pcall(obj.Destroy, obj)
+            end)
         end
-    end))
+    end)
+    
+    -- También monitorear descendientes por si acaso
+    local descendantAddedConn = speedMult.DescendantAdded:Connect(function(desc)
+        if AntiSlowEnabled and desc:IsA("ObjectValue") and not Allowed[desc.Name] then
+            task.spawn(function()
+                pcall(desc.Destroy, desc)
+            end)
+        end
+    end)
+    
+    table.insert(speedMultiplierConnections, childAddedConn)
+    table.insert(speedMultiplierConnections, descendantAddedConn)
 end
 
--- Reconexión al respawn
-LocalPlayer.CharacterAdded:Connect(function(char)
-    task.wait(0.5)
-    setupAntiSlow(char)
-end)
-
--- Toggle UI
+-- Toggle UI (dejar igual pero con función optimizada)
 Misc:CreateToggle({
     Name = "Anti Stun",
     CurrentValue = false,
@@ -1177,10 +1260,7 @@ Misc:CreateToggle({
         if state and LocalPlayer.Character then
             setupAntiSlow(LocalPlayer.Character)
         elseif not state then
-            for _, conn in pairs(connections) do
-                pcall(conn.Disconnect, conn)
-            end
-            table.clear(connections)
+            cleanupSpeedMultiplierConnections()
         end
     end
 })
