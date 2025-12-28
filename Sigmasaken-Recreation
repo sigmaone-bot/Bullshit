@@ -1162,9 +1162,9 @@ if AntiBanEnabled then
     end)
 end
 
--- Valores permitidos (NO se tocan)
--- Valores permitidos
--- DESPUÉS (optimizado):
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
 local Allowed = {
     NosFlying = true,
     NosFlySlow = true,
@@ -1183,84 +1183,57 @@ local Allowed = {
 }
 
 local AntiSlowEnabled = false
-local speedMultiplierConnections = {}
-local cleanSpeedMultiplierTasks = {}
+local speedConn, ancestryConn, charConn
 
-local function cleanupSpeedMultiplierConnections()
-    for _, conn in pairs(speedMultiplierConnections) do
-        pcall(conn.Disconnect, conn)
-    end
-    table.clear(speedMultiplierConnections)
-    
-    for _, taskId in pairs(cleanSpeedMultiplierTasks) do
-        pcall(task.cancel, taskId)
-    end
-    table.clear(cleanSpeedMultiplierTasks)
+local function clearConns()
+    if speedConn then speedConn:Disconnect(); speedConn = nil end
+    if ancestryConn then ancestryConn:Disconnect(); ancestryConn = nil end
 end
 
-local function setupAntiSlow(character)
-    cleanupSpeedMultiplierConnections()
-    
-    if not AntiSlowEnabled then return end
-    
-    local speedMult = character:FindFirstChild("SpeedMultipliers")
-    if not speedMult then
-        -- Esperar con timeout
-        local start = tick()
-        while tick() - start < 3 and character.Parent do
-            speedMult = character:FindFirstChild("SpeedMultipliers")
-            if speedMult then break end
-            task.wait(0.1)
-        end
-        if not speedMult then return end
-    end
-    
-    -- Función para limpiar un objeto no permitido
-    local function cleanObject(obj)
-        if not obj or not obj.Parent then return end
+local function hookCharacter(char)
+    clearConns()
+    if not AntiSlowEnabled or not char then return end
+
+    local speedMult = char:FindFirstChild("SpeedMultipliers")
+    if not speedMult then return end
+
+    -- limpieza inicial
+    for _, obj in ipairs(speedMult:GetChildren()) do
         if not Allowed[obj.Name] then
-            pcall(obj.Destroy, obj)
+            obj:Destroy()
         end
     end
-    
-    -- Limpiar existentes de inmediato (sin esperar)
-    for _, obj in pairs(speedMult:GetChildren()) do
-        cleanObject(obj)
-    end
-    
-    -- ChildAdded optimizado (sin task.wait innecesario)
-    local childAddedConn = speedMult.ChildAdded:Connect(function(obj)
-        if AntiSlowEnabled and not Allowed[obj.Name] then
-            -- Destruir inmediatamente
-            task.spawn(function()
-                pcall(obj.Destroy, obj)
-            end)
+
+    -- nuevos objetos
+    speedConn = speedMult.ChildAdded:Connect(function(obj)
+        if AntiSlowEnabled and obj.Parent == speedMult and not Allowed[obj.Name] then
+            obj:Destroy()
         end
     end)
-    
-    -- También monitorear descendientes por si acaso
-    local descendantAddedConn = speedMult.DescendantAdded:Connect(function(desc)
-        if AntiSlowEnabled and desc:IsA("ObjectValue") and not Allowed[desc.Name] then
-            task.spawn(function()
-                pcall(desc.Destroy, desc)
-            end)
+
+    -- si el character se borra / cambia de parent
+    ancestryConn = char.AncestryChanged:Connect(function(_, parent)
+        if not parent then
+            clearConns()
         end
     end)
-    
-    table.insert(speedMultiplierConnections, childAddedConn)
-    table.insert(speedMultiplierConnections, descendantAddedConn)
 end
 
--- Toggle UI (dejar igual pero con función optimizada)
 Misc:CreateToggle({
     Name = "Anti Stun",
     CurrentValue = false,
     Callback = function(state)
         AntiSlowEnabled = state
-        if state and LocalPlayer.Character then
-            setupAntiSlow(LocalPlayer.Character)
-        elseif not state then
-            cleanupSpeedMultiplierConnections()
+        clearConns()
+
+        if state then
+            if LocalPlayer.Character then
+                hookCharacter(LocalPlayer.Character)
+            end
+            charConn = LocalPlayer.CharacterAdded:Connect(hookCharacter)
+        elseif charConn then
+            charConn:Disconnect()
+            charConn = nil
         end
     end
 })
