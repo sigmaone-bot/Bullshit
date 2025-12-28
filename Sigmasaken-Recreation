@@ -2230,11 +2230,120 @@ if remote and remote.ClassName == "RemoteEvent" then
     })
 end
 
+Combat:CreateSection("Guest 1337")
+
+local dashing = false
+local monitorTask
+local DashDuration = 0.3
+local DashDelay = 0.55
+local isEnabled = false
+local manualPrediction = 200
+
+local PUNCH_ANIM_IDS = {
+    ["87259391926321"] = true,
+    ["140703210927645"] = true,
+    ["136007065400978"] = true,
+    ["129843313690921"] = true,
+    ["86709774283672"] = true,
+    ["108807732150251"] = true,
+    ["138040001965654"] = true,
+    ["86096387000557"] = true
+}
+
+local function isPunchAnimationPlaying()
+    local char = LocalPlayer.Character
+    if not char then return false end
+
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum then return false end
+
+    local animator = hum:FindFirstChildOfClass("Animator")
+    if not animator then return false end
+
+    for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+        local anim = track.Animation
+        if anim then
+            local id = anim.AnimationId:match("%d+")
+            if id and PUNCH_ANIM_IDS[id] then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+local function TrueDash()
+    if dashing or not isEnabled then return end
+    dashing = true
+
+    task.delay(DashDelay, function()
+        if not isEnabled then dashing = false return end
+
+        local char = LocalPlayer.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if not hrp then dashing = false return end
+
+        local dashForce = manualPrediction * 15
+
+        local bv = Instance.new("BodyVelocity")
+        bv.MaxForce = Vector3.new(1e5, 0, 1e5)
+        bv.Velocity = hrp.CFrame.LookVector * dashForce
+        bv.Parent = hrp
+
+        local bg = Instance.new("BodyGyro")
+        bg.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
+        bg.CFrame = hrp.CFrame
+        bg.P = 2000
+        bg.Parent = hrp
+
+        task.delay(DashDuration, function()
+            if bv.Parent then bv:Destroy() end
+            if bg.Parent then bg:Destroy() end
+            dashing = false
+        end)
+    end)
+end
+
+MainTab11:CreateToggle({
+    Name = "Auto Dash en Puñetazos",
+    CurrentValue = false,
+    Callback = function(v)
+        isEnabled = v
+        dashing = false
+
+        if monitorTask then
+            task.cancel(monitorTask)
+            monitorTask = nil
+        end
+
+        if v then
+            monitorTask = task.spawn(function()
+                local lastState = false
+                while isEnabled do
+                    local state = isPunchAnimationPlaying()
+                    if state and not lastState and not dashing then
+                        TrueDash()
+                    end
+                    lastState = state
+                    task.wait(0.08) -- MÁS liviano
+                end
+            end)
+        end
+    end
+})
+
+Combat:CreateSlider({
+    Name = "Dash Force",
+    Range = {10, 500},
+    Increment = 10,
+    CurrentValue = 200,
+    Callback = function(val)
+        manualPrediction = val
+    end
+})
+
 Combat:CreateSection("John doe")
 
---=====================
--- SERVICIOS
---=====================
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
