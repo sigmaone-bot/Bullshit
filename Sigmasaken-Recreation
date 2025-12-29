@@ -2304,8 +2304,8 @@ local function TrueDash()
     end)
 end
 
-MainTab11:CreateToggle({
-    Name = "Auto Dash en Puñetazos",
+Combat:CreateToggle({
+    Name = "Guest 1337 true punch",
     CurrentValue = false,
     Callback = function(v)
         isEnabled = v
@@ -2333,7 +2333,7 @@ MainTab11:CreateToggle({
 })
 
 Combat:CreateSlider({
-    Name = "Dash Force",
+    Name = "True punch force",
     Range = {10, 500},
     Increment = 10,
     CurrentValue = 200,
