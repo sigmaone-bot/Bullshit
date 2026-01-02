@@ -2334,9 +2334,9 @@ Combat:CreateToggle({
 
 Combat:CreateSlider({
     Name = "True punch force",
-    Range = {10, 500},
-    Increment = 10,
-    CurrentValue = 200,
+    Range = {1, 20},
+    Increment = 1,
+    CurrentValue = 1,
     Callback = function(val)
         manualPrediction = val
     end
