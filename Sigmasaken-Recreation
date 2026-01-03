@@ -2234,8 +2234,8 @@ Combat:CreateSection("Guest 1337")
 
 local dashing = false
 local monitorTask
-local DashDuration = 0.3
-local DashDelay = 0.55
+local DashDuration = 0.25
+local DashDelay = 0.5
 local isEnabled = false
 local manualPrediction = 200
 
@@ -2283,7 +2283,7 @@ local function TrueDash()
         local hrp = char and char:FindFirstChild("HumanoidRootPart")
         if not hrp then dashing = false return end
 
-        local dashForce = manualPrediction * 15
+        local dashForce = manualPrediction * 18.5
 
         local bv = Instance.new("BodyVelocity")
         bv.MaxForce = Vector3.new(1e5, 0, 1e5)
