@@ -2342,6 +2342,50 @@ Combat:CreateSlider({
     end
 })
 
+Combat:CreateSection("Slasher")
+
+local mod = require(game:GetService("ReplicatedStorage").Assets.Killers.Slasher.Config)
+
+Combat:CreateSlider({
+    Name = "Behead Lunge Force",
+    Range = {1, 3},
+    Increment = 0.1,
+    CurrentValue = 1.5,
+    Callback = function(val)
+        mod.BeheadLunge = val
+    end
+})
+
+Combat:CreateSlider({
+    Name = "Enraged Walkspeed",
+    Range = {15, 30},
+    Increment = 0.5,
+    CurrentValue = 19.5,
+    Callback = function(val)
+        mod.EnragedSpeed = val
+    end
+})
+
+Combat:CreateSlider({
+    Name = "Enraged Behead Lunge Force",
+    Range = {1, 5},
+    Increment = 0.5,
+    CurrentValue = 2,
+    Callback = function(val)
+        mod.EnragedBeheadLunge = val
+    end
+})
+
+Combat:CreateSlider({
+    Name = "Enraged Stamina Cap",
+    Range = {50, 150},
+    Increment = 1,
+    CurrentValue = 70,
+    Callback = function(val)
+        mod.EnragedStaminaCap = val
+    end
+})
+
 Combat:CreateSection("John doe")
 
 local Players = game:GetService("Players")
