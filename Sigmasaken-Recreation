@@ -2820,66 +2820,63 @@ if player.Character and animationToggleEnabled then
     onCharacterAdded(player.Character)
 end
 
-local animToStopId = "rbxassetid://91758760621955"
+local currentAbility
+local currentCharacter
+local currentHumanoid
 
-local stopAnimToggleEnabled = false
-local currentCharacter = nil
-local connection = nil
+-- Animaciones a detener
+local ANIM_WALKSPEED = 98456918873918
+local ANIM_VOIDRUSH = 91758760621955
 
-local function setupAnimationStopper(char)
-    if not char then return end
-    
-    local humanoid = char:WaitForChild("Humanoid")
-    
-    connection = humanoid.AnimationPlayed:Connect(function(track)
-        if not stopAnimToggleEnabled then return end
-        
-        if track.Animation and track.Animation.AnimationId == animToStopId then
-            track:Stop()
-        end
-    end)
+-- Actualizador permanente de Character / Humanoid
+task.spawn(function()
+	while true do
+		local char = LocalPlayer.Character
+		if char ~= currentCharacter then
+			currentCharacter = char
+			if char then
+				currentHumanoid = char:FindFirstChildOfClass("Humanoid")
+			else
+				currentHumanoid = nil
+			end
+		end
+		task.wait(0.25) -- rápido pero liviano
+	end
+end)
+
+-- Función segura para detener animaciones
+local function stopAnimation(animId)
+	if not currentHumanoid then return end
+
+	for _, track in ipairs(currentHumanoid:GetPlayingAnimationTracks()) do
+		if track.Animation and track.Animation.AnimationId:find(tostring(animId)) then
+			track:Stop(0)
+		end
+	end
 end
 
-local function cleanup()
-    if connection then
-        connection:Disconnect()
-        connection = nil
-    end
-    
-    currentCharacter = nil
-end
+-- Dropdown
+Anims:CreateDropdown({
+	Name = "Disable animations:",
+	Options = {
+		"VoidRush Charge",
+		"WalkspeedOverride Windup"
+	},
+	CurrentOption = {},
+	MultipleOptions = true,
+	--Flag = "AutoAbilityDropdown",
+	Callback = function(Options)
+		local selected = Options[1]
+		if not selected then return end
 
-local function onCharacterAdded(char)
-    cleanup()
-    currentCharacter = char
-    if stopAnimToggleEnabled then
-        setupAnimationStopper(char)
-    end
-end
+		currentAbility = selected
+		fireArgs[2][1] = selected
 
--- Toggle system
-Anims:CreateToggle({
-    Name = "Remove Void Rush Charge up",
-    Flag = "StopSpecificAnimation",
-    CurrentValue = stopAnimToggleEnabled,
-    Callback = function(value)
-        stopAnimToggleEnabled = value
-        
-        if value then
-            -- Enable the system
-            if not currentCharacter and player.Character then
-                onCharacterAdded(player.Character)
-            end
-        else
-            -- Disable the system
-            cleanup()
-        end
-    end
+		-- Detener animaciones según la opción
+		if selected == "WalkspeedOverride Windup" then
+			stopAnimation(ANIM_WALKSPEED)
+		elseif selected == "VoidRush Charge" then
+			stopAnimation(ANIM_VOIDRUSH)
+		end
+	end,
 })
-
--- Character handling
-player.CharacterAdded:Connect(onCharacterAdded)
-
-if player.Character then
-    onCharacterAdded(player.Character)
-end
