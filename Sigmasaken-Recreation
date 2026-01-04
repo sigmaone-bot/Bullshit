@@ -2369,7 +2369,7 @@ Combat:CreateSlider({
 Combat:CreateSlider({
     Name = "Enraged Behead Lunge Force",
     Range = {1, 5},
-    Increment = 0.5,
+    Increment = 0.1,
     CurrentValue = 2,
     Callback = function(val)
         mod.EnragedBeheadLunge = val
