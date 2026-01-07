@@ -907,33 +907,49 @@ Misc:CreateToggle({
     end
 })
 
--- Loop seguro
-task.spawn(function()
-    while task.wait(0.25) do
-        if not autoQTE then
-            continue
-        end
+local pg = LocalPlayer:WaitForChild("PlayerGui")
 
-        -- Obtener el botón sin error
-        local pg = game.Players.LocalPlayer:FindFirstChild("PlayerGui")
-        if not pg then continue end
+-- función que intenta clickear un QTE
+local function handleQTE(qte)
+    if not autoQTE then return end
+    if not qte:IsA("Frame") then return end
+    if qte.Name ~= "QTE" then return end
 
-        local temp = pg:FindFirstChild("TemporaryUI")
-        if not temp then continue end
+    local button = qte:FindFirstChild("ActiveButton")
+    if not button then return end
 
-        local qte = temp:FindFirstChild("QTE")
-        if not qte then continue end
+    task.defer(function()
+        if not autoQTE then return end
 
-        local button = qte:FindFirstChild("ActiveButton")
-        if not button then continue end
-
-        -- Ejecutar conexiones
-        for _, conn in ipairs(getconnections(button.MouseButton1Down)) do
-            if conn.Function then
-                conn.Function()
+        -- click seguro
+        if button.Activate then
+            pcall(function()
+                button:Activate()
+            end)
+        else
+            for _, conn in ipairs(getconnections(button.MouseButton1Down)) do
+                if conn.Function then
+                    pcall(conn.Function)
+                end
             end
         end
+    end)
+end
+
+-- escucha TODOS los TemporaryUI
+pg.ChildAdded:Connect(function(child)
+    if not autoQTE then return end
+    if child.Name ~= "TemporaryUI" then return end
+
+    -- QTE que ya exista
+    for _, d in ipairs(child:GetChildren()) do
+        handleQTE(d)
     end
+
+    -- QTE que aparezca después
+    child.ChildAdded:Connect(function(d)
+        handleQTE(d)
+    end)
 end)
 
 Misc:CreateToggle({Name="Anti 1x1x1x1 Popup",CurrentValue=false,Callback=function(v)
