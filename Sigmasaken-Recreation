@@ -2588,6 +2588,7 @@ Combat:CreateDropdown({
 	Options = {
 		"404Error",
 		"DigitalFootprint",
+        "RagingPace",
 		"CorruptEnergy"
 	},
 	CurrentOption = {"404Error"},
