@@ -1961,7 +1961,7 @@ Combat:CreateToggle({
 local Humanoid, HRP
 local aiming = false
 local lastTriggerTime = 0
-local aimDuration = 1.7
+local aimDuration = 2.15
 local originalAutoRotate = true
 
 --// Animation IDs
@@ -2032,63 +2032,73 @@ end
 RunService.RenderStepped:Connect(function(dt)
     if not autoAimEnabled or not Humanoid or not HRP then return end
 
-    -- detectar animación
+    -- detectar animación (lo mínimo posible)
     local playing = getPlayingAnimationIds()
+    local triggered = false
     for id in pairs(trackedAnimations) do
         if playing[id] then
-            lastTriggerTime = tick()
-            aiming = true
-
-            if Humanoid.AutoRotate then
-                originalAutoRotate = Humanoid.AutoRotate
-                Humanoid.AutoRotate = false
-            end
+            triggered = true
             break
         end
     end
 
-    if aiming and tick() - lastTriggerTime <= aimDuration then
-        HRP.AssemblyAngularVelocity = Vector3.zero
+    if triggered then
+        lastTriggerTime = tick()
+        aiming = true
 
-        local targetHRP = getValidTarget()
-        if not targetHRP then return end
-
-        -- === PREDICCIÓN CORRECTA ===
-        local vel = targetHRP.Velocity
-        local predictedPos
-
-        if vel.Magnitude < 0.05 then
-            -- target quieto → NO inventar nada
-            predictedPos = targetHRP.Position
-        else
-            predictedPos = targetHRP.Position + vel * manualPrediction
+        if Humanoid.AutoRotate then
+            originalAutoRotate = Humanoid.AutoRotate
+            Humanoid.AutoRotate = false
         end
-
-        -- === DIRECCIÓN PLANA EXACTA ===
-        local delta = predictedPos - HRP.Position
-        if delta.Magnitude < 0.01 then return end
-
-        local flat = Vector3.new(delta.X, 0, delta.Z).Unit
-
-        -- === YAW EXACTO SIN ERROR ACUMULADO ===
-        local targetYaw = math.atan2(flat.X, flat.Z)
-        local _, currentYaw = HRP.CFrame:ToEulerAnglesYXZ()
-
-        local diff = math.atan2(
-            math.sin(targetYaw - currentYaw),
-            math.cos(targetYaw - currentYaw)
-        )
-
-        local newYaw = currentYaw + diff * math.clamp(dt * 14, 0, 1)
-
-        HRP.CFrame =
-            CFrame.new(HRP.Position) *
-            CFrame.Angles(0, newYaw, 0)
-
-    elseif aiming then
-        aiming = false
-        Humanoid.AutoRotate = originalAutoRotate ~= false
     end
+
+    if not aiming or tick() - lastTriggerTime > aimDuration then
+        if aiming then
+            aiming = false
+            Humanoid.AutoRotate = originalAutoRotate ~= false
+        end
+        return
+    end
+
+    HRP.AssemblyAngularVelocity = Vector3.zero
+
+    local targetHRP = getValidTarget()
+    if not targetHRP then return end
+
+    -- === PREDICCIÓN CORRECTA (NO INVENTA) ===
+    local vel = targetHRP.Velocity
+    local aimPos
+
+    if vel.Magnitude < 0.05 then
+        aimPos = targetHRP.Position
+    else
+        aimPos = targetHRP.Position + vel * manualPrediction
+    end
+
+    -- === DIRECCIÓN PLANA ===
+    local dx = aimPos.X - HRP.Position.X
+    local dz = aimPos.Z - HRP.Position.Z
+    if dx * dx + dz * dz < 0.0001 then return end
+
+    -- yaw objetivo
+    local targetYaw = math.atan2(dx, dz)
+
+    -- yaw actual DESDE LOOKVECTOR (sin Euler)
+    local look = HRP.CFrame.LookVector
+    local currentYaw = math.atan2(look.X, look.Z)
+
+    -- diferencia angular normalizada
+    local diff = math.atan2(
+        math.sin(targetYaw - currentYaw),
+        math.cos(targetYaw - currentYaw)
+    )
+
+    -- suavizado rápido pero estable (FPS independent)
+    local newYaw = currentYaw + diff * math.clamp(dt * 16, 0, 1)
+
+    HRP.CFrame =
+        CFrame.new(HRP.Position) *
+        CFrame.Angles(0, newYaw, 0)
 end)
 
 
