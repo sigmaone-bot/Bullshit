@@ -2029,10 +2029,10 @@ local function getValidTarget()
 end
 
 --// MAIN AIM LOOP (FIX DEFINITIVO)
-RunService.RenderStepped:Connect(function(dt)
+RunService.RenderStepped:Connect(function()
     if not autoAimEnabled or not Humanoid or not HRP then return end
 
-    -- detectar animación (lo mínimo posible)
+    -- trigger simple por animación (lo que ya usabas)
     local playing = getPlayingAnimationIds()
     local triggered = false
     for id in pairs(trackedAnimations) do
@@ -2052,11 +2052,10 @@ RunService.RenderStepped:Connect(function(dt)
         end
     end
 
-    if not aiming or tick() - lastTriggerTime > aimDuration then
-        if aiming then
-            aiming = false
-            Humanoid.AutoRotate = originalAutoRotate ~= false
-        end
+    if not aiming then return end
+    if tick() - lastTriggerTime > aimDuration then
+        aiming = false
+        Humanoid.AutoRotate = originalAutoRotate ~= false
         return
     end
 
@@ -2065,40 +2064,35 @@ RunService.RenderStepped:Connect(function(dt)
     local targetHRP = getValidTarget()
     if not targetHRP then return end
 
-    -- === PREDICCIÓN CORRECTA (NO INVENTA) ===
+    -- ===== PREDICCIÓN ESTILO TU SCRIPT BUENO =====
     local vel = targetHRP.Velocity
     local aimPos
 
-    if vel.Magnitude < 0.05 then
+    if vel.Magnitude < 0.5 then
+        -- quieto = apuntar directo
         aimPos = targetHRP.Position
     else
-        aimPos = targetHRP.Position + vel * manualPrediction
+        -- velocity + ping adjust
+        local ping = 0.1
+        local stats = game:GetService("Stats")
+        local pingStat = stats.Network.ServerStatsItem["Data Ping"]
+        if pingStat then
+            ping = pingStat:GetValue() / 1000
+        end
+
+        aimPos = targetHRP.Position + (vel * ping)
     end
 
-    -- === DIRECCIÓN PLANA ===
-    local dx = aimPos.X - HRP.Position.X
-    local dz = aimPos.Z - HRP.Position.Z
-    if dx * dx + dz * dz < 0.0001 then return end
+    -- ===== ROTACIÓN EXACTA (SIN LERP, SIN DRIFT) =====
+    local dir = (aimPos - HRP.Position)
+    if dir.Magnitude < 0.01 then return end
 
-    -- yaw objetivo
-    local targetYaw = math.atan2(dx, dz)
-
-    -- yaw actual DESDE LOOKVECTOR (sin Euler)
-    local look = HRP.CFrame.LookVector
-    local currentYaw = math.atan2(look.X, look.Z)
-
-    -- diferencia angular normalizada
-    local diff = math.atan2(
-        math.sin(targetYaw - currentYaw),
-        math.cos(targetYaw - currentYaw)
-    )
-
-    -- suavizado rápido pero estable (FPS independent)
-    local newYaw = currentYaw + diff * math.clamp(dt * 16, 0, 1)
+    dir = dir.Unit
+    local yaw = math.atan2(-dir.X, -dir.Z)
 
     HRP.CFrame =
         CFrame.new(HRP.Position) *
-        CFrame.Angles(0, newYaw, 0)
+        CFrame.Angles(0, yaw, 0)
 end)
 
 
