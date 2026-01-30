@@ -1185,9 +1185,11 @@ if AntiBanEnabled then
     end)
 end
 
+--// Services
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
+--// Allowed modifiers
 local Allowed = {
     NosFlying = true,
     NosFlySlow = true,
@@ -1205,58 +1207,73 @@ local Allowed = {
     Sk8 = true
 }
 
+--// State
 local AntiSlowEnabled = false
-local speedConn, ancestryConn, charConn
+local speedConn
+local charConn
+local currentChar
 
-local function clearConns()
-    if speedConn then speedConn:Disconnect(); speedConn = nil end
-    if ancestryConn then ancestryConn:Disconnect(); ancestryConn = nil end
+--// Cleanup
+local function clearConnections()
+    if speedConn then
+        speedConn:Disconnect()
+        speedConn = nil
+    end
 end
 
-local function hookCharacter(char)
-    clearConns()
+--// Hook SpeedMultipliers safely
+local function hookSpeedMultipliers(char)
+    clearConnections()
     if not AntiSlowEnabled or not char then return end
 
-    local speedMult = char:FindFirstChild("SpeedMultipliers")
+    -- Esperar el folder (pero sin colgarte)
+    local speedMult = char:WaitForChild("SpeedMultipliers", 5)
     if not speedMult then return end
 
-    -- limpieza inicial
+    -- Limpieza inicial
     for _, obj in ipairs(speedMult:GetChildren()) do
         if not Allowed[obj.Name] then
             obj:Destroy()
         end
     end
 
-    -- nuevos objetos
+    -- Anti-stun en tiempo real
     speedConn = speedMult.ChildAdded:Connect(function(obj)
-        if AntiSlowEnabled and obj.Parent == speedMult and not Allowed[obj.Name] then
+        if not AntiSlowEnabled then return end
+        if obj.Parent ~= speedMult then return end
+        if not Allowed[obj.Name] then
             obj:Destroy()
-        end
-    end)
-
-    -- si el character se borra / cambia de parent
-    ancestryConn = char.AncestryChanged:Connect(function(_, parent)
-        if not parent then
-            clearConns()
         end
     end)
 end
 
+--// Character handler (respawn-safe)
+local function onCharacterAdded(char)
+    currentChar = char
+    hookSpeedMultipliers(char)
+end
+
+--// UI Toggle
 Misc:CreateToggle({
     Name = "Anti Stun",
     CurrentValue = false,
     Callback = function(state)
         AntiSlowEnabled = state
-        clearConns()
+        clearConnections()
 
         if state then
             if LocalPlayer.Character then
-                hookCharacter(LocalPlayer.Character)
+                onCharacterAdded(LocalPlayer.Character)
             end
-            charConn = LocalPlayer.CharacterAdded:Connect(hookCharacter)
-        elseif charConn then
-            charConn:Disconnect()
-            charConn = nil
+
+            if not charConn then
+                charConn = LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
+            end
+        else
+            if charConn then
+                charConn:Disconnect()
+                charConn = nil
+            end
         end
     end
 })
@@ -1914,24 +1931,25 @@ Combat:CreateSlider({
 
 Combat:CreateSection("Chance")
 
+--// Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+--// Player
+local LocalPlayer = Players.LocalPlayer
+
+--// UI values
 local autoAimEnabled = false
 local manualPrediction = 4
 local friendlyFire = false
 
+--// Combat UI
 Combat:CreateToggle({
     Name = "Auto Aim",
     CurrentValue = false,
     Flag = "AutoAim",
     Callback = function(v)
         autoAimEnabled = v
-        if not v then
-            -- Reset aiming state when disabled
-            aiming = false
-            if autoRotateLocked and Humanoid then
-                autoRotateLocked = false
-                Humanoid.AutoRotate = originalAutoRotate == nil or originalAutoRotate
-            end
-        end
     end
 })
 
@@ -1942,8 +1960,8 @@ Combat:CreateSlider({
     Suffix = " studs",
     CurrentValue = 4,
     Flag = "AimPrediction",
-    Callback = function(val)
-        manualPrediction = val
+    Callback = function(v)
+        manualPrediction = v
     end
 })
 
@@ -1957,15 +1975,14 @@ Combat:CreateToggle({
 })
 
 --// State
-local Humanoid, HRP = nil, nil
+local Humanoid, HRP
+local aiming = false
 local lastTriggerTime = 0
 local aimDuration = 1.7
-local aiming = false
 local autoRotateLocked = false
+local originalAutoRotate = true
 
-local originalWS, originalJP, originalAutoRotate = nil, nil, nil
-
---// Tracked animations
+--// Animation trigger IDs
 local trackedAnimations = {
     ["103601716322988"] = true,
     ["133491532453922"] = true,
@@ -1974,221 +1991,183 @@ local trackedAnimations = {
     ["81698196845041"] = true
 }
 
---// Smoothing variables
-local lastRotationTime = tick()
-local targetYaw = 0
-local currentYaw = 0
-local rotationLerpSpeed = 0.15 -- Adjust for smoother/faster rotation
-local lastValidTarget = nil
+--// Prediction helpers
 local velocityHistory = {}
 local lastFramePositions = {}
-local smoothPrediction = true
 
 --// Character setup
 local function setupCharacter(char)
     Humanoid = char:WaitForChild("Humanoid")
     HRP = char:WaitForChild("HumanoidRootPart")
-    currentYaw = HRP.Rotation.Y
-    targetYaw = HRP.Rotation.Y
-    
-    -- Reset tracking
     velocityHistory = {}
     lastFramePositions = {}
-    lastValidTarget = nil
 end
 
 if LocalPlayer.Character then
     setupCharacter(LocalPlayer.Character)
 end
+
 LocalPlayer.CharacterAdded:Connect(setupCharacter)
 
---// Get animation IDs currently playing
+--// Get currently playing animation IDs
 local function getPlayingAnimationIds()
     local ids = {}
-    if Humanoid then
-        for _, track in ipairs(Humanoid:GetPlayingAnimationTracks()) do
-            if track.Animation and track.Animation.AnimationId then
-                local id = track.Animation.AnimationId:match("%d+")
-                if id then ids[id] = true end
+    if not Humanoid then return ids end
+
+    for _, track in ipairs(Humanoid:GetPlayingAnimationTracks()) do
+        if track.Animation and track.Animation.AnimationId then
+            local id = track.Animation.AnimationId:match("%d+")
+            if id then
+                ids[id] = true
             end
         end
     end
+
     return ids
 end
 
---// Smoothed velocity prediction
-local function getSmoothedVelocity(targetHRP)
-    local currentTime = tick()
-    local velocity = targetHRP.Velocity
-    
-    -- Store recent velocities for smoothing
+--// Smoothed velocity
+local function getSmoothedVelocity(hrp)
+    local now = tick()
+    local vel = hrp.Velocity
+
     table.insert(velocityHistory, 1, {
-        velocity = velocity,
-        time = currentTime,
-        position = targetHRP.Position
+        velocity = vel,
+        time = now,
+        pos = hrp.Position
     })
-    
-    -- Clean old entries (keep last 0.3 seconds)
-    local maxAge = 0.3
-    while #velocityHistory > 0 and (currentTime - velocityHistory[#velocityHistory].time) > maxAge do
-        velocityHistory[#velocityHistory] = nil
+
+    while #velocityHistory > 0 and now - velocityHistory[#velocityHistory].time > 0.3 do
+        table.remove(velocityHistory)
     end
-    
-    -- If we have enough history, use weighted average
+
     if #velocityHistory > 1 then
         local totalWeight = 0
-        local weightedVel = Vector3.zero
-        
-        for i, entry in ipairs(velocityHistory) do
-            -- Recent entries get more weight
-            local age = currentTime - entry.time
-            local weight = 1 - (age / maxAge)
-            weight = math.max(weight, 0.1) -- Minimum weight
-            
-            weightedVel = weightedVel + (entry.velocity * weight)
-            totalWeight = totalWeight + weight
+        local avg = Vector3.zero
+
+        for _, v in ipairs(velocityHistory) do
+            local age = now - v.time
+            local w = math.max(1 - age / 0.3, 0.1)
+            avg += v.velocity * w
+            totalWeight += w
         end
-        
-        if totalWeight > 0.01 then
-            velocity = weightedVel / totalWeight
+
+        if totalWeight > 0 then
+            vel = avg / totalWeight
         end
     end
-    
-    -- Also use position-based velocity for more accuracy
-    if lastFramePositions[targetHRP] then
-        local lastPos = lastFramePositions[targetHRP]
-        local frameTime = currentTime - (lastFramePositions[targetHRP].time or currentTime)
-        if frameTime > 0 then
-            local posVelocity = (targetHRP.Position - lastPos.pos) / frameTime
-            -- Blend position-based velocity with physics velocity
-            velocity = velocity:Lerp(posVelocity, 0.3)
+
+    if lastFramePositions[hrp] then
+        local last = lastFramePositions[hrp]
+        local dt = now - last.time
+        if dt > 0 then
+            local posVel = (hrp.Position - last.pos) / dt
+            vel = vel:Lerp(posVel, 0.3)
         end
     end
-    
-    lastFramePositions[targetHRP] = {
-        pos = targetHRP.Position,
-        time = currentTime
-    }
-    
-    return velocity
+
+    lastFramePositions[hrp] = {pos = hrp.Position, time = now}
+    return vel
 end
 
---// Adjust prediction based on distance
-local function getDistanceBasedPrediction(targetPos, targetVelocity, ourPos)
-    local distance = (targetPos - ourPos).Magnitude
-    
-    -- Dynamic prediction: less prediction at close range, more at distance
-    local basePrediction = manualPrediction
-    local predictionFactor = 0
-    
-    if distance < 10 then
-        -- Very close: minimal prediction
-        predictionFactor = 0.1
-    elseif distance < 30 then
-        -- Close-mid range: moderate prediction
-        predictionFactor = 0.3
-    elseif distance < 60 then
-        -- Mid range: normal prediction
-        predictionFactor = 0.7
+--// Distance-based prediction
+local function getDistanceBasedPrediction(targetPos, targetVel, ourPos)
+    local dist = (targetPos - ourPos).Magnitude
+    local factor
+
+    if dist < 10 then
+        factor = 0.1
+    elseif dist < 30 then
+        factor = 0.3
+    elseif dist < 60 then
+        factor = 0.7
     else
-        -- Long range: full prediction
-        predictionFactor = 1.0
+        factor = 1
     end
-    
-    -- Adjust based on target's speed
-    local speed = targetVelocity.Magnitude
-    if speed > 50 then
-        predictionFactor = math.min(predictionFactor * 1.5, 1.0)
+
+    if targetVel.Magnitude > 50 then
+        factor = math.min(factor * 1.4, 1)
     end
-    
-    return targetVelocity * (basePrediction * predictionFactor)
+
+    return targetVel * (manualPrediction * factor)
 end
 
---// Get nearest target from correct folder
+--// Target selection
 local function getValidTarget()
-    if not HRP then return nil end
+    if not HRP then return end
 
     local base = workspace:FindFirstChild("Players")
-    if not base then return nil end
+    if not base then return end
 
-    local folder = friendlyFire and "Survivors" or "Killers"
-    local targetFolder = base:FindFirstChild(folder)
-    if not targetFolder then return nil end
+    local folderName = friendlyFire and "Survivors" or "Killers"
+    local folder = base:FindFirstChild(folderName)
+    if not folder then return end
 
-    local closest, closestDist = nil, math.huge
-    local ourPos = HRP.Position
+    local closest, bestDist = nil, math.huge
+    local origin = HRP.Position
 
-    for _, model in ipairs(targetFolder:GetChildren()) do
+    for _, model in ipairs(folder:GetChildren()) do
         if model ~= LocalPlayer.Character and model:FindFirstChild("HumanoidRootPart") then
             local root = model.HumanoidRootPart
-            
-            -- Check line of sight (optional but recommended)
-            local direction = (root.Position - ourPos).Unit
-            local ray = Ray.new(ourPos + Vector3.new(0, 2, 0), direction * 500)
-            local hit, pos = workspace:FindPartOnRayWithIgnoreList(ray, {LocalPlayer.Character})
-            
-            if hit and hit:IsDescendantOf(model) then
-                local dist = (root.Position - ourPos).Magnitude
-                if dist < closestDist then
-                    closestDist = dist
-                    closest = root
-                end
-            elseif not hit then
-                -- Fallback if ray misses
-                local dist = (root.Position - ourPos).Magnitude
-                if dist < closestDist then
-                    closestDist = dist
-                    closest = root
-                end
+            local dist = (root.Position - origin).Magnitude
+
+            if dist < bestDist then
+                bestDist = dist
+                closest = root
             end
         end
     end
 
-    return closest, closestDist
+    return closest
 end
 
--- Solo la parte de rotación suave del aimbot
+--// MAIN AIM LOOP
 RunService.RenderStepped:Connect(function(dt)
-    if not active or not Humanoid or not HRP then return end
+    if not autoAimEnabled or not Humanoid or not HRP then return end
 
     local playing = getPlayingAnimationIds()
-    local triggered = false
     for id in pairs(trackedAnimations) do
         if playing[id] then
-            triggered = true
+            lastTriggerTime = tick()
+            aiming = true
+
+            if not autoRotateLocked then
+                originalAutoRotate = Humanoid.AutoRotate
+                Humanoid.AutoRotate = false
+                autoRotateLocked = true
+            end
             break
         end
     end
 
-    if triggered then
-        lastTriggerTime = tick()
-        aiming = true
-    end
-
     if aiming and tick() - lastTriggerTime <= aimDuration then
-        -- Freeze pero mantenerse derecho
-        Humanoid.AutoRotate = false
         HRP.AssemblyAngularVelocity = Vector3.zero
 
-        local targetHRP = getValidTarget()
-        if targetHRP then
-            -- Posición predicha
-            local predictedPos = targetHRP.Position + (targetHRP.Velocity * prediction)
-            
-            -- Calcular dirección
-            local direction = (predictedPos - HRP.Position)
-            if direction.Magnitude < 0.01 then return end
-            direction = direction.Unit
-            
-            -- Rotación suave usando Lerp
-            local targetCFrame = CFrame.new(HRP.Position, HRP.Position + Vector3.new(direction.X, 0, direction.Z))
-            HRP.CFrame = HRP.CFrame:Lerp(targetCFrame, 0.3) -- Ajusta este número para más suavidad
-        end
+        local target = getValidTarget()
+        if not target then return end
+
+        local vel = getSmoothedVelocity(target)
+        local offset = getDistanceBasedPrediction(target.Position, vel, HRP.Position)
+        local predictedPos = target.Position + offset
+
+        local dir = predictedPos - HRP.Position
+        if dir.Magnitude < 0.05 then return end
+
+        dir = Vector3.new(dir.X, 0, dir.Z).Unit
+        local targetCF = CFrame.lookAt(HRP.Position, HRP.Position + dir)
+
+        local alpha = math.clamp(dt * 12, 0, 1)
+        HRP.CFrame = HRP.CFrame:Lerp(targetCF, alpha)
+
     elseif aiming then
         aiming = false
-        Humanoid.AutoRotate = true
+        if autoRotateLocked then
+            Humanoid.AutoRotate = originalAutoRotate ~= false
+            autoRotateLocked = false
+        end
     end
 end)
+
 
 local player = Players.LocalPlayer
 local remote = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent")
@@ -2196,7 +2175,7 @@ local remote = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network")
 if remote and remote.ClassName == "RemoteEvent" then
     local blockEnabled = true
     local blockedName = player.Name .. "ChanceFireShot"
-    local delayDuration = 3
+    local delayDuration = 0
     local mt = getrawmetatable(game)
     local oldNamecall = mt.__namecall
     
