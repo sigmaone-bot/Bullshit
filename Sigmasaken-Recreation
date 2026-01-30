@@ -911,7 +911,7 @@ Misc:CreateToggle({
 })
 
 -- SLIDER (delay real)
-Tab:CreateSlider({
+Misc:CreateSlider({
     Name = "QTE Delay",
     Range = {0, 100},
     Increment = 1,
@@ -1930,11 +1930,10 @@ local autoAimEnabled = false
 local manualPrediction = 4
 local friendlyFire = false
 
---// Combat UI
+--// UI
 Combat:CreateToggle({
     Name = "Auto Aim",
     CurrentValue = false,
-    Flag = "AutoAim",
     Callback = function(v)
         autoAimEnabled = v
     end
@@ -1944,18 +1943,15 @@ Combat:CreateSlider({
     Name = "Prediction",
     Range = {0, 20},
     Increment = 1,
-    Suffix = " studs",
     CurrentValue = 4,
-    Flag = "AimPrediction",
     Callback = function(v)
         manualPrediction = v
     end
 })
 
 Combat:CreateToggle({
-    Name = "Friendly Fire Mode",
+    Name = "Friendly Fire",
     CurrentValue = false,
-    Flag = "FriendlyFire",
     Callback = function(v)
         friendlyFire = v
     end
@@ -1966,10 +1962,9 @@ local Humanoid, HRP
 local aiming = false
 local lastTriggerTime = 0
 local aimDuration = 1.7
-local autoRotateLocked = false
 local originalAutoRotate = true
 
---// Animation trigger IDs
+--// Animation IDs
 local trackedAnimations = {
     ["103601716322988"] = true,
     ["133491532453922"] = true,
@@ -1978,25 +1973,18 @@ local trackedAnimations = {
     ["81698196845041"] = true
 }
 
---// Prediction helpers
-local velocityHistory = {}
-local lastFramePositions = {}
-
 --// Character setup
 local function setupCharacter(char)
     Humanoid = char:WaitForChild("Humanoid")
     HRP = char:WaitForChild("HumanoidRootPart")
-    velocityHistory = {}
-    lastFramePositions = {}
 end
 
 if LocalPlayer.Character then
     setupCharacter(LocalPlayer.Character)
 end
-
 LocalPlayer.CharacterAdded:Connect(setupCharacter)
 
---// Get currently playing animation IDs
+--// Playing animations
 local function getPlayingAnimationIds()
     local ids = {}
     if not Humanoid then return ids end
@@ -2009,95 +1997,27 @@ local function getPlayingAnimationIds()
             end
         end
     end
-
     return ids
 end
 
---// Smoothed velocity
-local function getSmoothedVelocity(hrp)
-    local now = tick()
-    local vel = hrp.Velocity
-
-    table.insert(velocityHistory, 1, {
-        velocity = vel,
-        time = now,
-        pos = hrp.Position
-    })
-
-    while #velocityHistory > 0 and now - velocityHistory[#velocityHistory].time > 0.3 do
-        table.remove(velocityHistory)
-    end
-
-    if #velocityHistory > 1 then
-        local totalWeight = 0
-        local avg = Vector3.zero
-
-        for _, v in ipairs(velocityHistory) do
-            local age = now - v.time
-            local w = math.max(1 - age / 0.3, 0.1)
-            avg += v.velocity * w
-            totalWeight += w
-        end
-
-        if totalWeight > 0 then
-            vel = avg / totalWeight
-        end
-    end
-
-    if lastFramePositions[hrp] then
-        local last = lastFramePositions[hrp]
-        local dt = now - last.time
-        if dt > 0 then
-            local posVel = (hrp.Position - last.pos) / dt
-            vel = vel:Lerp(posVel, 0.3)
-        end
-    end
-
-    lastFramePositions[hrp] = {pos = hrp.Position, time = now}
-    return vel
-end
-
---// Distance-based prediction
-local function getDistanceBasedPrediction(targetPos, targetVel, ourPos)
-    local dist = (targetPos - ourPos).Magnitude
-    local factor
-
-    if dist < 10 then
-        factor = 0.1
-    elseif dist < 30 then
-        factor = 0.3
-    elseif dist < 60 then
-        factor = 0.7
-    else
-        factor = 1
-    end
-
-    if targetVel.Magnitude > 50 then
-        factor = math.min(factor * 1.4, 1)
-    end
-
-    return targetVel * (manualPrediction * factor)
-end
-
---// Target selection
+--// Target selection (simple + stable)
 local function getValidTarget()
-    if not HRP then return end
+    if not HRP then return nil end
 
     local base = workspace:FindFirstChild("Players")
-    if not base then return end
+    if not base then return nil end
 
     local folderName = friendlyFire and "Survivors" or "Killers"
     local folder = base:FindFirstChild(folderName)
-    if not folder then return end
+    if not folder then return nil end
 
     local closest, bestDist = nil, math.huge
-    local origin = HRP.Position
+    local myPos = HRP.Position
 
     for _, model in ipairs(folder:GetChildren()) do
         if model ~= LocalPlayer.Character and model:FindFirstChild("HumanoidRootPart") then
             local root = model.HumanoidRootPart
-            local dist = (root.Position - origin).Magnitude
-
+            local dist = (root.Position - myPos).Magnitude
             if dist < bestDist then
                 bestDist = dist
                 closest = root
@@ -2108,20 +2028,20 @@ local function getValidTarget()
     return closest
 end
 
---// MAIN AIM LOOP
+--// MAIN AIM LOOP (FIX DEFINITIVO)
 RunService.RenderStepped:Connect(function(dt)
     if not autoAimEnabled or not Humanoid or not HRP then return end
 
+    -- detectar animación
     local playing = getPlayingAnimationIds()
     for id in pairs(trackedAnimations) do
         if playing[id] then
             lastTriggerTime = tick()
             aiming = true
 
-            if not autoRotateLocked then
+            if Humanoid.AutoRotate then
                 originalAutoRotate = Humanoid.AutoRotate
                 Humanoid.AutoRotate = false
-                autoRotateLocked = true
             end
             break
         end
@@ -2130,28 +2050,44 @@ RunService.RenderStepped:Connect(function(dt)
     if aiming and tick() - lastTriggerTime <= aimDuration then
         HRP.AssemblyAngularVelocity = Vector3.zero
 
-        local target = getValidTarget()
-        if not target then return end
+        local targetHRP = getValidTarget()
+        if not targetHRP then return end
 
-        local vel = getSmoothedVelocity(target)
-        local offset = getDistanceBasedPrediction(target.Position, vel, HRP.Position)
-        local predictedPos = target.Position + offset
+        -- === PREDICCIÓN CORRECTA ===
+        local vel = targetHRP.Velocity
+        local predictedPos
 
-        local dir = predictedPos - HRP.Position
-        if dir.Magnitude < 0.05 then return end
+        if vel.Magnitude < 0.05 then
+            -- target quieto → NO inventar nada
+            predictedPos = targetHRP.Position
+        else
+            predictedPos = targetHRP.Position + vel * manualPrediction
+        end
 
-        dir = Vector3.new(dir.X, 0, dir.Z).Unit
-        local targetCF = CFrame.lookAt(HRP.Position, HRP.Position + dir)
+        -- === DIRECCIÓN PLANA EXACTA ===
+        local delta = predictedPos - HRP.Position
+        if delta.Magnitude < 0.01 then return end
 
-        local alpha = math.clamp(dt * 12, 0, 1)
-        HRP.CFrame = HRP.CFrame:Lerp(targetCF, alpha)
+        local flat = Vector3.new(delta.X, 0, delta.Z).Unit
+
+        -- === YAW EXACTO SIN ERROR ACUMULADO ===
+        local targetYaw = math.atan2(flat.X, flat.Z)
+        local _, currentYaw = HRP.CFrame:ToEulerAnglesYXZ()
+
+        local diff = math.atan2(
+            math.sin(targetYaw - currentYaw),
+            math.cos(targetYaw - currentYaw)
+        )
+
+        local newYaw = currentYaw + diff * math.clamp(dt * 14, 0, 1)
+
+        HRP.CFrame =
+            CFrame.new(HRP.Position) *
+            CFrame.Angles(0, newYaw, 0)
 
     elseif aiming then
         aiming = false
-        if autoRotateLocked then
-            Humanoid.AutoRotate = originalAutoRotate ~= false
-            autoRotateLocked = false
-        end
+        Humanoid.AutoRotate = originalAutoRotate ~= false
     end
 end)
 
