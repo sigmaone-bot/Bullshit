@@ -2890,7 +2890,7 @@ RunService.Heartbeat:Connect(function()
 end)
 
 -- DROPDOWN
-Combat:CreateDropdown({
+Anims:CreateDropdown({
 	Name = "Disable anims",
 	Options = {
 		"Voidrush Charge",
@@ -2907,3 +2907,5 @@ Combat:CreateDropdown({
 		fireArgs[2][1] = selected
 	end,
 })
+
+Rayfield:LoadConfiguration()
