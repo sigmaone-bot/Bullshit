@@ -894,9 +894,13 @@ local Misc = Window:CreateTab("Misc", "plus")
 
 Misc:CreateSection("Pop-ups")
 
-local autoQTE = false
-local clickDelay = 0.1 -- valor inicial (segundos)
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
 
+local autoQTE = false
+local qteDelay = 0 -- 0 = instantáneo
+
+-- TOGGLE
 Misc:CreateToggle({
     Name = "Auto Nosf Minigame",
     CurrentValue = false,
@@ -906,58 +910,41 @@ Misc:CreateToggle({
     end
 })
 
-Misc:CreateSlider({
-    Name = "ANM Speed",
-    Range = {1, 100},          -- 1 = ultra rápido, 100 = lento
+-- SLIDER (delay real)
+Tab:CreateSlider({
+    Name = "QTE Delay",
+    Range = {0, 100},
     Increment = 1,
-    Suffix = "%",
-    CurrentValue = 20,
-    Flag = "QTESpeed",
+    CurrentValue = 0,
+    Flag = "QTEDelay",
     Callback = function(Value)
-        -- Convertimos el valor del slider a delay
-        -- 1  -> 0.01s
-        -- 100 -> 0.3s aprox
-        clickDelay = math.clamp(Value / 300, 0.01, 0.3)
+        qteDelay = Value / 100 -- 0.00s a 1.00s
     end,
 })
 
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
-
+-- LOOP principal (estilo clásico)
 task.spawn(function()
     while true do
-        if not autoQTE then
-            task.wait(0.1)
-            continue
-        end
+        if autoQTE then
+            local pg = LocalPlayer:WaitForChild("PlayerGui")
 
-        local tempUI = PlayerGui:FindFirstChild("TemporaryUI")
-        if tempUI then
-            local qte = tempUI:FindFirstChild("QTE")
-            if qte then
-                local button = qte:FindFirstChild("ActiveButton")
-                if button then
-                    -- click
-                    if button.Activate then
-                        pcall(function()
-                            button:Activate()
-                        end)
-                    end
+            local button = pg
+                :WaitForChild("TemporaryUI", 2)
+                :WaitForChild("QTE", 2)
+                :WaitForChild("ActiveButton", 2)
 
-                    for _, conn in ipairs(getconnections(button.MouseButton1Down)) do
-                        if conn.Function then
-                            pcall(conn.Function)
-                        end
+            if button then
+                for _, conn in ipairs(getconnections(button.MouseButton1Down)) do
+                    if conn.Function then
+                        pcall(conn.Function)
                     end
                 end
             end
         end
 
-        task.wait(clickDelay)
+        task.wait(qteDelay)
     end
 end)
-
 
 Misc:CreateToggle({Name="Anti 1x1x1x1 Popup",CurrentValue=false,Callback=function(v)
 
