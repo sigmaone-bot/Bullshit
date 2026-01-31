@@ -1930,17 +1930,33 @@ Combat:CreateSlider({
 
 Combat:CreateSection("Chance")
 
---// Services
+--// SERVICES
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local Stats = game:GetService("Stats")
 
---// Player
 local LocalPlayer = Players.LocalPlayer
 
---// UI values
+--// STATES
 local autoAimEnabled = false
-local manualPrediction = 4
 local friendlyFire = false
+local manualPrediction = 0.03
+
+local aiming = false
+local lastTriggerTime = 0
+local aimDuration = 1.7
+
+--// CHARACTER
+local Humanoid, HRP
+
+--// ANIMATIONS QUE ACTIVAN EL AIM
+local trackedAnimations = {
+    ["103601716322988"] = true,
+    ["133491532453922"] = true,
+    ["86371356500204"] = true,
+    ["76649505662612"] = true,
+    ["81698196845041"] = true
+}
 
 --// UI
 Combat:CreateToggle({
@@ -1948,14 +1964,22 @@ Combat:CreateToggle({
     CurrentValue = false,
     Callback = function(v)
         autoAimEnabled = v
+        if not v then
+            aiming = false
+            if Humanoid then
+                Humanoid.AutoRotate = true
+            end
+        end
     end
 })
 
-local PredistS = Combat:CreateSlider({
+local PredictSlider = Combat:CreateSlider({
     Name = "Prediction",
-    Range = {0, 20},
-    Increment = 1,
-    CurrentValue = 4,
+    Range = {0, 0.1},
+    Increment = 0.005,
+    Suffix = " studs",
+    CurrentValue = manualPrediction,
+    Flag = "AimPrediction",
     Callback = function(v)
         manualPrediction = v
     end
@@ -1969,23 +1993,23 @@ Combat:CreateToggle({
     end
 })
 
---// State
-local Humanoid, HRP
-local aiming = false
-local lastTriggerTime = 0
-local aimDuration = 2.15
-local originalAutoRotate = true
+-- BOTÓN AUTO AJUSTE SEGÚN PING
+Combat:CreateButton({
+    Name = "Auto Adjust Predict (Ping)",
+    Callback = function()
+        local pingStat = Stats.Network.ServerStatsItem["Data Ping"]
+        if not pingStat then return end
 
---// Animation IDs
-local trackedAnimations = {
-    ["103601716322988"] = true,
-    ["133491532453922"] = true,
-    ["86371356500204"] = true,
-    ["76649505662612"] = true,
-    ["81698196845041"] = true
-}
+        local pingMs = pingStat:GetValue()
+        local pingSec = pingMs / 1000
 
---// Character setup
+        local newPredict = math.clamp(pingSec * 0.8, 0.015, 0.07)
+        manualPrediction = newPredict
+        PredictSlider:Set(newPredict)
+    end
+})
+
+--// CHARACTER SETUP (RESPAWN SAFE)
 local function setupCharacter(char)
     Humanoid = char:WaitForChild("Humanoid")
     HRP = char:WaitForChild("HumanoidRootPart")
@@ -1996,7 +2020,7 @@ if LocalPlayer.Character then
 end
 LocalPlayer.CharacterAdded:Connect(setupCharacter)
 
---// Playing animations
+--// DETECTAR ANIMACIONES ACTIVAS
 local function getPlayingAnimationIds()
     local ids = {}
     if not Humanoid then return ids end
@@ -2012,7 +2036,7 @@ local function getPlayingAnimationIds()
     return ids
 end
 
---// Target selection (simple + stable)
+--// TARGET SYSTEM (TU SISTEMA REAL)
 local function getValidTarget()
     if not HRP then return nil end
 
@@ -2023,16 +2047,18 @@ local function getValidTarget()
     local folder = base:FindFirstChild(folderName)
     if not folder then return nil end
 
-    local closest, bestDist = nil, math.huge
-    local myPos = HRP.Position
+    local closest, closestDist = nil, math.huge
+    local ourPos = HRP.Position
 
     for _, model in ipairs(folder:GetChildren()) do
-        if model ~= LocalPlayer.Character and model:FindFirstChild("HumanoidRootPart") then
-            local root = model.HumanoidRootPart
-            local dist = (root.Position - myPos).Magnitude
-            if dist < bestDist then
-                bestDist = dist
-                closest = root
+        if model ~= LocalPlayer.Character then
+            local root = model:FindFirstChild("HumanoidRootPart")
+            if root then
+                local dist = (root.Position - ourPos).Magnitude
+                if dist < closestDist then
+                    closestDist = dist
+                    closest = root
+                end
             end
         end
     end
@@ -2040,51 +2066,55 @@ local function getValidTarget()
     return closest
 end
 
---// MAIN AIM LOOP (FIX DEFINITIVO)
+--// RENDERSTEPPED (FIX DEFINITIVO)
 RunService.RenderStepped:Connect(function()
-    if not active or not aiming or not HRP then return end
+    if not autoAimEnabled or not Humanoid or not HRP then return end
+
+    -- DETECTAR SI UNA ANIMACIÓN TRACKED SE ESTÁ REPRODUCIENDO
+    local playing = getPlayingAnimationIds()
+    for id in pairs(trackedAnimations) do
+        if playing[id] then
+            aiming = true
+            lastTriggerTime = tick()
+            break
+        end
+    end
+
+    if not aiming then return end
+    if tick() - lastTriggerTime > aimDuration then
+        aiming = false
+        Humanoid.AutoRotate = true
+        return
+    end
+
+    -- bloquear pelea con Roblox
+    Humanoid.AutoRotate = false
+    HRP.AssemblyAngularVelocity = Vector3.zero
 
     local targetHRP = getValidTarget()
     if not targetHRP then return end
 
-    -- posición base
+    -- base
     local aimPos = targetHRP.Position
 
-    -- predicción SOLO si se mueve
+    -- predicción por STUDS
     local vel = targetHRP.Velocity
-    if vel.Magnitude > movementThreshold then
-        aimPos = aimPos + (vel.Unit * manualPrediction)
+    if vel.Magnitude > 0.5 then
+        aimPos = aimPos + (vel * manualPrediction)
     end
 
-    -- dirección horizontal estable
+    -- rotación plana (ANTI BUG)
     local origin = HRP.Position
-    local lookDir = Vector3.new(
+    local flatDir = Vector3.new(
         aimPos.X - origin.X,
         0,
         aimPos.Z - origin.Z
     )
 
-    if lookDir.Magnitude < 0.01 then return end
+    if flatDir.Magnitude < 0.05 then return end
 
-    -- rotación limpia (SIN giros raros)
-    HRP.CFrame = CFrame.lookAt(origin, origin + lookDir)
+    HRP.CFrame = CFrame.new(origin, origin + flatDir)
 end)
-
-Combat:CreateButton({
-    Name = "Adjust Predict (Ping)",
-    Callback = function()
-        local ping = getPingMs()
-        local studs = pingToStuds(ping)
-
-        -- setea el slider
-        PredistS:Set(studs)
-
-        -- si usás variable directa también
-        manualPrediction = studs
-
-        warn("[AutoPredict] Ping:", math.floor(ping), "ms | Predict:", studs, "studs")
-    end,
-})
 
 local player = Players.LocalPlayer
 local remote = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent")
@@ -2129,11 +2159,23 @@ if remote and remote.ClassName == "RemoteEvent" then
     Combat:CreateToggle({
         Name = "Flintlock Hitbox delay",
         Flag = "StoringHitboxGun",
-        CurrentValue = fallse,
+        CurrentValue = false,
         Callback = function(value)
             blockEnabled = value
         end
     })
+
+Combat:CreateSlider({
+    Name = "Aim duration",
+    Range = {0, 10},
+    Increment = 0.1,
+    Suffix = "",
+    CurrentValue = 1.7,
+    Callback = function(v)
+        aimDuration = v
+    end
+})
+
 
     Combat:CreateInput({
         Name = "Delay (recommended under 10)",
