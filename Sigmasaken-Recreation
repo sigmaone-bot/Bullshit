@@ -1951,7 +1951,7 @@ Combat:CreateToggle({
     end
 })
 
-Combat:CreateSlider({
+local PredistS = Combat:CreateSlider({
     Name = "Prediction",
     Range = {0, 20},
     Increment = 1,
@@ -2042,71 +2042,49 @@ end
 
 --// MAIN AIM LOOP (FIX DEFINITIVO)
 RunService.RenderStepped:Connect(function()
-    if not autoAimEnabled or not Humanoid or not HRP then return end
-
-    -- trigger simple por animación (lo que ya usabas)
-    local playing = getPlayingAnimationIds()
-    local triggered = false
-    for id in pairs(trackedAnimations) do
-        if playing[id] then
-            triggered = true
-            break
-        end
-    end
-
-    if triggered then
-        lastTriggerTime = tick()
-        aiming = true
-
-        if Humanoid.AutoRotate then
-            originalAutoRotate = Humanoid.AutoRotate
-            Humanoid.AutoRotate = false
-        end
-    end
-
-    if not aiming then return end
-    if tick() - lastTriggerTime > aimDuration then
-        aiming = false
-        Humanoid.AutoRotate = originalAutoRotate ~= false
-        return
-    end
-
-    HRP.AssemblyAngularVelocity = Vector3.zero
+    if not active or not aiming or not HRP then return end
 
     local targetHRP = getValidTarget()
     if not targetHRP then return end
 
-    -- ===== PREDICCIÓN ESTILO TU SCRIPT BUENO =====
+    -- posición base
+    local aimPos = targetHRP.Position
+
+    -- predicción SOLO si se mueve
     local vel = targetHRP.Velocity
-    local aimPos
-
-    if vel.Magnitude < 0.5 then
-        -- quieto = apuntar directo
-        aimPos = targetHRP.Position
-    else
-        -- velocity + ping adjust
-        local ping = 0.1
-        local stats = game:GetService("Stats")
-        local pingStat = stats.Network.ServerStatsItem["Data Ping"]
-        if pingStat then
-            ping = pingStat:GetValue() / 1000
-        end
-
-        aimPos = targetHRP.Position + (vel * ping)
+    if vel.Magnitude > movementThreshold then
+        aimPos = aimPos + (vel.Unit * manualPrediction)
     end
 
-    -- ===== ROTACIÓN EXACTA (SIN LERP, SIN DRIFT) =====
-    local dir = (aimPos - HRP.Position)
-    if dir.Magnitude < 0.01 then return end
+    -- dirección horizontal estable
+    local origin = HRP.Position
+    local lookDir = Vector3.new(
+        aimPos.X - origin.X,
+        0,
+        aimPos.Z - origin.Z
+    )
 
-    dir = dir.Unit
-    local yaw = math.atan2(-dir.X, -dir.Z)
+    if lookDir.Magnitude < 0.01 then return end
 
-    HRP.CFrame =
-        CFrame.new(HRP.Position) *
-        CFrame.Angles(0, yaw, 0)
+    -- rotación limpia (SIN giros raros)
+    HRP.CFrame = CFrame.lookAt(origin, origin + lookDir)
 end)
 
+Combat:CreateButton({
+    Name = "Adjust Predict (Ping)",
+    Callback = function()
+        local ping = getPingMs()
+        local studs = pingToStuds(ping)
+
+        -- setea el slider
+        PredistS:Set(studs)
+
+        -- si usás variable directa también
+        manualPrediction = studs
+
+        warn("[AutoPredict] Ping:", math.floor(ping), "ms | Predict:", studs, "studs")
+    end,
+})
 
 local player = Players.LocalPlayer
 local remote = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent")
