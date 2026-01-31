@@ -895,10 +895,14 @@ local Misc = Window:CreateTab("Misc", "plus")
 Misc:CreateSection("Pop-ups")
 
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
 local LocalPlayer = Players.LocalPlayer
 
 local autoQTE = false
-local qteDelay = 0 -- 0 = instantáneo
+local qteDelay = 0
+
+local cachedButton = nil
 
 -- TOGGLE
 Misc:CreateToggle({
@@ -910,7 +914,7 @@ Misc:CreateToggle({
     end
 })
 
--- SLIDER (delay real)
+-- SLIDER (0 = instantáneo real)
 Misc:CreateSlider({
     Name = "QTE Delay",
     Range = {0, 100},
@@ -918,30 +922,38 @@ Misc:CreateSlider({
     CurrentValue = 0,
     Flag = "QTEDelay",
     Callback = function(Value)
-        qteDelay = Value / 100 -- 0.00s a 1.00s
+        qteDelay = Value / 100
     end,
 })
 
--- LOOP principal (estilo clásico)
-task.spawn(function()
-    while true do
-        if autoQTE then
-            local pg = LocalPlayer:WaitForChild("PlayerGui")
+-- Cachear botón cuando aparezca
+local function findButton()
+    local pg = LocalPlayer:WaitForChild("PlayerGui")
+    local temp = pg:FindFirstChild("TemporaryUI")
+    if not temp then return nil end
 
-            local button = pg
-                :WaitForChild("TemporaryUI", 2)
-                :WaitForChild("QTE", 2)
-                :WaitForChild("ActiveButton", 2)
+    local qte = temp:FindFirstChild("QTE")
+    if not qte then return nil end
 
-            if button then
-                for _, conn in ipairs(getconnections(button.MouseButton1Down)) do
-                    if conn.Function then
-                        pcall(conn.Function)
-                    end
-                end
-            end
+    return qte:FindFirstChild("ActiveButton")
+end
+
+-- Loop ULTRA RÁPIDO
+RunService.Heartbeat:Connect(function()
+    if not autoQTE then return end
+
+    if not cachedButton or not cachedButton.Parent then
+        cachedButton = findButton()
+        return
+    end
+
+    for _, conn in ipairs(getconnections(cachedButton.MouseButton1Down)) do
+        if conn.Function then
+            conn.Function()
         end
+    end
 
+    if qteDelay > 0 then
         task.wait(qteDelay)
     end
 end)
