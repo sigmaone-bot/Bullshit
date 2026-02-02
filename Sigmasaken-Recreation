@@ -1975,7 +1975,7 @@ Combat:CreateToggle({
 
 local PredictSlider = Combat:CreateSlider({
     Name = "Prediction",
-    Range = {0, 0.1},
+    Range = {0, 4},
     Increment = 0.005,
     Suffix = " studs",
     CurrentValue = manualPrediction,
