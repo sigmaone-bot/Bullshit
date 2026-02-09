@@ -534,7 +534,7 @@ local Window = Rayfield:CreateWindow({
    LoadingTitle = "Made By: FaZ",
    LoadingSubtitle = "Sigmasaken but more features",
    Theme = "Default",
-   DisableRayfieldPrompts = false,
+   DisableRayfieldPrompts = true,
    DisableBuildWarnings = false,
    ConfigurationSaving = {
       Enabled = true,
@@ -798,6 +798,9 @@ local function onExit()
     cleanupESP()
 end
 
+Rayfield:LoadConfiguration()
+
+
 -------------------------------------------------------------------
 local StaminaTab = Window:CreateTab("Stamina Settings", "arrow-big-right-dash")
 
@@ -889,6 +892,9 @@ end)
 
 RunService.RenderStepped:Wait()
 applyStaminaSettings()
+
+Rayfield:LoadConfiguration()
+
 
 local Misc = Window:CreateTab("Misc", "plus")
 
@@ -2106,28 +2112,37 @@ RunService.RenderStepped:Connect(function(dt)
 
     -- PREDICCIÓN REAL (NO SE ROMPE)
     local vel = targetHRP.AssemblyLinearVelocity
+localocal vel = targetHRP.AssemblyLinearVelocity
 local speed = vel.Magnitude
 
+local aimPos = targetHRP.Position
+
 if speed > 1 then
-    local dir = vel.Unit
+    -- dirección REAL hacia adelante (no la velocity cruda)
+    local toTarget = (targetHRP.Position - HRP.Position)
+    toTarget = Vector3.new(toTarget.X, 0, toTarget.Z)
 
-    -- MÁS avance real (antes 0.04)
-    local predictDist = math.clamp(
-        speed * 0.085,  -- <<< CLAVE
-        0,
-        manualPrediction -- slider (ahora sí sirve)
-    )
+    if toTarget.Magnitude > 0.01 then
+        local forwardDir = toTarget.Unit
 
-    aimPos = aimPos + (dir * predictDist)
+        local predictDist = math.clamp(
+            speed * 0.085,
+            0,
+            manualPrediction
+        )
+
+        aimPos = aimPos + (forwardDir * predictDist)
+    end
 end
 
--- ROTACIÓN CORRECTA (NUNCA ATRÁS)
+-- ROTACIÓN LIMPIA (ESTA PARTE YA ESTABA BIEN)
 local lookDir = (aimPos - HRP.Position)
 if lookDir.Magnitude > 0.01 then
     lookDir = Vector3.new(lookDir.X, 0, lookDir.Z).Unit
     local targetCF = CFrame.new(HRP.Position, HRP.Position + lookDir)
     HRP.CFrame = HRP.CFrame:Lerp(targetCF, 0.35)
 end
+
 end)
 
 local player = Players.LocalPlayer
@@ -2857,7 +2872,6 @@ Anims:CreateDropdown({
 	},
 	CurrentOption = {"Voidrush Charge"},
 	MultipleOptions = true,
-	Flag = "AutoAbilityDropdown",
 	Callback = function(Options)
 		local selected = Options[1]
 		if not selected then return end
