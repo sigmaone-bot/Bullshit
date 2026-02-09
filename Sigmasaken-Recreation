@@ -2106,19 +2106,27 @@ RunService.RenderStepped:Connect(function(dt)
 
     -- PREDICCIÓN REAL (NO SE ROMPE)
     local vel = targetHRP.AssemblyLinearVelocity
-    local speed = vel.Magnitude
+local speed = vel.Magnitude
 
-    if speed > 1 then
+if speed > 1 then
     local dir = vel.Unit
 
-    -- escalado correcto para walkspeed alto
-    -- 26–28 WS ≈ 6–8 studs reales
-    local predictDist = speed * 0.065
-
-    -- límite duro por slider (nunca se pasa)
-    predictDist = math.clamp(predictDist, 0, manualPrediction)
+    -- MÁS avance real (antes 0.04)
+    local predictDist = math.clamp(
+        speed * 0.085,  -- <<< CLAVE
+        0,
+        manualPrediction -- slider (ahora sí sirve)
+    )
 
     aimPos = aimPos + (dir * predictDist)
+end
+
+-- ROTACIÓN CORRECTA (NUNCA ATRÁS)
+local lookDir = (aimPos - HRP.Position)
+if lookDir.Magnitude > 0.01 then
+    lookDir = Vector3.new(lookDir.X, 0, lookDir.Z).Unit
+    local targetCF = CFrame.new(HRP.Position, HRP.Position + lookDir)
+    HRP.CFrame = HRP.CFrame:Lerp(targetCF, 0.35)
 end
 end)
 
