@@ -1973,8 +1973,8 @@ Combat:CreateToggle({
 
 local PredictSlider = Combat:CreateSlider({
     Name = "Prediction",
-    Range = {0, 5},
-    Increment = 0.1,
+    Range = {0, 10},
+    Increment = 0.2,
     Suffix = " studs",
     CurrentValue = manualPrediction,
     Callback = function(v)
@@ -1992,26 +1992,32 @@ Combat:CreateToggle({
 
 --// BOTÓN AUTO AJUSTE POR PING
 Combat:CreateButton({
-    Name = "Auto Adjust Prediction (Ping)",
+    Name = "Adjust Prediction (Ping)",
     Callback = function()
-        local ping = tonumber(Stats.Network.ServerStatsItem["Data Ping"]:GetValueString():match("%d+")) or 50
+        local pingStat = Stats.Network.ServerStatsItem["Data Ping"]
+        if not pingStat then return end
 
-        -- valores reales y estables
+        local ping = tonumber(pingStat:GetValueString():match("%d+")) or 50
+
+        -- Valores calibrados para max 10
         local newPredict
-        if ping < 40 then
-            newPredict = 1.2
-        elseif ping < 60 then
-            newPredict = 1.8
-        elseif ping < 80 then
-            newPredict = 2.4
-        else
+        if ping <= 35 then
             newPredict = 3
+        elseif ping <= 50 then
+            newPredict = 4.5
+        elseif ping <= 65 then
+            newPredict = 6
+        elseif ping <= 80 then
+            newPredict = 7.5
+        else
+            newPredict = 9
         end
 
         manualPrediction = newPredict
         PredictSlider:Set(newPredict)
     end
 })
+
 
 --// CHARACTER SETUP
 local function setupCharacter(char)
@@ -2103,18 +2109,17 @@ RunService.RenderStepped:Connect(function(dt)
     local speed = vel.Magnitude
 
     if speed > 1 then
-        local dir = vel.Unit
-        local predictDist = math.clamp(speed * 0.04, 0, manualPrediction)
-        aimPos = aimPos + (dir * predictDist)
-    end
+    local dir = vel.Unit
 
-    -- ROTACIÓN CORRECTA (NUNCA ATRÁS)
-    local lookDir = (aimPos - HRP.Position)
-    if lookDir.Magnitude > 0.01 then
-        lookDir = Vector3.new(lookDir.X, 0, lookDir.Z).Unit
-        local targetCF = CFrame.new(HRP.Position, HRP.Position + lookDir)
-        HRP.CFrame = HRP.CFrame:Lerp(targetCF, 0.35)
-    end
+    -- escalado correcto para walkspeed alto
+    -- 26–28 WS ≈ 6–8 studs reales
+    local predictDist = speed * 0.065
+
+    -- límite duro por slider (nunca se pasa)
+    predictDist = math.clamp(predictDist, 0, manualPrediction)
+
+    aimPos = aimPos + (dir * predictDist)
+end
 end)
 
 local player = Players.LocalPlayer
