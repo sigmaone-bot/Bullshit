@@ -534,7 +534,7 @@ local Window = Rayfield:CreateWindow({
    LoadingTitle = "Made By: FaZ",
    LoadingSubtitle = "Sigmasaken but more features",
    Theme = "Default",
-   DisableRayfieldPrompts = true,
+   DisableRayfieldPrompts = false,
    DisableBuildWarnings = false,
    ConfigurationSaving = {
       Enabled = true,
@@ -2870,15 +2870,13 @@ Anims:CreateDropdown({
 		"Voidrush Charge",
 		"WalkspeedOverride Windup"
 	},
-	CurrentOption = {"Voidrush Charge"},
-	MultipleOptions = true,
-	Callback = function(Options)
-		local selected = Options[1]
-		if not selected then return end
-
+	CurrentOption = "Voidrush Charge",
+	MultipleOptions = false,
+	Callback = function(selected)
 		currentAbility = selected
 		fireArgs[2][1] = selected
 	end,
 })
+
 
 Rayfield:LoadConfiguration()
