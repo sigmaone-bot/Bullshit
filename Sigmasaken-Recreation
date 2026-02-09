@@ -2112,7 +2112,6 @@ RunService.RenderStepped:Connect(function(dt)
 
     -- PREDICCIÓN REAL (NO SE ROMPE)
     local vel = targetHRP.AssemblyLinearVelocity
-localocal vel = targetHRP.AssemblyLinearVelocity
 local speed = vel.Magnitude
 
 local aimPos = targetHRP.Position
