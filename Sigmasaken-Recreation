@@ -2622,7 +2622,7 @@ Combat:CreateSection("Reach")
 
                               
 _G.JasonHitbox = _G.JasonHitbox or false
-_G.hitboxnearestdist = _G.hitboxnearestdist or 10
+_G.hitboxnearestdist = _G.hitboxnearestdist or 20
 
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
@@ -2750,7 +2750,7 @@ Combat:CreateSlider({
     Name = "Reach Distance",
     Increment = 0.5,
     CurrentValue = 7,
-    Range = {1, 10},
+    Range = {1, 20},
     Suffix = " studs",
     Callback = function(val)
         _G.hitboxnearestdist = val
