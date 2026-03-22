@@ -534,8 +534,8 @@ local Window = Rayfield:CreateWindow({
    LoadingTitle = "Made By: FaZ",
    LoadingSubtitle = "Sigmasaken but more features",
    Theme = "Default",
-   DisableRayfieldPrompts = false,
-   DisableBuildWarnings = false,
+   DisableRayfieldPrompts = true,
+   DisableBuildWarnings = true,
    ConfigurationSaving = {
       Enabled = true,
       FolderName = Folderpro,
@@ -2332,7 +2332,7 @@ Combat:CreateSlider({
 })
 
 Combat:CreateSection("Slasher")
-
+local sixermod = require(game:GetService("ReplicatedStorage").Assets.Killers.Sixer.Config)
 local mod = require(game:GetService("ReplicatedStorage").Assets.Killers.Slasher.Config)
 
 Combat:CreateSlider({
@@ -2575,7 +2575,49 @@ Combat:CreateDropdown({
 		end
 	end,
 })
-    
+
+Combat:CreateSection("Sixer")
+
+Combat:CreateSlider({
+    Name = "Pursuit Gravity",
+    Range = {0, 2},
+    Increment = 0.1,
+    CurrentValue = 0.6,
+    Callback = function(val)
+        sixermod.PursuitGravity = val
+    end
+})
+
+Combat:CreateSlider({
+    Name = "Pursuit Base Speed",
+    Range = {0, 30},
+    Increment = 1,
+    CurrentValue = 7,
+    Callback = function(val)
+        sixermod.PursuitBaseSpeed = val
+    end
+})
+
+Combat:CreateSlider({
+    Name = "Pursuit Max Base Speed",
+    Range = {0, 50},
+    Increment = 1,
+    CurrentValue = 17,
+    Callback = function(val)
+        sixermod.PursuitMaxBaseSpeed = val
+    end
+})
+
+Combat:CreateSlider({
+    Name = "Pursuit Horizontal Penalty",
+    Range = {0, 2},
+    Increment = 0.1,
+    CurrentValue = 0.6,
+    Callback = function(val)
+        sixermod.PursuitHorizontalPenalty = val
+    end
+})
+
 Combat:CreateSection("Reach")
 
                               
