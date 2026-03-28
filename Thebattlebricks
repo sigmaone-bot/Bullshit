@@ -18,8 +18,8 @@ gui.ResetOnSpawn = false
 gui.Parent = player:WaitForChild("PlayerGui")
 
 local openButton = Instance.new("TextButton")
-openButton.Size = UDim2.new(0,120,0,40)
-openButton.Position = UDim2.new(0,10,0,70)
+openButton.Size = UDim2.new(0,140,0,45)
+openButton.Position = UDim2.new(0,10,0,80)
 openButton.Text = "OPEN"
 openButton.BackgroundColor3 = Color3.fromRGB(50,50,50)
 openButton.Visible = false
@@ -27,8 +27,8 @@ openButton.Parent = gui
 Instance.new("UICorner", openButton)
 
 local main = Instance.new("Frame")
-main.Size = UDim2.new(0,650,0,420)
-main.Position = UDim2.new(0.5,-325,0.5,-210)
+main.Size = UDim2.new(0,700,0,450)
+main.Position = UDim2.new(0.5,-350,0.5,-225)
 main.BackgroundColor3 = Color3.fromRGB(25,25,25)
 main.Active = true
 main.Draggable = true
@@ -125,17 +125,35 @@ projectileFolder.DescendantAdded:Connect(function(obj)
 	end
 end)
 
-local function refreshList(containerList)
-	containerList:ClearAllChildren()
-	local y = 0
+local listFrame = Instance.new("ScrollingFrame")
+listFrame.Size = UDim2.new(0.9,0,0.7,0)
+listFrame.Position = UDim2.new(0.05,0,0.05,0)
+listFrame.CanvasSize = UDim2.new(0,0,0,0)
+listFrame.ScrollBarThickness = 6
+listFrame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+listFrame.Parent = editorFrame
+Instance.new("UICorner", listFrame)
+
+local layout = Instance.new("UIListLayout", listFrame)
+layout.Padding = UDim.new(0,5)
+
+layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+	listFrame.CanvasSize = UDim2.new(0,0,0,layout.AbsoluteContentSize.Y + 10)
+end)
+
+local function refreshList()
+	for _,v in ipairs(listFrame:GetChildren()) do
+		if v:IsA("TextButton") then
+			v:Destroy()
+		end
+	end
 
 	for _,enemy in ipairs(enemyFolder:GetChildren()) do
 		local btn = Instance.new("TextButton")
 		btn.Size = UDim2.new(1,-10,0,40)
-		btn.Position = UDim2.new(0,5,0,y)
 		btn.Text = enemy.Name
-		btn.BackgroundColor3 = Color3.fromRGB(40,40,40)
-		btn.Parent = containerList
+		btn.BackgroundColor3 = Color3.fromRGB(45,45,45)
+		btn.Parent = listFrame
 		Instance.new("UICorner", btn)
 
 		btn.MouseButton1Click:Connect(function()
@@ -150,66 +168,16 @@ local function refreshList(containerList)
 				handleTarget(enemy)
 			end
 		end)
-
-		y = y + 45
 	end
 end
 
-close.MouseButton1Click:Connect(function()
-	main:TweenPosition(UDim2.new(0.5,-325,1,0),"Out","Quad",0.3,true,function()
-		main.Visible = false
-		openButton.Visible = true
-	end)
-end)
-
-openButton.MouseButton1Click:Connect(function()
-	main.Visible = true
-	main.Position = UDim2.new(0.5,-325,1,0)
-	main:TweenPosition(UDim2.new(0.5,-325,0.5,-210),"Out","Quad",0.3,true)
-	openButton.Visible = false
-end)
-
-local function createTab(name, pos, callback)
-	local b = Instance.new("TextButton")
-	b.Size = UDim2.new(0.5,0,1,0)
-	b.Position = UDim2.new(pos,0,0,0)
-	b.Text = name
-	b.BackgroundColor3 = Color3.fromRGB(45,45,45)
-	b.Parent = tabs
-	Instance.new("UICorner", b)
-
-	b.MouseButton1Click:Connect(callback)
-end
-
-createTab("Newell Editor",0,function() switch("editor") end)
-createTab("Antis",0.5,function() switch("antis") end)
-
-
-
-
-
--- BOTONES
-
-local listFrame = Instance.new("ScrollingFrame")
-listFrame.Size = UDim2.new(0.9,0,0.8,0)
-listFrame.Position = UDim2.new(0.05,0,0.05,0)
-listFrame.CanvasSize = UDim2.new(0,0,5,0)
-listFrame.BackgroundTransparency = 1
-listFrame.Parent = editorFrame
-
-refreshList(listFrame)
-
-enemyFolder.ChildAdded:Connect(function()
-	refreshList(listFrame)
-end)
-
-enemyFolder.ChildRemoved:Connect(function()
-	refreshList(listFrame)
-end)
+refreshList()
+enemyFolder.ChildAdded:Connect(refreshList)
+enemyFolder.ChildRemoved:Connect(refreshList)
 
 local toggleTarget = Instance.new("TextButton")
-toggleTarget.Size = UDim2.new(0.9,0,0,50)
-toggleTarget.Position = UDim2.new(0.05,0,0.87,0)
+toggleTarget.Size = UDim2.new(0.9,0,0,55)
+toggleTarget.Position = UDim2.new(0.05,0,0.8,0)
 toggleTarget.Text = "Target: OFF"
 toggleTarget.BackgroundColor3 = Color3.fromRGB(50,50,50)
 toggleTarget.Parent = editorFrame
@@ -237,4 +205,33 @@ antiBtn.MouseButton1Click:Connect(function()
 			applyAnti(v)
 		end
 	end
+end)
+
+local function createTab(name, pos, callback)
+	local b = Instance.new("TextButton")
+	b.Size = UDim2.new(0.5,0,1,0)
+	b.Position = UDim2.new(pos,0,0,0)
+	b.Text = name
+	b.BackgroundColor3 = Color3.fromRGB(45,45,45)
+	b.Parent = tabs
+	Instance.new("UICorner", b)
+
+	b.MouseButton1Click:Connect(callback)
+end
+
+createTab("Newell Editor",0,function() switch("editor") end)
+createTab("Antis",0.5,function() switch("antis") end)
+
+close.MouseButton1Click:Connect(function()
+	main:TweenPosition(UDim2.new(0.5,-350,1,0),"Out","Quad",0.3,true,function()
+		main.Visible = false
+		openButton.Visible = true
+	end)
+end)
+
+openButton.MouseButton1Click:Connect(function()
+	main.Visible = true
+	main.Position = UDim2.new(0.5,-350,1,0)
+	main:TweenPosition(UDim2.new(0.5,-350,0.5,-225),"Out","Quad",0.3,true)
+	openButton.Visible = false
 end)
