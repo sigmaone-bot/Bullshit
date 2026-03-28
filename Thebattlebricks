@@ -8,10 +8,12 @@ local projectileFolder = Workspace:WaitForChild("Projectile")
 local enemyFolder = Workspace:WaitForChild("NPCFolders"):WaitForChild("EnemyFolder")
 
 local targetEnabled = false
+local antiEnabled = false
 local targetName = ""
 local active = {}
 local currentHighlight = nil
 local isAnimating = false
+local antiConn
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "NEWELL_CONTROL"
@@ -25,7 +27,7 @@ openBtn.Text = "OPEN"
 openBtn.BackgroundColor3 = Color3.fromRGB(40,40,40)
 openBtn.TextColor3 = Color3.new(1,1,1)
 openBtn.Font = Enum.Font.GothamBold
-openBtn.Visible = false
+openBtn.Visible = true
 openBtn.Parent = gui
 Instance.new("UICorner", openBtn)
 
@@ -102,7 +104,6 @@ local box = Instance.new("TextBox")
 box.Size = UDim2.new(0.35,0,0,55)
 box.Position = UDim2.new(0.05,0,0.2,0)
 box.PlaceholderText = "Target name..."
-box.Text = ""
 box.BackgroundColor3 = Color3.fromRGB(40,40,40)
 box.TextColor3 = Color3.new(1,1,1)
 box.Font = Enum.Font.Gotham
@@ -140,7 +141,6 @@ end
 local function setHighlight(model)
 	if currentHighlight then
 		currentHighlight:Destroy()
-		currentHighlight = nil
 	end
 	
 	if model then
@@ -151,6 +151,8 @@ local function setHighlight(model)
 		h.OutlineTransparency = 0.25
 		h.Parent = model
 		currentHighlight = h
+	else
+		currentHighlight = nil
 	end
 end
 
@@ -220,6 +222,30 @@ targetToggle.MouseButton1Click:Connect(function()
 	targetToggle.BackgroundColor3 = targetEnabled and Color3.fromRGB(120,80,255) or Color3.fromRGB(45,45,45)
 end)
 
+local antiBtn = makeButton(antis,"Anti Newell: OFF",UDim2.new(0.05,0,0.05,0))
+
+local function applyAnti(obj)
+	if obj:IsA("BasePart") and obj.Name == "RainbowBomb" then
+		obj.Anchored = true
+	end
+end
+
+antiBtn.MouseButton1Click:Connect(function()
+	antiEnabled = not antiEnabled
+	
+	if antiEnabled then
+		for _,v in ipairs(projectileFolder:GetDescendants()) do
+			applyAnti(v)
+		end
+		antiConn = projectileFolder.DescendantAdded:Connect(applyAnti)
+	else
+		if antiConn then antiConn:Disconnect() end
+	end
+	
+	antiBtn.Text = antiEnabled and "Anti Newell: ON" or "Anti Newell: OFF"
+	antiBtn.BackgroundColor3 = antiEnabled and Color3.fromRGB(70,130,255) or Color3.fromRGB(45,45,45)
+end)
+
 tabEditor.MouseButton1Click:Connect(function()
 	editor.Visible = true
 	antis.Visible = false
@@ -239,12 +265,13 @@ close.MouseButton1Click:Connect(function()
 	tween.Completed:Wait()
 	
 	main.Visible = false
-	openBtn.Visible = true
 	isAnimating = false
 end)
 
 openBtn.MouseButton1Click:Connect(function()
 	if isAnimating then return end
+	if main.Visible then return end
+	
 	isAnimating = true
 	
 	main.Visible = true
@@ -254,6 +281,5 @@ openBtn.MouseButton1Click:Connect(function()
 	tween:Play()
 	tween.Completed:Wait()
 	
-	openBtn.Visible = false
 	isAnimating = false
 end)
