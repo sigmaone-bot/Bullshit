@@ -8,10 +8,10 @@ local projectileFolder = Workspace:WaitForChild("Projectile")
 local enemyFolder = Workspace:WaitForChild("NPCFolders"):WaitForChild("EnemyFolder")
 
 local targetEnabled = false
-local antiEnabled = false
-local targetName = nil
+local targetName = ""
 local active = {}
 local currentHighlight = nil
+local isAnimating = false
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "NEWELL_CONTROL"
@@ -25,6 +25,7 @@ openBtn.Text = "OPEN"
 openBtn.BackgroundColor3 = Color3.fromRGB(40,40,40)
 openBtn.TextColor3 = Color3.new(1,1,1)
 openBtn.Font = Enum.Font.GothamBold
+openBtn.Visible = false
 openBtn.Parent = gui
 Instance.new("UICorner", openBtn)
 
@@ -32,7 +33,6 @@ local main = Instance.new("Frame")
 main.Size = UDim2.new(0,700,0,500)
 main.Position = UDim2.new(0.5,-350,0.5,-250)
 main.BackgroundColor3 = Color3.fromRGB(25,25,25)
-main.Visible = true
 main.Active = true
 main.Draggable = true
 main.Parent = gui
@@ -98,12 +98,27 @@ end
 
 local targetToggle = makeButton(editor,"Target: OFF",UDim2.new(0.05,0,0.05,0))
 
+local box = Instance.new("TextBox")
+box.Size = UDim2.new(0.35,0,0,55)
+box.Position = UDim2.new(0.05,0,0.2,0)
+box.PlaceholderText = "Target name..."
+box.Text = ""
+box.BackgroundColor3 = Color3.fromRGB(40,40,40)
+box.TextColor3 = Color3.new(1,1,1)
+box.Font = Enum.Font.Gotham
+box.TextSize = 16
+box.Parent = editor
+Instance.new("UICorner", box)
+
+box.FocusLost:Connect(function()
+	targetName = box.Text
+end)
+
 local list = Instance.new("ScrollingFrame", editor)
 list.Size = UDim2.new(0.55,0,0.8,0)
 list.Position = UDim2.new(0.4,0,0.1,0)
 list.BackgroundColor3 = Color3.fromRGB(30,30,30)
 list.ScrollBarThickness = 6
-list.CanvasSize = UDim2.new(0,0,0,0)
 Instance.new("UICorner", list)
 
 local layout = Instance.new("UIListLayout")
@@ -130,13 +145,12 @@ local function setHighlight(model)
 	
 	if model then
 		local h = Instance.new("Highlight")
-		h.FillColor = Color3.fromRGB(255,0,0)
-		h.OutlineColor = Color3.new(1,1,1)
+		h.FillColor = Color3.fromRGB(255,120,120)
+		h.FillTransparency = 0.85
+		h.OutlineColor = Color3.fromRGB(255,0,0)
+		h.OutlineTransparency = 0.25
 		h.Parent = model
 		currentHighlight = h
-		targetName = model.Name
-	else
-		targetName = nil
 	end
 end
 
@@ -155,11 +169,7 @@ local function refreshList()
 		Instance.new("UICorner", b)
 
 		b.MouseButton1Click:Connect(function()
-			if targetName == v.Name then
-				setHighlight(nil)
-			else
-				setHighlight(v)
-			end
+			setHighlight(v)
 		end)
 	end
 end
@@ -169,7 +179,7 @@ enemyFolder.ChildRemoved:Connect(refreshList)
 refreshList()
 
 local function getTarget()
-	if not targetName then return end
+	if targetName == "" then return end
 	local t = enemyFolder:FindFirstChild(targetName)
 	if not t then return end
 	
@@ -210,32 +220,6 @@ targetToggle.MouseButton1Click:Connect(function()
 	targetToggle.BackgroundColor3 = targetEnabled and Color3.fromRGB(120,80,255) or Color3.fromRGB(45,45,45)
 end)
 
-local antiBtn = makeButton(antis,"Anti Newell: OFF",UDim2.new(0.05,0,0.05,0))
-
-local antiConn
-
-local function applyAnti(obj)
-	if obj:IsA("BasePart") and obj.Name == "RainbowBomb" then
-		obj.Anchored = true
-	end
-end
-
-antiBtn.MouseButton1Click:Connect(function()
-	antiEnabled = not antiEnabled
-	
-	if antiEnabled then
-		for _,v in ipairs(projectileFolder:GetDescendants()) do
-			applyAnti(v)
-		end
-		antiConn = projectileFolder.DescendantAdded:Connect(applyAnti)
-	else
-		if antiConn then antiConn:Disconnect() end
-	end
-	
-	antiBtn.Text = antiEnabled and "Anti Newell: ON" or "Anti Newell: OFF"
-	antiBtn.BackgroundColor3 = antiEnabled and Color3.fromRGB(70,130,255) or Color3.fromRGB(45,45,45)
-end)
-
 tabEditor.MouseButton1Click:Connect(function()
 	editor.Visible = true
 	antis.Visible = false
@@ -247,13 +231,29 @@ tabAntis.MouseButton1Click:Connect(function()
 end)
 
 close.MouseButton1Click:Connect(function()
-	TweenService:Create(main,TweenInfo.new(0.25),{Size=UDim2.new(0,0,0,0)}):Play()
-	task.wait(0.25)
+	if isAnimating then return end
+	isAnimating = true
+	
+	local tween = TweenService:Create(main,TweenInfo.new(0.25),{Size=UDim2.new(0,0,0,0)})
+	tween:Play()
+	tween.Completed:Wait()
+	
 	main.Visible = false
+	openBtn.Visible = true
+	isAnimating = false
 end)
 
 openBtn.MouseButton1Click:Connect(function()
+	if isAnimating then return end
+	isAnimating = true
+	
 	main.Visible = true
 	main.Size = UDim2.new(0,0,0,0)
-	TweenService:Create(main,TweenInfo.new(0.25),{Size=UDim2.new(0,700,0,500)}):Play()
+	
+	local tween = TweenService:Create(main,TweenInfo.new(0.25),{Size=UDim2.new(0,700,0,500)})
+	tween:Play()
+	tween.Completed:Wait()
+	
+	openBtn.Visible = false
+	isAnimating = false
 end)
