@@ -12,55 +12,78 @@ local antiEnabled = false
 local active = {}
 local highlights = {}
 
+-- GUI BASE
+
 local gui = Instance.new("ScreenGui")
 gui.Name = "NEWELL_CONTROL"
 gui.ResetOnSpawn = false
 gui.Parent = player:WaitForChild("PlayerGui")
 
-local openButton = Instance.new("TextButton")
-openButton.Size = UDim2.new(0,140,0,45)
-openButton.Position = UDim2.new(0,10,0,80)
-openButton.Text = "OPEN"
-openButton.BackgroundColor3 = Color3.fromRGB(50,50,50)
-openButton.Visible = false
-openButton.Parent = gui
-Instance.new("UICorner", openButton)
+local openBtn = Instance.new("TextButton")
+openBtn.Size = UDim2.new(0,140,0,40)
+openBtn.Position = UDim2.new(0,10,0,80)
+openBtn.Text = "OPEN"
+openBtn.Visible = false
+openBtn.BackgroundColor3 = Color3.fromRGB(45,45,45)
+openBtn.Parent = gui
+Instance.new("UICorner", openBtn)
 
 local main = Instance.new("Frame")
-main.Size = UDim2.new(0,700,0,450)
-main.Position = UDim2.new(0.5,-350,0.5,-225)
-main.BackgroundColor3 = Color3.fromRGB(25,25,25)
+main.Size = UDim2.new(0,500,0,320)
+main.Position = UDim2.new(0.5,-250,0.5,-160)
+main.BackgroundColor3 = Color3.fromRGB(30,30,30)
 main.Active = true
 main.Draggable = true
 main.Parent = gui
-Instance.new("UICorner", main).CornerRadius = UDim.new(0,20)
+Instance.new("UICorner", main).CornerRadius = UDim.new(0,14)
 
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1,0,0,50)
+title.Size = UDim2.new(1,0,0,40)
 title.Text = "NEWELL CONTROL"
 title.BackgroundTransparency = 1
 title.Font = Enum.Font.GothamBold
-title.TextSize = 24
-title.TextColor3 = Color3.new(1,1,1)
+title.TextSize = 20
+title.TextColor3 = Color3.fromRGB(240,240,240)
 title.Parent = main
 
 local close = Instance.new("TextButton")
-close.Size = UDim2.new(0,40,0,40)
-close.Position = UDim2.new(1,-45,0,5)
+close.Size = UDim2.new(0,35,0,35)
+close.Position = UDim2.new(1,-40,0,5)
 close.Text = "X"
-close.BackgroundColor3 = Color3.fromRGB(70,30,30)
+close.BackgroundColor3 = Color3.fromRGB(70,40,40)
 close.Parent = main
 Instance.new("UICorner", close)
 
+-- TABS
+
 local tabs = Instance.new("Frame")
-tabs.Size = UDim2.new(1,0,0,50)
-tabs.Position = UDim2.new(0,0,0,50)
+tabs.Size = UDim2.new(1,0,0,40)
+tabs.Position = UDim2.new(0,0,0,40)
 tabs.BackgroundTransparency = 1
 tabs.Parent = main
 
+local function createTab(text, pos)
+	local b = Instance.new("TextButton")
+	b.Size = UDim2.new(0.5,0,1,0)
+	b.Position = UDim2.new(pos,0,0,0)
+	b.Text = text
+	b.BackgroundColor3 = Color3.fromRGB(40,40,40)
+	b.TextColor3 = Color3.new(1,1,1)
+	b.Font = Enum.Font.GothamSemibold
+	b.TextSize = 15
+	b.Parent = tabs
+	Instance.new("UICorner", b)
+	return b
+end
+
+local tabEditor = createTab("Newell Editor",0)
+local tabAntis = createTab("Antis",0.5)
+
+-- CONTENEDOR
+
 local container = Instance.new("Frame")
-container.Size = UDim2.new(1,0,1,-100)
-container.Position = UDim2.new(0,0,0,100)
+container.Size = UDim2.new(1,0,1,-80)
+container.Position = UDim2.new(0,0,0,80)
 container.BackgroundTransparency = 1
 container.Parent = main
 
@@ -78,14 +101,19 @@ local function switch(tab)
 	antisFrame.Visible = tab == "antis"
 end
 
+tabEditor.MouseButton1Click:Connect(function() switch("editor") end)
+tabAntis.MouseButton1Click:Connect(function() switch("antis") end)
+
+-- FUNCIONES
+
 local function follow(part, target)
 	if active[part] then return end
 	active[part] = true
 
 	task.spawn(function()
 		while part and part.Parent and targetEnabled do
-			if target and target.Parent then
-				local root = target:FindFirstChild("HumanoidRootPart") or target
+			local root = target:FindFirstChild("HumanoidRootPart") or target
+			if root then
 				part.CFrame = root.CFrame
 			end
 			RunService.Heartbeat:Wait()
@@ -95,68 +123,50 @@ local function follow(part, target)
 end
 
 local function handleTarget(target)
-	for _,obj in ipairs(projectileFolder:GetDescendants()) do
-		if obj:IsA("BasePart") and (obj.Name == "Teapot" or obj.Name == "FireTeapot") then
-			follow(obj, target)
+	for _,v in ipairs(projectileFolder:GetDescendants()) do
+		if v:IsA("BasePart") and (v.Name == "Teapot" or v.Name == "FireTeapot") then
+			follow(v, target)
 		end
 	end
 end
 
-projectileFolder.DescendantAdded:Connect(function(obj)
-	if targetEnabled then
-		if obj:IsA("BasePart") and (obj.Name == "Teapot" or obj.Name == "FireTeapot") then
-			for t,_ in pairs(highlights) do
-				follow(obj, t)
-				break
-			end
-		end
-	end
-end)
-
-local function applyAnti(obj)
-	if obj:IsA("BasePart") and obj.Name == "RainbowBomb" then
-		obj.Anchored = true
+local function applyAnti(v)
+	if v:IsA("BasePart") and v.Name == "RainbowBomb" then
+		v.Anchored = true
 	end
 end
 
-projectileFolder.DescendantAdded:Connect(function(obj)
-	if antiEnabled then
-		applyAnti(obj)
-	end
-end)
+-- LISTA (BIEN HECHA)
 
-local listFrame = Instance.new("ScrollingFrame")
-listFrame.Size = UDim2.new(0.9,0,0.7,0)
-listFrame.Position = UDim2.new(0.05,0,0.05,0)
-listFrame.CanvasSize = UDim2.new(0,0,0,0)
-listFrame.ScrollBarThickness = 6
-listFrame.BackgroundColor3 = Color3.fromRGB(30,30,30)
-listFrame.Parent = editorFrame
-Instance.new("UICorner", listFrame)
+local list = Instance.new("ScrollingFrame")
+list.Size = UDim2.new(0.9,0,0.65,0)
+list.Position = UDim2.new(0.05,0,0.05,0)
+list.BackgroundColor3 = Color3.fromRGB(35,35,35)
+list.ScrollBarThickness = 5
+list.Parent = editorFrame
+Instance.new("UICorner", list)
 
-local layout = Instance.new("UIListLayout", listFrame)
+local layout = Instance.new("UIListLayout", list)
 layout.Padding = UDim.new(0,5)
 
 layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-	listFrame.CanvasSize = UDim2.new(0,0,0,layout.AbsoluteContentSize.Y + 10)
+	list.CanvasSize = UDim2.new(0,0,0,layout.AbsoluteContentSize.Y+10)
 end)
 
-local function refreshList()
-	for _,v in ipairs(listFrame:GetChildren()) do
-		if v:IsA("TextButton") then
-			v:Destroy()
-		end
+local function refresh()
+	for _,v in ipairs(list:GetChildren()) do
+		if v:IsA("TextButton") then v:Destroy() end
 	end
 
 	for _,enemy in ipairs(enemyFolder:GetChildren()) do
-		local btn = Instance.new("TextButton")
-		btn.Size = UDim2.new(1,-10,0,40)
-		btn.Text = enemy.Name
-		btn.BackgroundColor3 = Color3.fromRGB(45,45,45)
-		btn.Parent = listFrame
-		Instance.new("UICorner", btn)
+		local b = Instance.new("TextButton")
+		b.Size = UDim2.new(1,-10,0,35)
+		b.Text = enemy.Name
+		b.BackgroundColor3 = Color3.fromRGB(45,45,45)
+		b.Parent = list
+		Instance.new("UICorner", b)
 
-		btn.MouseButton1Click:Connect(function()
+		b.MouseButton1Click:Connect(function()
 			if highlights[enemy] then
 				highlights[enemy]:Destroy()
 				highlights[enemy] = nil
@@ -171,28 +181,32 @@ local function refreshList()
 	end
 end
 
-refreshList()
-enemyFolder.ChildAdded:Connect(refreshList)
-enemyFolder.ChildRemoved:Connect(refreshList)
+refresh()
+enemyFolder.ChildAdded:Connect(refresh)
+enemyFolder.ChildRemoved:Connect(refresh)
 
-local toggleTarget = Instance.new("TextButton")
-toggleTarget.Size = UDim2.new(0.9,0,0,55)
-toggleTarget.Position = UDim2.new(0.05,0,0.8,0)
-toggleTarget.Text = "Target: OFF"
-toggleTarget.BackgroundColor3 = Color3.fromRGB(50,50,50)
-toggleTarget.Parent = editorFrame
-Instance.new("UICorner", toggleTarget)
+-- BOTÓN TARGET
 
-toggleTarget.MouseButton1Click:Connect(function()
+local targetBtn = Instance.new("TextButton")
+targetBtn.Size = UDim2.new(0.9,0,0,45)
+targetBtn.Position = UDim2.new(0.05,0,0.75,0)
+targetBtn.Text = "Target: OFF"
+targetBtn.BackgroundColor3 = Color3.fromRGB(45,45,45)
+targetBtn.Parent = editorFrame
+Instance.new("UICorner", targetBtn)
+
+targetBtn.MouseButton1Click:Connect(function()
 	targetEnabled = not targetEnabled
-	toggleTarget.Text = targetEnabled and "Target: ON" or "Target: OFF"
+	targetBtn.Text = targetEnabled and "Target: ON" or "Target: OFF"
 end)
 
+-- ANTIS
+
 local antiBtn = Instance.new("TextButton")
-antiBtn.Size = UDim2.new(0.9,0,0,60)
+antiBtn.Size = UDim2.new(0.9,0,0,50)
 antiBtn.Position = UDim2.new(0.05,0,0.1,0)
 antiBtn.Text = "Anti Newell: OFF"
-antiBtn.BackgroundColor3 = Color3.fromRGB(50,50,50)
+antiBtn.BackgroundColor3 = Color3.fromRGB(45,45,45)
 antiBtn.Parent = antisFrame
 Instance.new("UICorner", antiBtn)
 
@@ -207,31 +221,14 @@ antiBtn.MouseButton1Click:Connect(function()
 	end
 end)
 
-local function createTab(name, pos, callback)
-	local b = Instance.new("TextButton")
-	b.Size = UDim2.new(0.5,0,1,0)
-	b.Position = UDim2.new(pos,0,0,0)
-	b.Text = name
-	b.BackgroundColor3 = Color3.fromRGB(45,45,45)
-	b.Parent = tabs
-	Instance.new("UICorner", b)
-
-	b.MouseButton1Click:Connect(callback)
-end
-
-createTab("Newell Editor",0,function() switch("editor") end)
-createTab("Antis",0.5,function() switch("antis") end)
+-- ABRIR / CERRAR
 
 close.MouseButton1Click:Connect(function()
-	main:TweenPosition(UDim2.new(0.5,-350,1,0),"Out","Quad",0.3,true,function()
-		main.Visible = false
-		openButton.Visible = true
-	end)
+	main.Visible = false
+	openBtn.Visible = true
 end)
 
-openButton.MouseButton1Click:Connect(function()
+openBtn.MouseButton1Click:Connect(function()
 	main.Visible = true
-	main.Position = UDim2.new(0.5,-350,1,0)
-	main:TweenPosition(UDim2.new(0.5,-350,0.5,-225),"Out","Quad",0.3,true)
-	openButton.Visible = false
+	openBtn.Visible = false
 end)
