@@ -13,6 +13,7 @@ local targetName = ""
 local active = {}
 local currentHighlight = nil
 local isAnimating = false
+local isOpen = true
 local antiConn
 
 local gui = Instance.new("ScreenGui")
@@ -27,7 +28,6 @@ openBtn.Text = "OPEN"
 openBtn.BackgroundColor3 = Color3.fromRGB(40,40,40)
 openBtn.TextColor3 = Color3.new(1,1,1)
 openBtn.Font = Enum.Font.GothamBold
-openBtn.Visible = true
 openBtn.Parent = gui
 Instance.new("UICorner", openBtn)
 
@@ -39,6 +39,9 @@ main.Active = true
 main.Draggable = true
 main.Parent = gui
 Instance.new("UICorner", main).CornerRadius = UDim.new(0,20)
+
+local openPosition = UDim2.new(0.5,-350,0.5,-250)
+local closedPosition = UDim2.new(0.5,-350,1.2,0)
 
 local close = Instance.new("TextButton")
 close.Size = UDim2.new(0,40,0,40)
@@ -257,29 +260,33 @@ tabAntis.MouseButton1Click:Connect(function()
 end)
 
 close.MouseButton1Click:Connect(function()
-	if isAnimating then return end
+	if isAnimating or not isOpen then return end
 	isAnimating = true
-	
-	local tween = TweenService:Create(main,TweenInfo.new(0.25),{Size=UDim2.new(0,0,0,0)})
+	isOpen = false
+
+	local tween = TweenService:Create(main, TweenInfo.new(0.3), {
+		Position = closedPosition
+	})
 	tween:Play()
 	tween.Completed:Wait()
-	
+
 	main.Visible = false
 	isAnimating = false
 end)
 
 openBtn.MouseButton1Click:Connect(function()
-	if isAnimating then return end
-	if main.Visible then return end
-	
+	if isAnimating or isOpen then return end
 	isAnimating = true
-	
+	isOpen = true
+
 	main.Visible = true
-	main.Size = UDim2.new(0,0,0,0)
-	
-	local tween = TweenService:Create(main,TweenInfo.new(0.25),{Size=UDim2.new(0,700,0,500)})
+	main.Position = closedPosition
+
+	local tween = TweenService:Create(main, TweenInfo.new(0.3), {
+		Position = openPosition
+	})
 	tween:Play()
 	tween.Completed:Wait()
-	
+
 	isAnimating = false
 end)
