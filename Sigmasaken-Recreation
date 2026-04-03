@@ -2374,7 +2374,7 @@ Combat:CreateSlider({
 
 Combat:CreateSection("John doe")
 
-local Players = game:GetService("Players")
+--[[local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
@@ -2571,7 +2571,7 @@ Combat:CreateDropdown({
 			fireArgs[2][1] = selected
 		end
 	end,
-})
+})]]
 
 Combat:CreateSection("Sixer")
 
