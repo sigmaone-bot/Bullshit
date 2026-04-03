@@ -1575,7 +1575,7 @@ Misc:CreateToggle({
     end
 })
 ]]
-getgenv()._oldFireServer = getgenv()._oldFireServer or nil
+--[[getgenv()._oldFireServer = getgenv()._oldFireServer or nil
 getgenv()._VoidRushBypass = getgenv()._VoidRushBypass or false -- toggle СЃРѕСЃС‚РѕСЏРЅРёРµ
 
 -- РҐСѓРє СЃС‚Р°РІРёРј С‚РѕР»СЊРєРѕ РѕРґРёРЅ СЂР°Р·
@@ -1604,7 +1604,7 @@ Misc:CreateToggle({
     Callback = function(state)
         getgenv()._VoidRushBypass = state
     end
-})
+})]]
 
 Misc:CreateSection("Other")
 
@@ -1660,7 +1660,7 @@ Misc:CreateButton({
 })
 
 Misc:CreateSection("Device Spoof")
-local UserInputService = game:GetService("UserInputService")
+--[[local UserInputService = game:GetService("UserInputService")
 
 pcall(function()
     if ReplicatedStorage:FindFirstChild("Modules") and ReplicatedStorage.Modules:FindFirstChild("Network") then
@@ -1778,7 +1778,7 @@ Misc:CreateButton({
             end)
         end
     end
-})
+})]]
 
 
 local Combat = Window:CreateTab("Combat", "swords")
@@ -2142,7 +2142,7 @@ end
 
 end)
 
-local player = Players.LocalPlayer
+--[[local player = Players.LocalPlayer
 local remote = game:GetService("ReplicatedStorage").Modules.Network.Network.RemoteEvent
 if remote and remote.ClassName == "RemoteEvent" then
     local blockEnabled = true
@@ -2214,7 +2214,7 @@ Combat:CreateSlider({
             end
         end
     })
-end
+end]]
 
 Combat:CreateSection("Guest 1337")
 
