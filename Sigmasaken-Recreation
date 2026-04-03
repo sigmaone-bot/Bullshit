@@ -1314,7 +1314,7 @@ Misc:CreateSlider({
    end,
 })
 
-Misc:CreateSection("Sk8 stuff")
+--[[Misc:CreateSection("Sk8 stuff")
 Misc:CreateLabel("Sk8 turn speed, trick power, and base speed should be applied before round begins!", 4483362458, Color3.fromRGB(255,100,100), false)
 
 --// Skateboard Anti-Rebound (Cleaned + Editable)
@@ -1325,9 +1325,7 @@ local PlayerName = LocalPlayer.Name
 getgenv().BlockSkateRebound = false
 
 -- RemoteEvent reference
-local NetworkRemote = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent")
-
--- Safety: store original __namecall only once
+local NetworkRemote = game:GetService("ReplicatedStorage").Modules.Network.Network.RemoteEvent -- Safety: store original __namecall only once
 local originalNamecall
 originalNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     local args = {...}
@@ -1576,7 +1574,7 @@ Misc:CreateToggle({
         AutoSprintToggle(state)
     end
 })
-
+]]
 getgenv()._oldFireServer = getgenv()._oldFireServer or nil
 getgenv()._VoidRushBypass = getgenv()._VoidRushBypass or false -- toggle СЃРѕСЃС‚РѕСЏРЅРёРµ
 
