@@ -538,7 +538,7 @@ local Window = Rayfield:CreateWindow({
    DisableBuildWarnings = true,
    ConfigurationSaving = {
       Enabled = true,
-      FolderName = Folderpro,
+      FolderName = "Folderpro",
       FileName = "Sigma-Sakened"
    },
    Discord = {
