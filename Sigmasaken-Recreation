@@ -1209,7 +1209,7 @@ local Allowed = {
     Sk8Trick = true,
     ManicFixation = true,
     FixingGenerator = true,
-    666EvisLunge = true,
+    ["666EvisLunge"] = true,
     Sk8 = true
 }
 
