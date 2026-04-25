@@ -1315,7 +1315,7 @@ Misc:CreateSlider({
    end,
 })
 
---[[Misc:CreateSection("Sk8 stuff")
+Misc:CreateSection("Sk8 stuff")
 Misc:CreateLabel("Sk8 turn speed, trick power, and base speed should be applied before round begins!", 4483362458, Color3.fromRGB(255,100,100), false)
 
 --// Skateboard Anti-Rebound (Cleaned + Editable)
@@ -1575,7 +1575,6 @@ Misc:CreateToggle({
         AutoSprintToggle(state)
     end
 })
-]]
 --[[getgenv()._oldFireServer = getgenv()._oldFireServer or nil
 getgenv()._VoidRushBypass = getgenv()._VoidRushBypass or false -- toggle СЃРѕСЃС‚РѕСЏРЅРёРµ
 
