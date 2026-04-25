@@ -1407,7 +1407,7 @@ Misc:CreateSlider({
    end,
 })
 
-local player = Players.LocalPlayer
+--[[local player = Players.LocalPlayer
 local Remote = ReplicatedStorage.Modules.Network.RemoteEvent
 
 local interval = 0.5 -- segundos entre cada envío
@@ -1453,7 +1453,7 @@ Misc:CreateSlider({
         interval = val
    end,
 })
-
+]]
 local player = Players.LocalPlayer
 local RemoteEvent = ReplicatedStorage.Modules.Network.RemoteEvent
 local UIS = game:GetService("UserInputService")
