@@ -1407,8 +1407,8 @@ Misc:CreateSlider({
    end,
 })
 
---[[local player = Players.LocalPlayer
-local Remote = ReplicatedStorage.Modules.Network.RemoteEvent
+local player = Players.LocalPlayer
+--[[local Remote = ReplicatedStorage.Modules.Network.RemoteEvent
 
 local interval = 0.5 -- segundos entre cada envío
 local running = false
@@ -1453,7 +1453,6 @@ Misc:CreateSlider({
         interval = val
    end,
 })
-]]
 local player = Players.LocalPlayer
 local RemoteEvent = ReplicatedStorage.Modules.Network.RemoteEvent
 local UIS = game:GetService("UserInputService")
@@ -1575,7 +1574,7 @@ Misc:CreateToggle({
         AutoSprintToggle(state)
     end
 })
---[[getgenv()._oldFireServer = getgenv()._oldFireServer or nil
+getgenv()._oldFireServer = getgenv()._oldFireServer or nil
 getgenv()._VoidRushBypass = getgenv()._VoidRushBypass or false -- toggle СЃРѕСЃС‚РѕСЏРЅРёРµ
 
 -- РҐСѓРє СЃС‚Р°РІРёРј С‚РѕР»СЊРєРѕ РѕРґРёРЅ СЂР°Р·
@@ -1604,7 +1603,8 @@ Misc:CreateToggle({
     Callback = function(state)
         getgenv()._VoidRushBypass = state
     end
-})]]
+})
+]]
 
 Misc:CreateSection("Other")
 
