@@ -256,7 +256,7 @@ local grenadeEnabled = false
 local grenadeConn
 
 local function removeCollision(obj)
-	if obj:IsA("MeshPart") and obj.Name == "execnade" then
+	if obj:IsA("MeshPart") and obj.Name == "Execnade" then
 		obj.CanCollide = false
 		obj.CanTouch = false
 		obj.CanQuery = false
@@ -279,46 +279,4 @@ antiGrenadeBtn.MouseButton1Click:Connect(function()
 	
 	antiGrenadeBtn.Text = grenadeEnabled and "Anti X-TREME grenades: ON" or "Anti X-TREME grenades: OFF"
 	antiGrenadeBtn.BackgroundColor3 = grenadeEnabled and Color3.fromRGB(255,120,120) or Color3.fromRGB(45,45,45)
-end)
-
-local lagBtn = makeButton(antis,"NPC Lag: OFF",UDim2.new(0.07,0,0.36,0))
-
-local npcLagEnabled = false
-local npcConn
-local buffer = {}
-local delayFrames = 8 -- ajustá esto
-
-local function startNPCLag()
-	npcConn = game:GetService("RunService").Heartbeat:Connect(function()
-		for _,npc in ipairs(enemyFolder:GetChildren()) do
-			local root = npc:FindFirstChild("HumanoidRootPart")
-			if root then
-				buffer[npc] = buffer[npc] or {}
-
-				table.insert(buffer[npc], root.CFrame)
-
-				if #buffer[npc] > delayFrames then
-					root.CFrame = table.remove(buffer[npc], 1)
-				end
-			end
-		end
-	end)
-end
-
-local function stopNPCLag()
-	if npcConn then npcConn:Disconnect() end
-	buffer = {}
-end
-
-lagBtn.MouseButton1Click:Connect(function()
-	npcLagEnabled = not npcLagEnabled
-	
-	if npcLagEnabled then
-		startNPCLag()
-	else
-		stopNPCLag()
-	end
-	
-	lagBtn.Text = npcLagEnabled and "NPC Lag: ON" or "NPC Lag: OFF"
-	lagBtn.BackgroundColor3 = npcLagEnabled and Color3.fromRGB(255,170,0) or Color3.fromRGB(45,45,45)
 end)
