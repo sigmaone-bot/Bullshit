@@ -248,3 +248,35 @@ toggleBtn.MouseButton1Click:Connect(function()
 	
 	toggleBtn.BackgroundColor3 = isOpen and Color3.fromRGB(0,200,0) or Color3.fromRGB(200,0,0)
 end)
+
+-- ANTI X-TREME GRENADES
+local antiGrenadeBtn = makeButton(antis,"Anti X-TREME grenades: OFF",UDim2.new(0.07,0,0.22,0))
+
+local grenadeEnabled = false
+local grenadeConn
+
+local function removeCollision(obj)
+	if obj:IsA("MeshPart") and obj.Name == "execnade" then
+		obj.CanCollide = false
+		obj.CanTouch = false
+		obj.CanQuery = false
+	end
+end
+
+antiGrenadeBtn.MouseButton1Click:Connect(function()
+	grenadeEnabled = not grenadeEnabled
+	
+	if grenadeEnabled then
+		-- aplicar a los actuales
+		for _,v in ipairs(projectileFolder:GetDescendants()) do
+			removeCollision(v)
+		end
+		-- detectar nuevos
+		grenadeConn = projectileFolder.DescendantAdded:Connect(removeCollision)
+	else
+		if grenadeConn then grenadeConn:Disconnect() end
+	end
+	
+	antiGrenadeBtn.Text = grenadeEnabled and "Anti X-TREME grenades: ON" or "Anti X-TREME grenades: OFF"
+	antiGrenadeBtn.BackgroundColor3 = grenadeEnabled and Color3.fromRGB(255,120,120) or Color3.fromRGB(45,45,45)
+end)
