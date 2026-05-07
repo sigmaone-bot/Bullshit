@@ -472,7 +472,7 @@ local function HandleTable(tablePart)
 
 		tablePart.Size =
 			tablePart.Size * 200
-	end
+	
 
 	tablePart.CustomPhysicalProperties =
 		PhysicalProperties.new(
