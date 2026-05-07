@@ -470,12 +470,8 @@ local function HandleTable(tablePart)
 	tablePart.CFrame =
 		blueSpawn.CFrame * CFrame.new(0,-1,0)
 
-	if not tablePart:GetAttribute("Scaled") then
-
-		tablePart:SetAttribute("Scaled", true)
-
 		tablePart.Size =
-			tablePart.Size * 100000
+			tablePart.Size * 200
 	end
 
 	tablePart.CustomPhysicalProperties =
