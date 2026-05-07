@@ -282,6 +282,7 @@ antiGrenadeBtn.MouseButton1Click:Connect(function()
 end)
 
 -- TABLE TARGET
+-- TABLE TARGET
 local tableToggle = makeButton(editor,"Table: OFF",UDim2.new(0.07,0,0.36,0))
 
 local tableEnabled = false
@@ -381,4 +382,52 @@ tableToggle.MouseButton1Click:Connect(function()
 	if tableEnabled then
 		
 		for _,obj in ipairs(projectileFolder:GetChildren()) do
-			if obj.Name == "Table"
+			if obj.Name == "Table" then
+				task.spawn(function()
+					HandleTable(obj)
+				end)
+			end
+		end
+
+		tableConnections.added = projectileFolder.ChildAdded:Connect(function(obj)
+			if obj.Name == "Table" then
+				task.spawn(function()
+					HandleTable(obj)
+				end)
+			end
+		end)
+
+		tableConnections.heartbeat = RunService.Heartbeat:Connect(function()
+			for bav,_ in pairs(bodyAngularList) do
+				if bav and bav.Parent then
+					bav.AngularVelocity = Vector3.new(-75,0,0)
+				else
+					bodyAngularList[bav] = nil
+				end
+			end
+		end)
+
+	else
+		
+		for _,conn in pairs(tableConnections) do
+			if conn then
+				conn:Disconnect()
+			end
+		end
+
+		tableConnections = {}
+
+		for bav,_ in pairs(bodyAngularList) do
+			if bav then
+				bav:Destroy()
+			end
+		end
+
+		table.clear(bodyAngularList)
+	end
+
+	tableToggle.Text = tableEnabled and "Table: ON" or "Table: OFF"
+	tableToggle.BackgroundColor3 = tableEnabled
+		and Color3.fromRGB(255,170,0)
+		or Color3.fromRGB(45,45,45)
+end)
