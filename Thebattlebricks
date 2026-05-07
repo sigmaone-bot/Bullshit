@@ -584,3 +584,29 @@ tableToggle.MouseButton1Click:Connect(function()
 		and Color3.fromRGB(255,170,0)
 		or Color3.fromRGB(45,45,45)
 end)
+
+-- TABS
+tabEditor.MouseButton1Click:Connect(function()
+
+	editor.Visible = true
+	antis.Visible = false
+end)
+
+tabAntis.MouseButton1Click:Connect(function()
+
+	editor.Visible = false
+	antis.Visible = true
+end)
+
+-- TOGGLE GUI
+toggleBtn.MouseButton1Click:Connect(function()
+
+	isOpen = not isOpen
+
+	main.Visible = isOpen
+
+	toggleBtn.BackgroundColor3 =
+		isOpen
+		and Color3.fromRGB(0,200,0)
+		or Color3.fromRGB(200,0,0)
+end)
