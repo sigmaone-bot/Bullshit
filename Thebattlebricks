@@ -470,9 +470,8 @@ local function HandleTable(tablePart)
 	tablePart.CFrame =
 		blueSpawn.CFrame * CFrame.new(0,-1,0)
 
-		tablePart.Size =
-			tablePart.Size * 200
-	
+	tablePart.Size =
+		tablePart.Size * 200
 
 	tablePart.CustomPhysicalProperties =
 		PhysicalProperties.new(
