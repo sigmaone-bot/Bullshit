@@ -442,9 +442,6 @@ local tableToggle = makeButton(
 	UDim2.new(0.07,0,0.36,0)
 )
 
-local bodyAngularList = {}
-local tableConnections = {}
-local tableEnabled = false
 
 local function trackBAV(bav)
 	if bav and bav:IsA("BodyAngularVelocity") then
