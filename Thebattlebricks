@@ -436,59 +436,39 @@ antiGrenadeBtn.MouseButton1Click:Connect(function()
 		or Color3.fromRGB(45,45,45)
 end)
 
--- TABLE
 local tableToggle = makeButton(
 	antis,
 	"Table: OFF",
 	UDim2.new(0.07,0,0.36,0)
 )
 
-local function trackBAV(bav)
+local bodyAngularList = {}
+local tableConnections = {}
+local tableEnabled = false
 
+local function trackBAV(bav)
 	if bav and bav:IsA("BodyAngularVelocity") then
 		bodyAngularList[bav] = true
 	end
 end
 
 local function removeTouchInterest(descendant)
-
-	if descendant
-	and descendant:IsA("TouchInterest") then
-
+	if descendant and descendant:IsA("TouchInterest") then
 		descendant:Destroy()
 	end
 end
 
 local function HandleTable(tablePart)
 
-	if not tablePart then
-		return
-	end
-
 	if not tablePart:IsA("BasePart") then
 		return
 	end
 
-	local baseFolder =
-		npcFolders:FindFirstChild("BaseFolder")
-
-	if not baseFolder then
-		return
-	end
-
-	local blueBase =
-		baseFolder:FindFirstChild("Blue Base")
-
-	if not blueBase then
-		return
-	end
-
 	local blueSpawn =
-		blueBase:FindFirstChild("Spawn")
-
-	if not blueSpawn then
-		return
-	end
+		npcFolders
+		:WaitForChild("BaseFolder")
+		:WaitForChild("Blue Base")
+		:WaitForChild("Spawn")
 
 	tablePart.CFrame =
 		blueSpawn.CFrame * CFrame.new(0,-1,0)
@@ -548,9 +528,7 @@ tableToggle.MouseButton1Click:Connect(function()
 		) do
 
 			if obj.Name == "Table" then
-				task.spawn(function()
-					HandleTable(obj)
-				end)
+				HandleTable(obj)
 			end
 		end
 
@@ -559,10 +537,7 @@ tableToggle.MouseButton1Click:Connect(function()
 				function(child)
 
 					if child.Name == "Table" then
-
-						task.spawn(function()
-							HandleTable(child)
-						end)
+						HandleTable(child)
 					end
 				end
 			)
@@ -586,7 +561,6 @@ tableToggle.MouseButton1Click:Connect(function()
 	else
 
 		for _,conn in pairs(tableConnections) do
-
 			if conn then
 				conn:Disconnect()
 			end
@@ -595,15 +569,12 @@ tableToggle.MouseButton1Click:Connect(function()
 		tableConnections = {}
 
 		for bav,_ in pairs(bodyAngularList) do
-
 			if bav then
 				bav:Destroy()
 			end
 		end
 
-		for k in pairs(bodyAngularList) do
-			bodyAngularList[k] = nil
-		end
+		table.clear(bodyAngularList)
 	end
 
 	tableToggle.Text =
@@ -615,30 +586,4 @@ tableToggle.MouseButton1Click:Connect(function()
 		tableEnabled
 		and Color3.fromRGB(255,170,0)
 		or Color3.fromRGB(45,45,45)
-end)
-
--- TABS
-tabEditor.MouseButton1Click:Connect(function()
-
-	editor.Visible = true
-	antis.Visible = false
-end)
-
-tabAntis.MouseButton1Click:Connect(function()
-
-	editor.Visible = false
-	antis.Visible = true
-end)
-
--- TOGGLE GUI
-toggleBtn.MouseButton1Click:Connect(function()
-
-	isOpen = not isOpen
-
-	main.Visible = isOpen
-
-	toggleBtn.BackgroundColor3 =
-		isOpen
-		and Color3.fromRGB(0,200,0)
-		or Color3.fromRGB(200,0,0)
 end)
