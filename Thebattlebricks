@@ -20,6 +20,9 @@ local grenadeConn
 
 local tableConnections = {}
 local bodyAngularList = {}
+local activeTables = {}
+
+local tableLoopRunning = false
 
 -- GUI
 local gui = Instance.new("ScreenGui")
@@ -46,7 +49,7 @@ Instance.new("UICorner", main).CornerRadius = UDim.new(0,20)
 
 local isOpen = true
 
--- SIMPLE DRAG
+-- DRAG
 do
 	local dragging = false
 	local dragStart
@@ -393,9 +396,9 @@ antiGrenadeBtn.MouseButton1Click:Connect(function()
 		or Color3.fromRGB(45,45,45)
 end)
 
--- TABLE TARGET
+-- TABLE
 local tableToggle = makeButton(
-	editor,
+	antis,
 	"Table: OFF",
 	UDim2.new(0.07,0,0.36,0)
 )
@@ -413,9 +416,23 @@ local function removeTouchInterest(desc)
 end
 
 local function HandleTable(tablePart)
-	if not tablePart or not tablePart:IsA("BasePart") then
+	if not tableEnabled then
 		return
 	end
+
+	if not tablePart then
+		return
+	end
+
+	if not tablePart:IsA("BasePart") then
+		return
+	end
+
+	if activeTables[tablePart] then
+		return
+	end
+
+	activeTables[tablePart] = true
 
 	local npcFolders = Workspace:FindFirstChild("NPCFolders")
 	if not npcFolders then return end
@@ -431,31 +448,28 @@ local function HandleTable(tablePart)
 
 	local spawnCF = spawnPart.CFrame * CFrame.new(0,-1,0)
 
-	task.wait()
-
-	if not tablePart.Parent then
-		return
-	end
-
 	tablePart.Anchored = false
 	tablePart.CanCollide = true
 	tablePart.Massless = false
 
 	tablePart.CFrame = spawnCF
+
 	tablePart.AssemblyLinearVelocity = Vector3.zero
 	tablePart.AssemblyAngularVelocity = Vector3.zero
 
-	if tablePart.Size.Magnitude < 500 then
-		tablePart.Size *= 150
+	if not tablePart:GetAttribute("Scaled") then
+		tablePart:SetAttribute("Scaled", true)
+
+		if tablePart.Size.Magnitude < 500 then
+			tablePart.Size *= 150
+		end
 	end
 
 	tablePart.CustomPhysicalProperties =
 		PhysicalProperties.new(
-			100,
+			10,
 			0.3,
-			0.5,
-			1,
-			1
+			0.5
 		)
 
 	for _,v in ipairs(tablePart:GetDescendants()) do
@@ -477,14 +491,9 @@ local function HandleTable(tablePart)
 		bav.Parent = tablePart
 	end
 
-	bav.MaxTorque = Vector3.new(
-		math.huge,
-		math.huge,
-		math.huge
-	)
-
-	bav.P = 125000
-	bav.AngularVelocity = Vector3.new(-75,0,0)
+	bav.MaxTorque = Vector3.new(50000,0,0)
+	bav.P = 3000
+	bav.AngularVelocity = Vector3.new(-20,0,0)
 
 	trackBAV(bav)
 
@@ -492,20 +501,42 @@ local function HandleTable(tablePart)
 		removeTouchInterest(desc)
 	end
 
-	task.spawn(function()
-		while tableEnabled and tablePart and tablePart.Parent do
-			tablePart.CFrame = spawnCF
-			tablePart.AssemblyLinearVelocity = Vector3.zero
+	activeTables[tablePart] = spawnCF
+end
 
-			RunService.Heartbeat:Wait()
-		end
-	end)
+local function startTableLoop()
+	if tableLoopRunning then
+		return
+	end
+
+	tableLoopRunning = true
+
+	tableConnections.loop =
+		RunService.Heartbeat:Connect(function()
+
+			for tablePart,spawnCF in pairs(activeTables) do
+
+				if not tableEnabled
+				or not tablePart
+				or not tablePart.Parent then
+
+					activeTables[tablePart] = nil
+
+				else
+					tablePart.CFrame = spawnCF
+					tablePart.AssemblyLinearVelocity = Vector3.zero
+				end
+			end
+		end)
 end
 
 tableToggle.MouseButton1Click:Connect(function()
+
 	tableEnabled = not tableEnabled
 
 	if tableEnabled then
+
+		startTableLoop()
 
 		for _,obj in ipairs(projectileFolder:GetChildren()) do
 			if obj.Name == "Table" then
@@ -517,22 +548,11 @@ tableToggle.MouseButton1Click:Connect(function()
 
 		tableConnections.added =
 			projectileFolder.ChildAdded:Connect(function(obj)
+
 				if obj.Name == "Table" then
 					task.spawn(function()
 						HandleTable(obj)
 					end)
-				end
-			end)
-
-		tableConnections.heartbeat =
-			RunService.Heartbeat:Connect(function()
-				for bav,_ in pairs(bodyAngularList) do
-					if bav and bav.Parent then
-						bav.AngularVelocity =
-							Vector3.new(-75,0,0)
-					else
-						bodyAngularList[bav] = nil
-					end
 				end
 			end)
 
@@ -546,6 +566,8 @@ tableToggle.MouseButton1Click:Connect(function()
 
 		tableConnections = {}
 
+		tableLoopRunning = false
+
 		for bav,_ in pairs(bodyAngularList) do
 			if bav then
 				bav:Destroy()
@@ -554,6 +576,10 @@ tableToggle.MouseButton1Click:Connect(function()
 
 		for k in pairs(bodyAngularList) do
 			bodyAngularList[k] = nil
+		end
+
+		for k in pairs(activeTables) do
+			activeTables[k] = nil
 		end
 	end
 
