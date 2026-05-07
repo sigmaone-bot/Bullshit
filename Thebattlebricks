@@ -4,7 +4,8 @@ local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 local projectileFolder = Workspace:WaitForChild("Projectile")
-local enemyFolder = Workspace:WaitForChild("NPCFolders"):WaitForChild("EnemyFolder")
+local npcFolders = Workspace:WaitForChild("NPCFolders")
+local enemyFolder = npcFolders:WaitForChild("EnemyFolder")
 
 local targetEnabled = false
 local antiEnabled = false
@@ -20,9 +21,6 @@ local grenadeConn
 
 local tableConnections = {}
 local bodyAngularList = {}
-local activeTables = {}
-
-local tableLoopRunning = false
 
 -- GUI
 local gui = Instance.new("ScreenGui")
@@ -37,6 +35,7 @@ toggleBtn.Position = UDim2.new(0,10,0,80)
 toggleBtn.Text = ""
 toggleBtn.BackgroundColor3 = Color3.fromRGB(0,200,0)
 toggleBtn.Parent = gui
+
 Instance.new("UICorner", toggleBtn)
 
 -- MAIN
@@ -45,6 +44,7 @@ main.Size = UDim2.new(0,700,0,500)
 main.Position = UDim2.new(0.5,-350,0.5,-250)
 main.BackgroundColor3 = Color3.fromRGB(25,25,25)
 main.Parent = gui
+
 Instance.new("UICorner", main).CornerRadius = UDim.new(0,20)
 
 local isOpen = true
@@ -71,6 +71,7 @@ do
 
 	main.InputChanged:Connect(function(input)
 		if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+
 			local delta = input.Position - dragStart
 
 			main.Position = UDim2.new(
@@ -84,9 +85,10 @@ do
 end
 
 -- TABS
-local tabs = Instance.new("Frame", main)
+local tabs = Instance.new("Frame")
 tabs.Size = UDim2.new(1,0,0,60)
 tabs.BackgroundTransparency = 1
+tabs.Parent = main
 
 local function makeTab(name,x)
 	local b = Instance.new("TextButton")
@@ -111,19 +113,22 @@ end
 local tabEditor = makeTab("Newell Editor",0)
 local tabAntis = makeTab("Antis",0.5)
 
-local container = Instance.new("Frame", main)
+local container = Instance.new("Frame")
 container.Size = UDim2.new(1,0,1,-60)
 container.Position = UDim2.new(0,0,0,60)
 container.BackgroundTransparency = 1
+container.Parent = main
 
-local editor = Instance.new("Frame", container)
+local editor = Instance.new("Frame")
 editor.Size = UDim2.new(1,0,1,0)
 editor.BackgroundTransparency = 1
+editor.Parent = container
 
-local antis = Instance.new("Frame", container)
+local antis = Instance.new("Frame")
 antis.Size = UDim2.new(1,0,1,0)
 antis.Visible = false
 antis.BackgroundTransparency = 1
+antis.Parent = container
 
 local function makeButton(parent,text,pos)
 	local b = Instance.new("TextButton")
@@ -173,7 +178,7 @@ box.FocusLost:Connect(function()
 end)
 
 -- LIST
-local list = Instance.new("ScrollingFrame", editor)
+local list = Instance.new("ScrollingFrame")
 
 list.Size = UDim2.new(0.45,0,0.82,0)
 list.Position = UDim2.new(0.5,0,0.08,0)
@@ -185,10 +190,12 @@ list.Parent = editor
 
 Instance.new("UICorner", list)
 
-local layout = Instance.new("UIListLayout", list)
+local layout = Instance.new("UIListLayout")
 layout.Padding = UDim.new(0,6)
+layout.Parent = list
 
 layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+
 	list.CanvasSize = UDim2.new(
 		0,
 		0,
@@ -206,11 +213,13 @@ local function clearList()
 end
 
 local function setHighlight(model)
+
 	if currentHighlight and currentHighlight.Parent then
 		currentHighlight:Destroy()
 	end
 
 	if model and model.Parent then
+
 		local h = Instance.new("Highlight")
 
 		h.FillColor = Color3.fromRGB(255,120,120)
@@ -226,9 +235,11 @@ local function setHighlight(model)
 end
 
 local function refreshList()
+
 	clearList()
 
 	for _,v in ipairs(enemyFolder:GetChildren()) do
+
 		local b = Instance.new("TextButton")
 
 		b.Size = UDim2.new(1,-10,0,45)
@@ -254,6 +265,7 @@ refreshList()
 
 -- TARGET SYSTEM
 local function getTarget()
+
 	local t = enemyFolder:FindFirstChild(targetName)
 
 	if not t then
@@ -270,6 +282,7 @@ local function getTarget()
 end
 
 local function follow(part)
+
 	if active[part] then
 		return
 	end
@@ -277,7 +290,9 @@ local function follow(part)
 	active[part] = true
 
 	task.spawn(function()
+
 		while targetEnabled and part and part.Parent do
+
 			local t = getTarget()
 
 			if t and t.Parent and part and part.Parent then
@@ -292,8 +307,12 @@ local function follow(part)
 end
 
 projectileFolder.DescendantAdded:Connect(function(obj)
+
 	if targetEnabled then
-		if obj.Name == "Teapot" or obj.Name == "FireTeapot" then
+
+		if obj.Name == "Teapot"
+		or obj.Name == "FireTeapot" then
+
 			task.defer(function()
 				follow(obj)
 			end)
@@ -302,6 +321,7 @@ projectileFolder.DescendantAdded:Connect(function(obj)
 end)
 
 targetToggle.MouseButton1Click:Connect(function()
+
 	targetEnabled = not targetEnabled
 
 	targetToggle.Text =
@@ -321,23 +341,32 @@ local antiBtn = makeButton(
 )
 
 local function applyAnti(obj)
+
 	if obj:IsA("BasePart") then
-		if obj.Name == "Teapot" or obj.Name == "FireTeapot" then
+
+		if obj.Name == "Teapot"
+		or obj.Name == "FireTeapot" then
+
 			obj.Anchored = true
 		end
 	end
 end
 
 antiBtn.MouseButton1Click:Connect(function()
+
 	antiEnabled = not antiEnabled
 
 	if antiEnabled then
+
 		for _,v in ipairs(projectileFolder:GetDescendants()) do
 			applyAnti(v)
 		end
 
-		antiConn = projectileFolder.DescendantAdded:Connect(applyAnti)
+		antiConn =
+			projectileFolder.DescendantAdded:Connect(applyAnti)
+
 	else
+
 		if antiConn then
 			antiConn:Disconnect()
 			antiConn = nil
@@ -345,7 +374,9 @@ antiBtn.MouseButton1Click:Connect(function()
 	end
 
 	antiBtn.Text =
-		antiEnabled and "Anti Newell: ON" or "Anti Newell: OFF"
+		antiEnabled
+		and "Anti Newell: ON"
+		or "Anti Newell: OFF"
 
 	antiBtn.BackgroundColor3 =
 		antiEnabled
@@ -361,7 +392,10 @@ local antiGrenadeBtn = makeButton(
 )
 
 local function removeCollision(obj)
-	if obj:IsA("MeshPart") and obj.Name == "Execnade" then
+
+	if obj:IsA("MeshPart")
+	and obj.Name == "Execnade" then
+
 		obj.CanCollide = false
 		obj.CanTouch = false
 		obj.CanQuery = false
@@ -369,16 +403,22 @@ local function removeCollision(obj)
 end
 
 antiGrenadeBtn.MouseButton1Click:Connect(function()
+
 	grenadeEnabled = not grenadeEnabled
 
 	if grenadeEnabled then
+
 		for _,v in ipairs(projectileFolder:GetDescendants()) do
 			removeCollision(v)
 		end
 
 		grenadeConn =
-			projectileFolder.DescendantAdded:Connect(removeCollision)
+			projectileFolder.DescendantAdded:Connect(
+				removeCollision
+			)
+
 	else
+
 		if grenadeConn then
 			grenadeConn:Disconnect()
 			grenadeConn = nil
@@ -404,13 +444,17 @@ local tableToggle = makeButton(
 )
 
 local function trackBAV(bav)
+
 	if bav and bav:IsA("BodyAngularVelocity") then
 		bodyAngularList[bav] = true
 	end
 end
 
 local function removeTouchInterest(descendant)
-	if descendant and descendant:IsA("TouchInterest") then
+
+	if descendant
+	and descendant:IsA("TouchInterest") then
+
 		descendant:Destroy()
 	end
 end
@@ -425,22 +469,30 @@ local function HandleTable(tablePart)
 		return
 	end
 
-	local npcFolder = Workspace:FindFirstChild("NPCFolders")
-	if not npcFolder then return end
+	local baseFolder =
+		npcFolders:FindFirstChild("BaseFolder")
 
-	local baseFolder = npcFolder:FindFirstChild("BaseFolder")
-	if not baseFolder then return end
+	if not baseFolder then
+		return
+	end
 
-	local blueBase = baseFolder:FindFirstChild("Blue Base")
-	if not blueBase then return end
+	local blueBase =
+		baseFolder:FindFirstChild("Blue Base")
 
-	local blueSpawn = blueBase:FindFirstChild("Spawn")
-	if not blueSpawn then return end
+	if not blueBase then
+		return
+	end
+
+	local blueSpawn =
+		blueBase:FindFirstChild("Spawn")
+
+	if not blueSpawn then
+		return
+	end
 
 	tablePart.CFrame =
 		blueSpawn.CFrame * CFrame.new(0,-1,0)
 
-	-- EVITAR ESCALAR MIL VECES
 	if not tablePart:GetAttribute("Scaled") then
 
 		tablePart:SetAttribute("Scaled", true)
@@ -491,7 +543,6 @@ tableToggle.MouseButton1Click:Connect(function()
 
 	if tableEnabled then
 
-		-- TABLES EXISTENTES
 		for _,obj in ipairs(
 			projectileFolder:GetChildren()
 		) do
@@ -503,7 +554,6 @@ tableToggle.MouseButton1Click:Connect(function()
 			end
 		end
 
-		-- NUEVAS TABLES
 		tableConnections.added =
 			projectileFolder.ChildAdded:Connect(
 				function(child)
@@ -517,7 +567,6 @@ tableToggle.MouseButton1Click:Connect(function()
 				end
 			)
 
-		-- MANTENER SPIN
 		tableConnections.heartbeat =
 			RunService.Heartbeat:Connect(function()
 
@@ -537,6 +586,7 @@ tableToggle.MouseButton1Click:Connect(function()
 	else
 
 		for _,conn in pairs(tableConnections) do
+
 			if conn then
 				conn:Disconnect()
 			end
@@ -545,6 +595,7 @@ tableToggle.MouseButton1Click:Connect(function()
 		tableConnections = {}
 
 		for bav,_ in pairs(bodyAngularList) do
+
 			if bav then
 				bav:Destroy()
 			end
@@ -564,4 +615,30 @@ tableToggle.MouseButton1Click:Connect(function()
 		tableEnabled
 		and Color3.fromRGB(255,170,0)
 		or Color3.fromRGB(45,45,45)
+end)
+
+-- TABS
+tabEditor.MouseButton1Click:Connect(function()
+
+	editor.Visible = true
+	antis.Visible = false
+end)
+
+tabAntis.MouseButton1Click:Connect(function()
+
+	editor.Visible = false
+	antis.Visible = true
+end)
+
+-- TOGGLE GUI
+toggleBtn.MouseButton1Click:Connect(function()
+
+	isOpen = not isOpen
+
+	main.Visible = isOpen
+
+	toggleBtn.BackgroundColor3 =
+		isOpen
+		and Color3.fromRGB(0,200,0)
+		or Color3.fromRGB(200,0,0)
 end)
