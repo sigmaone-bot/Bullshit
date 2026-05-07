@@ -396,6 +396,8 @@ antiGrenadeBtn.MouseButton1Click:Connect(function()
 		or Color3.fromRGB(45,45,45)
 end)
 
+-- REEMPLAZA COMPLETAMENTE LA SECCIÓN "-- TABLE" POR ESTA
+
 -- TABLE
 local tableToggle = makeButton(
 	antis,
@@ -409,16 +411,13 @@ local function trackBAV(bav)
 	end
 end
 
-local function removeTouchInterest(desc)
-	if desc and desc:IsA("TouchInterest") then
-		desc:Destroy()
+local function removeTouchInterest(descendant)
+	if descendant and descendant:IsA("TouchInterest") then
+		descendant:Destroy()
 	end
 end
 
 local function HandleTable(tablePart)
-	if not tableEnabled then
-		return
-	end
 
 	if not tablePart then
 		return
@@ -428,106 +427,62 @@ local function HandleTable(tablePart)
 		return
 	end
 
-	if activeTables[tablePart] then
-		return
-	end
+	local npcFolder = Workspace:FindFirstChild("NPCFolders")
+	if not npcFolder then return end
 
-	activeTables[tablePart] = true
-
-	local npcFolders = Workspace:FindFirstChild("NPCFolders")
-	if not npcFolders then return end
-
-	local baseFolder = npcFolders:FindFirstChild("BaseFolder")
+	local baseFolder = npcFolder:FindFirstChild("BaseFolder")
 	if not baseFolder then return end
 
 	local blueBase = baseFolder:FindFirstChild("Blue Base")
 	if not blueBase then return end
 
-	local spawnPart = blueBase:FindFirstChild("Spawn")
-	if not spawnPart then return end
+	local blueSpawn = blueBase:FindFirstChild("Spawn")
+	if not blueSpawn then return end
 
-	local spawnCF = spawnPart.CFrame * CFrame.new(0,-1,0)
+	tablePart.CFrame =
+		blueSpawn.CFrame * CFrame.new(0,-1,0)
 
-	tablePart.Anchored = false
-	tablePart.CanCollide = true
-	tablePart.Massless = false
-
-	tablePart.CFrame = spawnCF
-
-	tablePart.AssemblyLinearVelocity = Vector3.zero
-	tablePart.AssemblyAngularVelocity = Vector3.zero
-
+	-- SOLO ESCALAR UNA VEZ
 	if not tablePart:GetAttribute("Scaled") then
+
 		tablePart:SetAttribute("Scaled", true)
 
-		if tablePart.Size.Magnitude < 500 then
-			tablePart.Size *= 150
-		end
+		tablePart.Size =
+			tablePart.Size * 100000
 	end
 
 	tablePart.CustomPhysicalProperties =
 		PhysicalProperties.new(
-			10,
+			0.7,
 			0.3,
 			0.5
 		)
 
-	for _,v in ipairs(tablePart:GetDescendants()) do
-		if v:IsA("BodyPosition")
-		or v:IsA("BodyVelocity")
-		or v:IsA("LinearVelocity")
-		or v:IsA("VectorForce")
-		or v:IsA("Torque") then
-			v:Destroy()
-		end
-	end
-
 	local bav =
-		tablePart:FindFirstChildOfClass("BodyAngularVelocity")
+		tablePart:FindFirstChildOfClass(
+			"BodyAngularVelocity"
+		)
 
 	if not bav then
+
 		bav = Instance.new("BodyAngularVelocity")
-		bav.Name = "Spin"
+
+		bav.MaxTorque =
+			Vector3.new(1e6,1e6,1e6)
+
+		bav.AngularVelocity =
+			Vector3.new(-40,0,0)
+
 		bav.Parent = tablePart
 	end
 
-	bav.MaxTorque = Vector3.new(50000,0,0)
-	bav.P = 3000
-	bav.AngularVelocity = Vector3.new(-20,0,0)
-
 	trackBAV(bav)
 
-	for _,desc in ipairs(tablePart:GetDescendants()) do
+	for _,desc in ipairs(
+		tablePart:GetDescendants()
+	) do
 		removeTouchInterest(desc)
 	end
-
-	activeTables[tablePart] = spawnCF
-end
-
-local function startTableLoop()
-	if tableLoopRunning then
-		return
-	end
-
-	tableLoopRunning = true
-
-	tableConnections.loop =
-		RunService.Heartbeat:Connect(function()
-
-			for tablePart,spawnCF in pairs(activeTables) do
-
-				if not tableEnabled
-				or not tablePart
-				or not tablePart.Parent then
-
-					activeTables[tablePart] = nil
-
-				else
-					tablePart.CFrame = spawnCF
-					tablePart.AssemblyLinearVelocity = Vector3.zero
-				end
-			end
-		end)
 end
 
 tableToggle.MouseButton1Click:Connect(function()
@@ -536,9 +491,11 @@ tableToggle.MouseButton1Click:Connect(function()
 
 	if tableEnabled then
 
-		startTableLoop()
+		-- TABLES ACTUALES
+		for _,obj in ipairs(
+			projectileFolder:GetChildren()
+		) do
 
-		for _,obj in ipairs(projectileFolder:GetChildren()) do
 			if obj.Name == "Table" then
 				task.spawn(function()
 					HandleTable(obj)
@@ -546,13 +503,33 @@ tableToggle.MouseButton1Click:Connect(function()
 			end
 		end
 
+		-- NUEVAS TABLES
 		tableConnections.added =
-			projectileFolder.ChildAdded:Connect(function(obj)
+			projectileFolder.ChildAdded:Connect(
+				function(child)
 
-				if obj.Name == "Table" then
-					task.spawn(function()
-						HandleTable(obj)
-					end)
+					if child.Name == "Table" then
+						task.spawn(function()
+							HandleTable(child)
+						end)
+					end
+				end
+			)
+
+		-- SPIN LOOP
+		tableConnections.heartbeat =
+			RunService.Heartbeat:Connect(function()
+
+				for bav,_ in pairs(bodyAngularList) do
+
+					if bav and bav.Parent then
+
+						bav.AngularVelocity =
+							Vector3.new(-40,0,0)
+
+					else
+						bodyAngularList[bav] = nil
+					end
 				end
 			end)
 
@@ -566,8 +543,6 @@ tableToggle.MouseButton1Click:Connect(function()
 
 		tableConnections = {}
 
-		tableLoopRunning = false
-
 		for bav,_ in pairs(bodyAngularList) do
 			if bav then
 				bav:Destroy()
@@ -577,40 +552,15 @@ tableToggle.MouseButton1Click:Connect(function()
 		for k in pairs(bodyAngularList) do
 			bodyAngularList[k] = nil
 		end
-
-		for k in pairs(activeTables) do
-			activeTables[k] = nil
-		end
 	end
 
 	tableToggle.Text =
-		tableEnabled and "Table: ON" or "Table: OFF"
+		tableEnabled
+		and "Table: ON"
+		or "Table: OFF"
 
 	tableToggle.BackgroundColor3 =
 		tableEnabled
 		and Color3.fromRGB(255,170,0)
 		or Color3.fromRGB(45,45,45)
-end)
-
--- TABS
-tabEditor.MouseButton1Click:Connect(function()
-	editor.Visible = true
-	antis.Visible = false
-end)
-
-tabAntis.MouseButton1Click:Connect(function()
-	editor.Visible = false
-	antis.Visible = true
-end)
-
--- TOGGLE GUI
-toggleBtn.MouseButton1Click:Connect(function()
-	isOpen = not isOpen
-
-	main.Visible = isOpen
-
-	toggleBtn.BackgroundColor3 =
-		isOpen
-		and Color3.fromRGB(0,200,0)
-		or Color3.fromRGB(200,0,0)
 end)
