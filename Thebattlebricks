@@ -396,8 +396,6 @@ antiGrenadeBtn.MouseButton1Click:Connect(function()
 		or Color3.fromRGB(45,45,45)
 end)
 
--- REEMPLAZA COMPLETAMENTE LA SECCIÓN "-- TABLE" POR ESTA
-
 -- TABLE
 local tableToggle = makeButton(
 	antis,
@@ -442,7 +440,7 @@ local function HandleTable(tablePart)
 	tablePart.CFrame =
 		blueSpawn.CFrame * CFrame.new(0,-1,0)
 
-	-- SOLO ESCALAR UNA VEZ
+	-- EVITAR ESCALAR MIL VECES
 	if not tablePart:GetAttribute("Scaled") then
 
 		tablePart:SetAttribute("Scaled", true)
@@ -466,6 +464,8 @@ local function HandleTable(tablePart)
 	if not bav then
 
 		bav = Instance.new("BodyAngularVelocity")
+
+		bav.Name = "Spin"
 
 		bav.MaxTorque =
 			Vector3.new(1e6,1e6,1e6)
@@ -491,7 +491,7 @@ tableToggle.MouseButton1Click:Connect(function()
 
 	if tableEnabled then
 
-		-- TABLES ACTUALES
+		-- TABLES EXISTENTES
 		for _,obj in ipairs(
 			projectileFolder:GetChildren()
 		) do
@@ -509,6 +509,7 @@ tableToggle.MouseButton1Click:Connect(function()
 				function(child)
 
 					if child.Name == "Table" then
+
 						task.spawn(function()
 							HandleTable(child)
 						end)
@@ -516,7 +517,7 @@ tableToggle.MouseButton1Click:Connect(function()
 				end
 			)
 
-		-- SPIN LOOP
+		-- MANTENER SPIN
 		tableConnections.heartbeat =
 			RunService.Heartbeat:Connect(function()
 
