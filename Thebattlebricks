@@ -280,3 +280,105 @@ antiGrenadeBtn.MouseButton1Click:Connect(function()
 	antiGrenadeBtn.Text = grenadeEnabled and "Anti X-TREME grenades: ON" or "Anti X-TREME grenades: OFF"
 	antiGrenadeBtn.BackgroundColor3 = grenadeEnabled and Color3.fromRGB(255,120,120) or Color3.fromRGB(45,45,45)
 end)
+
+-- TABLE TARGET
+local tableToggle = makeButton(editor,"Table: OFF",UDim2.new(0.07,0,0.36,0))
+
+local tableEnabled = false
+local tableConnections = {}
+local bodyAngularList = {}
+
+local function trackBAV(bav)
+	if bav and bav:IsA("BodyAngularVelocity") then
+		bodyAngularList[bav] = true
+	end
+end
+
+local function removeTouchInterest(descendant)
+	if descendant and descendant:IsA("TouchInterest") then
+		descendant:Destroy()
+	end
+end
+
+local function HandleTable(tablePart)
+	if not tablePart or not tablePart:IsA("BasePart") then
+		return
+	end
+
+	local spawnPart = Workspace:FindFirstChild("NPCFolders")
+		and Workspace.NPCFolders:FindFirstChild("BaseFolder")
+		and Workspace.NPCFolders.BaseFolder:FindFirstChild("Blue Base")
+		and Workspace.NPCFolders.BaseFolder["Blue Base"]:FindFirstChild("Spawn")
+
+	if not spawnPart then
+		return
+	end
+
+	local spawnCF = spawnPart.CFrame * CFrame.new(0,-1,0)
+
+	task.wait()
+
+	tablePart.Anchored = false
+	tablePart.CanCollide = true
+	tablePart.Massless = false
+
+	tablePart.CFrame = spawnCF
+	tablePart.AssemblyLinearVelocity = Vector3.zero
+	tablePart.AssemblyAngularVelocity = Vector3.zero
+
+	if tablePart.Size.Magnitude < 500 then
+		tablePart.Size *= 150
+	end
+
+	tablePart.CustomPhysicalProperties = PhysicalProperties.new(
+		100,
+		0.3,
+		0.5,
+		1,
+		1
+	)
+
+	for _,v in ipairs(tablePart:GetDescendants()) do
+		if v:IsA("BodyPosition")
+		or v:IsA("BodyVelocity")
+		or v:IsA("LinearVelocity")
+		or v:IsA("VectorForce")
+		or v:IsA("Torque") then
+			v:Destroy()
+		end
+	end
+
+	local bav = tablePart:FindFirstChildOfClass("BodyAngularVelocity")
+
+	if not bav then
+		bav = Instance.new("BodyAngularVelocity")
+		bav.Name = "Spin"
+		bav.Parent = tablePart
+	end
+
+	bav.MaxTorque = Vector3.new(math.huge,math.huge,math.huge)
+	bav.P = 125000
+	bav.AngularVelocity = Vector3.new(-75,0,0)
+
+	trackBAV(bav)
+
+	for _,desc in ipairs(tablePart:GetDescendants()) do
+		removeTouchInterest(desc)
+	end
+
+	task.spawn(function()
+		while tableEnabled and tablePart and tablePart.Parent do
+			tablePart.CFrame = spawnCF
+			tablePart.AssemblyLinearVelocity = Vector3.zero
+			RunService.Heartbeat:Wait()
+		end
+	end)
+end
+
+tableToggle.MouseButton1Click:Connect(function()
+	tableEnabled = not tableEnabled
+
+	if tableEnabled then
+		
+		for _,obj in ipairs(projectileFolder:GetChildren()) do
+			if obj.Name == "Table"
