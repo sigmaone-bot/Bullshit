@@ -8,6 +8,7 @@ local npcFolders = Workspace:WaitForChild("NPCFolders")
 local enemyFolder = npcFolders:WaitForChild("EnemyFolder")
 
 local targetEnabled = false
+local baseTargetEnabled = false
 local antiEnabled = false
 local grenadeEnabled = false
 local tableEnabled = false
@@ -18,6 +19,7 @@ local active = {}
 local currentHighlight = nil
 local antiConn
 local grenadeConn
+local baseTargetConn
 
 local tableConnections = {}
 local bodyAngularList = {}
@@ -162,6 +164,13 @@ local targetToggle = makeButton(
 	editor,
 	"Target: OFF",
 	UDim2.new(0.07,0,0.08,0)
+)
+
+-- TARGET BASE BUTTON
+local baseTargetToggle = makeButton(
+	editor,
+	"Target Base: OFF",
+	UDim2.new(0.37,0,0.08,0)
 )
 
 -- TARGET BOX
@@ -315,15 +324,62 @@ local function follow(part)
 	end)
 end
 
+-- BASE TARGET SYSTEM
+local function followBase(part)
+
+	if active[part] then
+		return
+	end
+
+	active[part] = true
+
+	task.spawn(function()
+
+		while baseTargetEnabled and part and part.Parent do
+
+			local redBase =
+				npcFolders
+				:FindFirstChild("BaseFolder")
+
+			if redBase then
+				local redBaseSpawn =
+					redBase:FindFirstChild("Red Base")
+
+				if redBaseSpawn then
+					local spawn =
+						redBaseSpawn:FindFirstChild("Spawn")
+
+					if spawn and part and part.Parent then
+						part.CFrame = spawn.CFrame
+					end
+				end
+			end
+
+			RunService.Heartbeat:Wait()
+		end
+
+		active[part] = nil
+	end)
+end
+
 projectileFolder.DescendantAdded:Connect(function(obj)
 
-	if targetEnabled then
+	if targetEnabled and not baseTargetEnabled then
 
 		if obj.Name == "Teapot"
 		or obj.Name == "FireTeapot" then
 
 			task.defer(function()
 				follow(obj)
+			end)
+		end
+	elseif baseTargetEnabled and not targetEnabled then
+
+		if obj.Name == "Teapot"
+		or obj.Name == "FireTeapot" then
+
+			task.defer(function()
+				followBase(obj)
 			end)
 		end
 	end
@@ -333,12 +389,41 @@ targetToggle.MouseButton1Click:Connect(function()
 
 	targetEnabled = not targetEnabled
 
+	if targetEnabled and baseTargetEnabled then
+		baseTargetEnabled = false
+		baseTargetToggle.Text = "Target Base: OFF"
+		baseTargetToggle.BackgroundColor3 = Color3.fromRGB(45,45,45)
+		if baseTargetConn then
+			baseTargetConn:Disconnect()
+			baseTargetConn = nil
+		end
+	end
+
 	targetToggle.Text =
 		targetEnabled and "Target: ON" or "Target: OFF"
 
 	targetToggle.BackgroundColor3 =
 		targetEnabled
 		and Color3.fromRGB(120,80,255)
+		or Color3.fromRGB(45,45,45)
+end)
+
+baseTargetToggle.MouseButton1Click:Connect(function()
+
+	baseTargetEnabled = not baseTargetEnabled
+
+	if baseTargetEnabled and targetEnabled then
+		targetEnabled = false
+		targetToggle.Text = "Target: OFF"
+		targetToggle.BackgroundColor3 = Color3.fromRGB(45,45,45)
+	end
+
+	baseTargetToggle.Text =
+		baseTargetEnabled and "Target Base: ON" or "Target Base: OFF"
+
+	baseTargetToggle.BackgroundColor3 =
+		baseTargetEnabled
+		and Color3.fromRGB(0,180,255)
 		or Color3.fromRGB(45,45,45)
 end)
 
