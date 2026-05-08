@@ -9,11 +9,14 @@ local enemyFolder = npcFolders:WaitForChild("EnemyFolder")
 
 local targetEnabled = false
 local baseTargetEnabled = false
+local superballTargetEnabled = false
+local superballBaseTargetEnabled = false
 local antiEnabled = false
 local grenadeEnabled = false
 local tableEnabled = false
 
 local targetName = ""
+local superballTargetName = ""
 local active = {}
 
 local currentHighlight = nil
@@ -119,9 +122,10 @@ do
 		return b
 	end
 
-	local tabEditor = makeTab("Newell Editor",0,0.33)
-	local tabAntis = makeTab("Antis",0.33,0.33)
-	local tabDetector = makeTab("Target Detector",0.66,0.34)
+	local tabEditor = makeTab("Proj Edit",0,0.25)
+	local tabAntis = makeTab("Antis",0.25,0.25)
+	local tabDetector = makeTab("Target Detector",0.5,0.25)
+	local tabSuperball = makeTab("Superball",0.75,0.25)
 
 	local container = Instance.new("Frame")
 	container.Size = UDim2.new(1,0,1,-60)
@@ -145,6 +149,12 @@ do
 	detector.Visible = false
 	detector.BackgroundTransparency = 1
 	detector.Parent = container
+
+	local superball = Instance.new("Frame")
+	superball.Size = UDim2.new(1,0,1,0)
+	superball.Visible = false
+	superball.BackgroundTransparency = 1
+	superball.Parent = container
 
 	local function makeButton(parent,text,pos)
 		local b = Instance.new("TextButton")
@@ -198,6 +208,40 @@ do
 
 	box.FocusLost:Connect(function()
 		targetName = box.Text
+	end)
+
+	-- SUPERBALL TARGET BUTTON
+	local superballTargetToggle = makeButton(
+		superball,
+		"Target: OFF",
+		UDim2.new(0.05,0,0.1,0)
+	)
+
+	-- SUPERBALL TARGET BASE BUTTON
+	local superballBaseTargetToggle = makeButton(
+		superball,
+		"Target Base: OFF",
+		UDim2.new(0.37,0,0.1,0)
+	)
+
+	-- SUPERBALL TARGET BOX
+	local superballBox = Instance.new("TextBox")
+	superballBox.Size = UDim2.new(0.3,0,0,50)
+	superballBox.Position = UDim2.new(0.05,0,0.28,0)
+
+	superballBox.PlaceholderText = "Target name..."
+	superballBox.BackgroundColor3 = Color3.fromRGB(40,40,40)
+	superballBox.TextColor3 = Color3.new(1,1,1)
+
+	superballBox.Font = Enum.Font.Gotham
+	superballBox.TextSize = 14
+
+	superballBox.Parent = superball
+
+	Instance.new("UICorner", superballBox)
+
+	superballBox.FocusLost:Connect(function()
+		superballTargetName = superballBox.Text
 	end)
 
 	-- LIST (DETECTOR)
@@ -306,6 +350,23 @@ do
 		return nil
 	end
 
+	local function getSuperballTarget()
+
+		local t = enemyFolder:FindFirstChild(superballTargetName)
+
+		if not t then
+			return nil
+		end
+
+		if t:IsA("Model") then
+			return t:FindFirstChild("HumanoidRootPart")
+		elseif t:IsA("BasePart") then
+			return t
+		end
+
+		return nil
+	end
+
 	local function follow(part)
 
 		if active[part] then
@@ -319,6 +380,31 @@ do
 			while targetEnabled and part and part.Parent do
 
 				local t = getTarget()
+
+				if t and t.Parent and part and part.Parent then
+					part.CFrame = t.CFrame
+				end
+
+				RunService.Heartbeat:Wait()
+			end
+
+			active[part] = nil
+		end)
+	end
+
+	local function followSuperball(part)
+
+		if active[part] then
+			return
+		end
+
+		active[part] = true
+
+		task.spawn(function()
+
+			while superballTargetEnabled and part and part.Parent do
+
+				local t = getSuperballTarget()
 
 				if t and t.Parent and part and part.Parent then
 					part.CFrame = t.CFrame
@@ -369,6 +455,43 @@ do
 		end)
 	end
 
+	local function followSuperballBase(part)
+
+		if active[part] then
+			return
+		end
+
+		active[part] = true
+
+		task.spawn(function()
+
+			while superballBaseTargetEnabled and part and part.Parent do
+
+				local redBase =
+					npcFolders
+					:FindFirstChild("BaseFolder")
+
+				if redBase then
+					local redBaseSpawn =
+						redBase:FindFirstChild("Red Base")
+
+					if redBaseSpawn then
+						local spawn =
+							redBaseSpawn:FindFirstChild("Spawn")
+
+						if spawn and part and part.Parent then
+							part.CFrame = spawn.CFrame
+						end
+					end
+				end
+
+				RunService.Heartbeat:Wait()
+			end
+
+			active[part] = nil
+		end)
+	end
+
 	projectileFolder.DescendantAdded:Connect(function(obj)
 
 		if targetEnabled and not baseTargetEnabled then
@@ -387,6 +510,24 @@ do
 
 				task.defer(function()
 					followBase(obj)
+				end)
+			end
+		elseif superballTargetEnabled and not superballBaseTargetEnabled then
+
+			if obj.Name == "Superball"
+			or obj.Name == "Soccerball" then
+
+				task.defer(function()
+					followSuperball(obj)
+				end)
+			end
+		elseif superballBaseTargetEnabled and not superballTargetEnabled then
+
+			if obj.Name == "Superball"
+			or obj.Name == "Soccerball" then
+
+				task.defer(function()
+					followSuperballBase(obj)
 				end)
 			end
 		end
@@ -430,6 +571,44 @@ do
 
 		baseTargetToggle.BackgroundColor3 =
 			baseTargetEnabled
+			and Color3.fromRGB(0,180,255)
+			or Color3.fromRGB(45,45,45)
+	end)
+
+	superballTargetToggle.MouseButton1Click:Connect(function()
+
+		superballTargetEnabled = not superballTargetEnabled
+
+		if superballTargetEnabled and superballBaseTargetEnabled then
+			superballBaseTargetEnabled = false
+			superballBaseTargetToggle.Text = "Target Base: OFF"
+			superballBaseTargetToggle.BackgroundColor3 = Color3.fromRGB(45,45,45)
+		end
+
+		superballTargetToggle.Text =
+			superballTargetEnabled and "Target: ON" or "Target: OFF"
+
+		superballTargetToggle.BackgroundColor3 =
+			superballTargetEnabled
+			and Color3.fromRGB(120,80,255)
+			or Color3.fromRGB(45,45,45)
+	end)
+
+	superballBaseTargetToggle.MouseButton1Click:Connect(function()
+
+		superballBaseTargetEnabled = not superballBaseTargetEnabled
+
+		if superballBaseTargetEnabled and superballTargetEnabled then
+			superballTargetEnabled = false
+			superballTargetToggle.Text = "Target: OFF"
+			superballTargetToggle.BackgroundColor3 = Color3.fromRGB(45,45,45)
+		end
+
+		superballBaseTargetToggle.Text =
+			superballBaseTargetEnabled and "Target Base: ON" or "Target Base: OFF"
+
+		superballBaseTargetToggle.BackgroundColor3 =
+			superballBaseTargetEnabled
 			and Color3.fromRGB(0,180,255)
 			or Color3.fromRGB(45,45,45)
 	end)
@@ -687,6 +866,7 @@ do
 		editor.Visible = true
 		antis.Visible = false
 		detector.Visible = false
+		superball.Visible = false
 	end)
 
 	tabAntis.MouseButton1Click:Connect(function()
@@ -694,6 +874,7 @@ do
 		editor.Visible = false
 		antis.Visible = true
 		detector.Visible = false
+		superball.Visible = false
 	end)
 
 	tabDetector.MouseButton1Click:Connect(function()
@@ -701,6 +882,15 @@ do
 		editor.Visible = false
 		antis.Visible = false
 		detector.Visible = true
+		superball.Visible = false
+	end)
+
+	tabSuperball.MouseButton1Click:Connect(function()
+
+		editor.Visible = false
+		antis.Visible = false
+		detector.Visible = false
+		superball.Visible = true
 	end)
 
 end
