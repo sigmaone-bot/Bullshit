@@ -90,10 +90,10 @@ tabs.Size = UDim2.new(1,0,0,60)
 tabs.BackgroundTransparency = 1
 tabs.Parent = main
 
-local function makeTab(name,x)
+local function makeTab(name,x,width)
 	local b = Instance.new("TextButton")
 
-	b.Size = UDim2.new(0.5,0,1,0)
+	b.Size = UDim2.new(width,0,1,0)
 	b.Position = UDim2.new(x,0,0,0)
 
 	b.Text = name
@@ -110,8 +110,9 @@ local function makeTab(name,x)
 	return b
 end
 
-local tabEditor = makeTab("Newell Editor",0)
-local tabAntis = makeTab("Antis",0.5)
+local tabEditor = makeTab("Newell Editor",0,0.33)
+local tabAntis = makeTab("Antis",0.33,0.33)
+local tabDetector = makeTab("Target Detector",0.66,0.34)
 
 local container = Instance.new("Frame")
 container.Size = UDim2.new(1,0,1,-60)
@@ -129,6 +130,12 @@ antis.Size = UDim2.new(1,0,1,0)
 antis.Visible = false
 antis.BackgroundTransparency = 1
 antis.Parent = container
+
+local detector = Instance.new("Frame")
+detector.Size = UDim2.new(1,0,1,0)
+detector.Visible = false
+detector.BackgroundTransparency = 1
+detector.Parent = container
 
 local function makeButton(parent,text,pos)
 	local b = Instance.new("TextButton")
@@ -177,16 +184,16 @@ box.FocusLost:Connect(function()
 	targetName = box.Text
 end)
 
--- LIST
+-- LIST (DETECTOR)
 local list = Instance.new("ScrollingFrame")
 
-list.Size = UDim2.new(0.45,0,0.82,0)
-list.Position = UDim2.new(0.5,0,0.08,0)
+list.Size = UDim2.new(0.9,0,0.82,0)
+list.Position = UDim2.new(0.05,0,0.08,0)
 
 list.BackgroundColor3 = Color3.fromRGB(30,30,30)
 list.ScrollBarThickness = 6
 
-list.Parent = editor
+list.Parent = detector
 
 Instance.new("UICorner", list)
 
@@ -254,6 +261,8 @@ local function refreshList()
 
 		b.MouseButton1Click:Connect(function()
 			setHighlight(v)
+			targetName = v.Name
+			box.Text = v.Name
 		end)
 	end
 end
@@ -585,12 +594,21 @@ tabEditor.MouseButton1Click:Connect(function()
 
 	editor.Visible = true
 	antis.Visible = false
+	detector.Visible = false
 end)
 
 tabAntis.MouseButton1Click:Connect(function()
 
 	editor.Visible = false
 	antis.Visible = true
+	detector.Visible = false
+end)
+
+tabDetector.MouseButton1Click:Connect(function()
+
+	editor.Visible = false
+	antis.Visible = false
+	detector.Visible = true
 end)
 
 -- TOGGLE GUI
