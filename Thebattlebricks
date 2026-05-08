@@ -122,10 +122,9 @@ do
 		return b
 	end
 
-	local tabEditor = makeTab("Proj Edit",0,0.25)
-	local tabAntis = makeTab("Antis",0.25,0.25)
-	local tabDetector = makeTab("Target Detector",0.5,0.25)
-	local tabSuperball = makeTab("Superball",0.75,0.25)
+	local tabEditor = makeTab("Proj Edit",0,0.33)
+	local tabAntis = makeTab("Antis",0.33,0.33)
+	local tabDetector = makeTab("Target Detector",0.67,0.33)
 
 	local container = Instance.new("Frame")
 	container.Size = UDim2.new(1,0,1,-60)
@@ -150,12 +149,6 @@ do
 	detector.BackgroundTransparency = 1
 	detector.Parent = container
 
-	local superball = Instance.new("Frame")
-	superball.Size = UDim2.new(1,0,1,0)
-	superball.Visible = false
-	superball.BackgroundTransparency = 1
-	superball.Parent = container
-
 	local function makeButton(parent,text,pos)
 		local b = Instance.new("TextButton")
 
@@ -175,6 +168,29 @@ do
 
 		return b
 	end
+
+	local function makeLabel(parent, text, pos)
+		local label = Instance.new("TextLabel")
+		
+		label.Size = UDim2.new(0.3,0,0,30)
+		label.Position = pos
+		
+		label.Text = text
+		label.BackgroundColor3 = Color3.fromRGB(35,35,35)
+		label.TextColor3 = Color3.new(0.8,0.8,0.8)
+		
+		label.Font = Enum.Font.GothamBold
+		label.TextSize = 14
+		
+		label.Parent = parent
+		
+		Instance.new("UICorner", label)
+		
+		return label
+	end
+
+	-- NEWELL LABEL
+	makeLabel(editor, "Newell", UDim2.new(0.05,0,0.02,0))
 
 	-- TARGET BUTTON
 	local targetToggle = makeButton(
@@ -210,24 +226,27 @@ do
 		targetName = box.Text
 	end)
 
+	-- BALLING LABEL
+	makeLabel(editor, "Balling", UDim2.new(0.05,0,0.48,0))
+
 	-- SUPERBALL TARGET BUTTON
 	local superballTargetToggle = makeButton(
-		superball,
+		editor,
 		"Target: OFF",
-		UDim2.new(0.05,0,0.1,0)
+		UDim2.new(0.05,0,0.56,0)
 	)
 
 	-- SUPERBALL TARGET BASE BUTTON
 	local superballBaseTargetToggle = makeButton(
-		superball,
+		editor,
 		"Target Base: OFF",
-		UDim2.new(0.37,0,0.1,0)
+		UDim2.new(0.37,0,0.56,0)
 	)
 
 	-- SUPERBALL TARGET BOX
 	local superballBox = Instance.new("TextBox")
 	superballBox.Size = UDim2.new(0.3,0,0,50)
-	superballBox.Position = UDim2.new(0.05,0,0.28,0)
+	superballBox.Position = UDim2.new(0.05,0,0.74,0)
 
 	superballBox.PlaceholderText = "Target name..."
 	superballBox.BackgroundColor3 = Color3.fromRGB(40,40,40)
@@ -236,7 +255,7 @@ do
 	superballBox.Font = Enum.Font.Gotham
 	superballBox.TextSize = 14
 
-	superballBox.Parent = superball
+	superballBox.Parent = editor
 
 	Instance.new("UICorner", superballBox)
 
@@ -866,7 +885,6 @@ do
 		editor.Visible = true
 		antis.Visible = false
 		detector.Visible = false
-		superball.Visible = false
 	end)
 
 	tabAntis.MouseButton1Click:Connect(function()
@@ -874,7 +892,6 @@ do
 		editor.Visible = false
 		antis.Visible = true
 		detector.Visible = false
-		superball.Visible = false
 	end)
 
 	tabDetector.MouseButton1Click:Connect(function()
@@ -882,15 +899,6 @@ do
 		editor.Visible = false
 		antis.Visible = false
 		detector.Visible = true
-		superball.Visible = false
-	end)
-
-	tabSuperball.MouseButton1Click:Connect(function()
-
-		editor.Visible = false
-		antis.Visible = false
-		detector.Visible = false
-		superball.Visible = true
 	end)
 
 end
