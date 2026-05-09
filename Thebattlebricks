@@ -14,6 +14,7 @@ local superballBaseTargetEnabled = false
 local antiEnabled = false
 local grenadeEnabled = false
 local tableEnabled = false
+local chemistEnabled = false
 
 local targetName = ""
 local superballTargetName = ""
@@ -23,6 +24,7 @@ local currentHighlight = nil
 local antiConn
 local grenadeConn
 local baseTargetConn
+local chemistConn
 
 local tableConnections = {}
 local bodyAngularList = {}
@@ -735,10 +737,60 @@ do
 			or Color3.fromRGB(45,45,45)
 	end)
 
+	-- ANTI CHEMIST
+	local antiChemistBtn = makeButton(
+		antis,
+		"Anti Chemist: OFF",
+		UDim2.new(0.69,0,0.1,0)
+	)
+
+	local function applyChemist(obj)
+
+		if obj:IsA("BasePart") then
+
+			if obj.Name == "CrazyTable" then
+
+				obj.Anchored = true
+			end
+		end
+	end
+
+	antiChemistBtn.MouseButton1Click:Connect(function()
+
+		chemistEnabled = not chemistEnabled
+
+		if chemistEnabled then
+
+			for _,v in ipairs(projectileFolder:GetDescendants()) do
+				applyChemist(v)
+			end
+
+			chemistConn =
+				projectileFolder.DescendantAdded:Connect(applyChemist)
+
+		else
+
+			if chemistConn then
+				chemistConn:Disconnect()
+				chemistConn = nil
+			end
+		end
+
+		antiChemistBtn.Text =
+			chemistEnabled
+			and "Anti Chemist: ON"
+			or "Anti Chemist: OFF"
+
+		antiChemistBtn.BackgroundColor3 =
+			chemistEnabled
+			and Color3.fromRGB(150,100,255)
+			or Color3.fromRGB(45,45,45)
+	end)
+
 	local tableToggle = makeButton(
 		antis,
 		"Table: OFF",
-		UDim2.new(0.69,0,0.1,0)
+		UDim2.new(0.05,0,0.25,0)
 	)
 
 
