@@ -751,6 +751,7 @@ do
 			if obj.Name == "CrazyTable" then
 
 				obj.Anchored = true
+				obj.CFrame = obj.CFrame + Vector3.new(0, 150, 0)
 			end
 		end
 	end
