@@ -27,7 +27,7 @@ local baseTargetConn
 local chemistConn
 
 local tableConnections = {}
-local bodyAngularList = {}
+local tables = {}
 
 -- GUI
 local gui = Instance.new("ScreenGui")
@@ -788,91 +788,59 @@ do
 			or Color3.fromRGB(45,45,45)
 	end)
 
-	local tableToggle = makeButton(
+	-- RAIGQUITTER BUFF
+	local raigquitterBtn = makeButton(
 		antis,
-		"Table: OFF",
+		"Raigquitter buff: OFF",
 		UDim2.new(0.05,0,0.25,0)
 	)
 
+	local function ignorethislol(part)
+		part.Transparency = 1
+		part.LocalTransparencyModifier = 1
+		part.CastShadow = false
 
-	local function trackBAV(bav)
-		if bav and bav:IsA("BodyAngularVelocity") then
-			bodyAngularList[bav] = true
+		for _, obj in ipairs(part:GetDescendants()) do
+			if obj:IsA("BasePart") then
+				obj.Transparency = 1
+				obj.LocalTransparencyModifier = 1
+				obj.CastShadow = false
+			elseif obj:IsA("Decal") or obj:IsA("Texture") then
+				obj.Transparency = 1
+			elseif obj:IsA("ParticleEmitter")
+				or obj:IsA("Trail")
+				or obj:IsA("Beam") then
+				obj.Enabled = false
+			elseif obj:IsA("PointLight")
+				or obj:IsA("SpotLight")
+				or obj:IsA("SurfaceLight") then
+				obj.Enabled = false
+			end
 		end
 	end
 
-	local function removeTouchInterest(descendant)
-		if descendant and descendant:IsA("TouchInterest") then
-			descendant:Destroy()
-		end
+	local function setupTable(part)
+		if not part:IsA("BasePart") then return end
+
+		part.CanCollide = false
+		part.CanTouch = true
+		part.CanQuery = false
+		part.Size = Vector3.new(150, 150, 150)
+
+		ignorethislol(part)
+
+		tables[part] = 1
 	end
 
-	local function HandleTable(tablePart)
-
-		if not tablePart:IsA("BasePart") then
-			return
-		end
-
-		local blueSpawn =
-			npcFolders
-			:WaitForChild("BaseFolder")
-			:WaitForChild("Blue Base")
-			:WaitForChild("Spawn")
-
-		tablePart.CFrame =
-			blueSpawn.CFrame * CFrame.new(0,-1,0)
-
-		tablePart.Size =
-			tablePart.Size * 200
-
-		tablePart.CustomPhysicalProperties =
-			PhysicalProperties.new(
-				0.7,
-				0.3,
-				0.5
-			)
-
-		local bav =
-			tablePart:FindFirstChildOfClass(
-				"BodyAngularVelocity"
-			)
-
-		if not bav then
-
-			bav = Instance.new("BodyAngularVelocity")
-
-			bav.Name = "Spin"
-
-			bav.MaxTorque =
-				Vector3.new(1e6,1e6,1e6)
-
-			bav.AngularVelocity =
-				Vector3.new(-40,0,0)
-
-			bav.Parent = tablePart
-		end
-
-		trackBAV(bav)
-
-		for _,desc in ipairs(
-			tablePart:GetDescendants()
-		) do
-			removeTouchInterest(desc)
-		end
-	end
-
-	tableToggle.MouseButton1Click:Connect(function()
+	raigquitterBtn.MouseButton1Click:Connect(function()
 
 		tableEnabled = not tableEnabled
 
 		if tableEnabled then
 
-			for _,obj in ipairs(
-				projectileFolder:GetChildren()
-			) do
-
-				if obj.Name == "Table" then
-					HandleTable(obj)
+			for _, v in ipairs(projectileFolder:GetChildren()) do
+				if v.Name == "Table" then
+					setupTable(v)
 				end
 			end
 
@@ -881,7 +849,8 @@ do
 					function(child)
 
 						if child.Name == "Table" then
-							HandleTable(child)
+							task.wait()
+							setupTable(child)
 						end
 					end
 				)
@@ -889,47 +858,56 @@ do
 			tableConnections.heartbeat =
 				RunService.Heartbeat:Connect(function()
 
-					for bav,_ in pairs(bodyAngularList) do
+					local enemies = {}
 
-						if bav and bav.Parent then
+					for _, npc in ipairs(enemyFolder:GetChildren()) do
+						local hum = npc:FindFirstChild("Humanoid")
+						local root = npc:FindFirstChild("HumanoidRootPart")
 
-							bav.AngularVelocity =
-								Vector3.new(-40,0,0)
+						if hum and root and hum.Health > 0 then
+							table.insert(enemies, root)
+						end
+					end
 
+					if #enemies == 0 then return end
+
+					for tbl, index in pairs(tables) do
+						if tbl and tbl.Parent then
+							ignorethislol(tbl)
+
+							if index > #enemies then
+								index = 1
+							end
+
+							tbl.CFrame = enemies[index].CFrame
+							tables[tbl] = index + 1
 						else
-							bodyAngularList[bav] = nil
+							tables[tbl] = nil
 						end
 					end
 				end)
 
 		else
 
-			for _,conn in pairs(tableConnections) do
+			for _, conn in pairs(tableConnections) do
 				if conn then
 					conn:Disconnect()
 				end
 			end
 
 			tableConnections = {}
-
-			for bav,_ in pairs(bodyAngularList) do
-				if bav then
-					bav:Destroy()
-				end
-			end
-
-			table.clear(bodyAngularList)
+			table.clear(tables)
 		end
 
-		tableToggle.Text =
+		raigquitterBtn.Text =
 			tableEnabled
-			and "Table: ON"
-			or "Table: OFF"
+			and "Raigquitter buff: ON"
+			or "Raigquitter buff: OFF"
 
-		tableToggle.BackgroundColor3 =
+		raigquitterBtn.BackgroundColor3 =
 			tableEnabled
-			and Color3.fromRGB(255,170,0)
-			or Color3.fromRGB(45,45,45)
+			and Color3.fromRGB(255, 170, 0)
+			or Color3.fromRGB(45, 45, 45)
 	end)
 
 	-- TABS
