@@ -15,6 +15,16 @@ local antiEnabled = false
 local grenadeEnabled = false
 local tableEnabled = false
 local chemistEnabled = false
+local auraEnabled = false
+local auraConnection
+
+local AuraIgnore = {
+	Enabled = true,
+	List = {
+		Punishment = true,
+		Bloodhorn = true
+	}
+}
 
 local targetName = ""
 local superballTargetName = ""
@@ -908,6 +918,157 @@ do
 			tableEnabled
 			and Color3.fromRGB(255, 170, 0)
 			or Color3.fromRGB(45, 45, 45)
+	end)
+
+-- PROJECTILE AURA
+	local auraBtn = makeButton(
+		antis,
+		"Projectile Aura: OFF",
+		UDim2.new(0.37,0,0.25,0)
+	)
+
+	local auraIgnoreToggle = makeButton(
+		antis,
+		"Ignore List: ON",
+		UDim2.new(0.69,0,0.25,0)
+	)
+
+	local auraIgnoreBox = Instance.new("TextBox")
+	auraIgnoreBox.Size = UDim2.new(0.3,0,0,50)
+	auraIgnoreBox.Position = UDim2.new(0.37,0,0.4,0)
+	auraIgnoreBox.PlaceholderText = "Ignored enemy..."
+	auraIgnoreBox.BackgroundColor3 = Color3.fromRGB(40,40,40)
+	auraIgnoreBox.TextColor3 = Color3.new(1,1,1)
+	auraIgnoreBox.Font = Enum.Font.Gotham
+	auraIgnoreBox.TextSize = 14
+	auraIgnoreBox.Parent = antis
+
+	Instance.new("UICorner", auraIgnoreBox)
+
+	auraIgnoreBox.FocusLost:Connect(function()
+		local txt = auraIgnoreBox.Text
+
+		if txt ~= "" then
+			AuraIgnore.List[txt] = true
+			auraIgnoreBox.Text = ""
+		end
+	end)
+
+	auraIgnoreToggle.MouseButton1Click:Connect(function()
+		AuraIgnore.Enabled = not AuraIgnore.Enabled
+
+		auraIgnoreToggle.Text =
+			AuraIgnore.Enabled
+			and "Ignore List: ON"
+			or "Ignore List: OFF"
+
+		auraIgnoreToggle.BackgroundColor3 =
+			AuraIgnore.Enabled
+			and Color3.fromRGB(255,120,120)
+			or Color3.fromRGB(45,45,45)
+	end)
+
+	local function shouldIgnore(enemy)
+		if not AuraIgnore.Enabled then
+			return false
+		end
+
+		return AuraIgnore.List[enemy.Name]
+	end
+
+	local function getRedBaseSpawn()
+		local baseFolder = npcFolders:FindFirstChild("BaseFolder")
+
+		if not baseFolder then
+			return nil
+		end
+
+		local redBase = baseFolder:FindFirstChild("Red Base")
+
+		if not redBase then
+			return nil
+		end
+
+		return redBase:FindFirstChild("Spawn")
+	end
+
+	local function hasTeapot()
+		for _, obj in ipairs(projectileFolder:GetChildren()) do
+			if obj:IsA("BasePart") then
+				if obj.Name == "Teapot"
+				or obj.Name == "FireTeapot" then
+					return true
+				end
+			end
+		end
+
+		return false
+	end
+
+	local function moveEverythingToBase()
+		local spawn = getRedBaseSpawn()
+
+		if not spawn then
+			return
+		end
+
+		for _, enemy in ipairs(enemyFolder:GetChildren()) do
+			if not shouldIgnore(enemy) then
+				local root = enemy:FindFirstChild("HumanoidRootPart")
+
+				if root then
+					root.CFrame = spawn.CFrame
+				end
+			end
+		end
+
+		for _, obj in ipairs(projectileFolder:GetChildren()) do
+			if obj:IsA("BasePart") then
+				if obj.Name == "Teapot"
+				or obj.Name == "FireTeapot" then
+
+					obj.CanCollide = false
+					obj.CanTouch = true
+					obj.Massless = true
+					obj.Transparency = 1
+
+					obj.AssemblyLinearVelocity = Vector3.zero
+					obj.AssemblyAngularVelocity = Vector3.zero
+
+					obj.CFrame = spawn.CFrame
+				end
+			end
+		end
+	end
+
+	auraBtn.MouseButton1Click:Connect(function()
+		auraEnabled = not auraEnabled
+
+		auraBtn.Text =
+			auraEnabled
+			and "Projectile Aura: ON"
+			or "Projectile Aura: OFF"
+
+		auraBtn.BackgroundColor3 =
+			auraEnabled
+			and Color3.fromRGB(120,80,255)
+			or Color3.fromRGB(45,45,45)
+
+		if auraEnabled then
+
+			auraConnection = RunService.Heartbeat:Connect(function()
+				if hasTeapot() then
+					moveEverythingToBase()
+				end
+			end)
+
+		else
+
+			if auraConnection then
+				auraConnection:Disconnect()
+				auraConnection = nil
+			end
+		end
 	end)
 
 	-- TABS
