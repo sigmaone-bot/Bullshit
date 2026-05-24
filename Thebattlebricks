@@ -1145,11 +1145,24 @@ do
 
 					freezeTeapots(teapots)
 
-					tpEnemies(enemies, spawn.CFrame)
+tpEnemies(enemies, spawn.CFrame)
 
-					task.wait(0.15)
+task.wait(1)
 
-					tpTeapots(teapots, enemies)
+local aliveEnemies = {}
+
+for _, enemy in ipairs(enemies) do
+	local root = enemy:FindFirstChild("HumanoidRootPart")
+	local hum = enemy:FindFirstChild("Humanoid")
+
+	if root and hum and hum.Health > 0 then
+		table.insert(aliveEnemies, enemy)
+	end
+end
+
+if #aliveEnemies > 0 then
+	tpTeapots(teapots, aliveEnemies)
+end
 				end)
 
 		else
