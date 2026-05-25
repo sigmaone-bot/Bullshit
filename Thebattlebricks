@@ -910,7 +910,8 @@ do
 			or Color3.fromRGB(45, 45, 45)
 	end)
 
-		-- PROJECTILE AURA
+	 
+-- PROJECTILE AURA
 
 local auraEnabled = false
 local auraConnection
@@ -935,9 +936,187 @@ local auraIgnoreToggle = makeButton(
 	UDim2.new(0.69,0,0.25,0)
 )
 
+-- IGNORE BOX
+
+local auraIgnoreBox = Instance.new("TextBox")
+
+auraIgnoreBox.Size = UDim2.new(0.3,0,0,40)
+auraIgnoreBox.Position = UDim2.new(0.37,0,0.38,0)
+
+auraIgnoreBox.PlaceholderText = "Add ignored enemy..."
+
+auraIgnoreBox.BackgroundColor3 =
+	Color3.fromRGB(40,40,40)
+
+auraIgnoreBox.TextColor3 =
+	Color3.new(1,1,1)
+
+auraIgnoreBox.Font = Enum.Font.Gotham
+auraIgnoreBox.TextSize = 14
+
+auraIgnoreBox.Parent = antis
+
+Instance.new("UICorner", auraIgnoreBox)
+
+-- IGNORE LIST FRAME
+
+local ignoreListFrame =
+	Instance.new("ScrollingFrame")
+
+ignoreListFrame.Size =
+	UDim2.new(0.3,0,0,120)
+
+ignoreListFrame.Position =
+	UDim2.new(0.37,0,0.5,0)
+
+ignoreListFrame.BackgroundColor3 =
+	Color3.fromRGB(35,35,35)
+
+ignoreListFrame.ScrollBarThickness = 4
+
+ignoreListFrame.Parent = antis
+
+Instance.new("UICorner", ignoreListFrame)
+
+local ignoreLayout =
+	Instance.new("UIListLayout")
+
+ignoreLayout.Padding =
+	UDim.new(0,4)
+
+ignoreLayout.Parent = ignoreListFrame
+
+ignoreLayout:GetPropertyChangedSignal(
+	"AbsoluteContentSize"
+):Connect(function()
+
+	ignoreListFrame.CanvasSize =
+		UDim2.new(
+			0,
+			0,
+			0,
+			ignoreLayout.AbsoluteContentSize.Y + 5
+		)
+end)
+
+local function refreshIgnoreList()
+
+	for _,v in ipairs(ignoreListFrame:GetChildren()) do
+
+		if v:IsA("Frame") then
+			v:Destroy()
+		end
+	end
+
+	for name,_ in pairs(AuraIgnore.List) do
+
+		local holder = Instance.new("Frame")
+
+		holder.Size =
+			UDim2.new(1,-5,0,30)
+
+		holder.BackgroundColor3 =
+			Color3.fromRGB(50,50,50)
+
+		holder.Parent = ignoreListFrame
+
+		Instance.new("UICorner", holder)
+
+		local label =
+			Instance.new("TextLabel")
+
+		label.Size =
+			UDim2.new(0.75,0,1,0)
+
+		label.BackgroundTransparency = 1
+
+		label.Text = name
+
+		label.TextColor3 =
+			Color3.new(1,1,1)
+
+		label.Font = Enum.Font.Gotham
+		label.TextSize = 13
+
+		label.Parent = holder
+
+		local removeBtn =
+			Instance.new("TextButton")
+
+		removeBtn.Size =
+			UDim2.new(0.2,0,0.8,0)
+
+		removeBtn.Position =
+			UDim2.new(0.78,0,0.1,0)
+
+		removeBtn.Text = "X"
+
+		removeBtn.BackgroundColor3 =
+			Color3.fromRGB(200,60,60)
+
+		removeBtn.TextColor3 =
+			Color3.new(1,1,1)
+
+		removeBtn.Font =
+			Enum.Font.GothamBold
+
+		removeBtn.TextSize = 14
+
+		removeBtn.Parent = holder
+
+		Instance.new("UICorner", removeBtn)
+
+		removeBtn.MouseButton1Click:Connect(function()
+
+			AuraIgnore.List[name] = nil
+
+			refreshIgnoreList()
+		end)
+	end
+end
+
+refreshIgnoreList()
+
+auraIgnoreBox.FocusLost:Connect(function()
+
+	local txt = auraIgnoreBox.Text
+
+	if txt ~= "" then
+
+		AuraIgnore.List[txt] = true
+
+		auraIgnoreBox.Text = ""
+
+		refreshIgnoreList()
+	end
+end)
+
+auraIgnoreToggle.MouseButton1Click:Connect(function()
+
+	AuraIgnore.Enabled =
+		not AuraIgnore.Enabled
+
+	auraIgnoreToggle.Text =
+		AuraIgnore.Enabled
+		and "Ignore List: ON"
+		or "Ignore List: OFF"
+
+	auraIgnoreToggle.BackgroundColor3 =
+		AuraIgnore.Enabled
+		and Color3.fromRGB(0,170,255)
+		or Color3.fromRGB(45,45,45)
+end)
+
+-- AURA SYSTEM
+
 local block
+local timerRemaining = 0
+
+local UNFREEZE_TIMER = 0.8
+
+local isActive = false
+
 local frozen = {}
-local activeAura = false
 
 local function shouldIgnore(enemy)
 
@@ -956,9 +1135,10 @@ local function createBlock()
 
 	block = Instance.new("Part")
 
-	block.Name = "AuraBlock"
+	block.Name = "Block of Doom"
 
 	block.Anchored = true
+
 	block.CanCollide = false
 	block.CanTouch = false
 	block.CanQuery = false
@@ -968,7 +1148,7 @@ local function createBlock()
 	block.Size = Vector3.new(6,6,6)
 
 	block.CFrame =
-		CFrame.new(0,-5000,0)
+		CFrame.new(0,-0.250244379,1.2336266)
 
 	block.Parent = Workspace
 
@@ -988,32 +1168,17 @@ local function getOffset(index)
 	local angle =
 		(pos / perLayer) * math.pi * 2
 
-	local radius = 0.22
+	local horizontalRadius = 0.22
 
-	local x = math.cos(angle) * radius
-	local z = math.sin(angle) * radius
+	local x =
+		math.cos(angle) * horizontalRadius
+
+	local z =
+		math.sin(angle) * horizontalRadius
+
 	local y = layer * 2.5
 
 	return Vector3.new(x,y,z)
-end
-
-local function getProjectiles()
-
-	local tbl = {}
-
-	for _,v in ipairs(projectileFolder:GetChildren()) do
-
-		if v:IsA("BasePart") then
-
-			if v.Name == "Teapot"
-			or v.Name == "FireTeapot" then
-
-				table.insert(tbl,v)
-			end
-		end
-	end
-
-	return tbl
 end
 
 local function teleportProjectiles()
@@ -1022,14 +1187,22 @@ local function teleportProjectiles()
 		return
 	end
 
-	for _,v in ipairs(getProjectiles()) do
+	for _,v in ipairs(projectileFolder:GetChildren()) do
 
-		v.Anchored = true
+		if v:IsA("BasePart") then
 
-		v.CFrame = block.CFrame
+			if v.Name == "Teapot"
+			or v.Name == "FireTeapot" then
 
-		v.AssemblyLinearVelocity = Vector3.zero
-		v.AssemblyAngularVelocity = Vector3.zero
+				v.CFrame = block.CFrame
+
+				v.AssemblyLinearVelocity =
+					Vector3.zero
+
+				v.AssemblyAngularVelocity =
+					Vector3.zero
+			end
+		end
 	end
 end
 
@@ -1046,10 +1219,14 @@ local function gatherEnemies()
 		if not shouldIgnore(npc) then
 
 			local root =
-				npc:FindFirstChild("HumanoidRootPart")
+				npc:FindFirstChild(
+					"HumanoidRootPart"
+				)
 
 			local hum =
-				npc:FindFirstChildOfClass("Humanoid")
+				npc:FindFirstChildOfClass(
+					"Humanoid"
+				)
 
 			if root and hum and hum.Health > 0 then
 				table.insert(enemies,npc)
@@ -1060,7 +1237,9 @@ local function gatherEnemies()
 	for i,npc in ipairs(enemies) do
 
 		local root =
-			npc:FindFirstChild("HumanoidRootPart")
+			npc:FindFirstChild(
+				"HumanoidRootPart"
+			)
 
 		if not root then
 			continue
@@ -1074,26 +1253,34 @@ local function gatherEnemies()
 			block.CFrame
 			* CFrame.new(getOffset(i))
 
-		root.AssemblyLinearVelocity = Vector3.zero
-		root.AssemblyAngularVelocity = Vector3.zero
+		root.AssemblyLinearVelocity =
+			Vector3.zero
+
+		root.AssemblyAngularVelocity =
+			Vector3.zero
 	end
 end
 
 local function releaseEnemies()
 
-	for npc,cf in pairs(frozen) do
+	for npc,originalCFrame in pairs(frozen) do
 
 		if npc and npc.Parent then
 
 			local root =
-				npc:FindFirstChild("HumanoidRootPart")
+				npc:FindFirstChild(
+					"HumanoidRootPart"
+				)
 
 			if root then
 
-				root.CFrame = cf
+				root.CFrame = originalCFrame
 
-				root.AssemblyLinearVelocity = Vector3.zero
-				root.AssemblyAngularVelocity = Vector3.zero
+				root.AssemblyLinearVelocity =
+					Vector3.zero
+
+				root.AssemblyAngularVelocity =
+					Vector3.zero
 			end
 		end
 	end
@@ -1103,13 +1290,11 @@ end
 
 local function activateAura()
 
-	if activeAura then
-		return
-	end
-
-	activeAura = true
-
 	createBlock()
+
+	timerRemaining = UNFREEZE_TIMER
+
+	isActive = true
 end
 
 projectileFolder.ChildAdded:Connect(function(child)
@@ -1141,37 +1326,52 @@ auraBtn.MouseButton1Click:Connect(function()
 
 	if auraEnabled then
 
+		createBlock()
+
+		if auraConnection then
+			auraConnection:Disconnect()
+		end
+
 		auraConnection =
-			RunService.Heartbeat:Connect(function()
+			RunService.Heartbeat:Connect(function(dt)
 
-				if not activeAura then
+				if not isActive then
 					return
 				end
 
-				local projectiles =
-					getProjectiles()
-
-				if #projectiles <= 0 then
-					return
-				end
+				timerRemaining -= dt
 
 				teleportProjectiles()
+
 				gatherEnemies()
+
+				if timerRemaining <= 0 then
+
+					releaseEnemies()
+
+					isActive = false
+
+					timerRemaining = 0
+				end
 			end)
 
 	else
 
-		activeAura = false
+		isActive = false
 
 		releaseEnemies()
 
 		if auraConnection then
+
 			auraConnection:Disconnect()
+
 			auraConnection = nil
 		end
 
 		if block and block.Parent then
+
 			block:Destroy()
+
 			block = nil
 		end
 	end
