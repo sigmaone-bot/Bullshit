@@ -910,7 +910,7 @@ do
 			or Color3.fromRGB(45, 45, 45)
 	end)
 
-					-- PROJECTILE AURA
+		-- PROJECTILE AURA
 
 local auraEnabled = false
 local auraConnection
@@ -1038,6 +1038,9 @@ auraIgnoreToggle.MouseButton1Click:Connect(function()
 		or Color3.fromRGB(45,45,45)
 end)
 
+local block
+local frozen = {}
+
 local function shouldIgnore(enemy)
 
 	if not AuraIgnore.Enabled then
@@ -1047,38 +1050,63 @@ local function shouldIgnore(enemy)
 	return AuraIgnore.List[enemy.Name]
 end
 
-local function getAliveEnemies()
+local function createBlock()
 
-	local enemies = {}
-
-	for _, enemy in ipairs(enemyFolder:GetChildren()) do
-
-		if not shouldIgnore(enemy) then
-
-			local hum = enemy:FindFirstChild("Humanoid")
-			local root = enemy:FindFirstChild("HumanoidRootPart")
-
-			if hum and root and hum.Health > 0 then
-				table.insert(enemies, root)
-			end
-		end
+	if block and block.Parent then
+		return block
 	end
 
-	return enemies
+	block = Instance.new("Part")
+	block.Name = "AuraBlock"
+	block.Anchored = true
+	block.CanCollide = false
+	block.CanTouch = false
+	block.CanQuery = false
+	block.Transparency = 1
+	block.Size = Vector3.new(8,8,8)
+
+	block.CFrame =
+		CFrame.new(0,999999,0)
+
+	block.Parent = Workspace
+
+	return block
+end
+
+local function getOffset(index)
+
+	local perLayer = 5
+
+	local layer =
+		math.floor((index - 1) / perLayer)
+
+	local pos =
+		(index - 1) % perLayer
+
+	local angle =
+		(pos / perLayer) * math.pi * 2
+
+	local radius = 2
+
+	local x = math.cos(angle) * radius
+	local z = math.sin(angle) * radius
+	local y = layer * 3
+
+	return Vector3.new(x,y,z)
 end
 
 local function getTeapots()
 
 	local teapots = {}
 
-	for _, obj in ipairs(projectileFolder:GetChildren()) do
+	for _,v in ipairs(projectileFolder:GetChildren()) do
 
-		if obj:IsA("BasePart") then
+		if v:IsA("BasePart") then
 
-			if obj.Name == "Teapot"
-			or obj.Name == "FireTeapot" then
+			if v.Name == "Teapot"
+			or v.Name == "FireTeapot" then
 
-				table.insert(teapots, obj)
+				table.insert(teapots,v)
 			end
 		end
 	end
@@ -1086,29 +1114,89 @@ local function getTeapots()
 	return teapots
 end
 
-local function moveTeapotsToEnemies(teapots, enemies)
+local function teleportTeapots()
 
-	local enemyIndex = 1
+	if not block or not block.Parent then
+		return
+	end
 
-	for _, teapot in ipairs(teapots) do
+	for _,v in ipairs(getTeapots()) do
 
-		if not teapot or not teapot.Parent then
+		v.Anchored = true
+
+		v.CFrame = block.CFrame
+
+		v.AssemblyLinearVelocity = Vector3.zero
+		v.AssemblyAngularVelocity = Vector3.zero
+	end
+end
+
+local function gatherEnemies()
+
+	if not block or not block.Parent then
+		return
+	end
+
+	local enemies = {}
+
+	for _,npc in ipairs(enemyFolder:GetChildren()) do
+
+		if not shouldIgnore(npc) then
+
+			local root =
+				npc:FindFirstChild("HumanoidRootPart")
+
+			local hum =
+				npc:FindFirstChildOfClass("Humanoid")
+
+			if root and hum and hum.Health > 0 then
+				table.insert(enemies,npc)
+			end
+		end
+	end
+
+	for i,npc in ipairs(enemies) do
+
+		local root =
+			npc:FindFirstChild("HumanoidRootPart")
+
+		if not root then
 			continue
 		end
 
-		local target = enemies[enemyIndex]
-
-		if target and target.Parent then
-			teapot.Anchored = true
-			teapot.CFrame = target.CFrame
+		if not frozen[npc] then
+			frozen[npc] = root.CFrame
 		end
 
-		enemyIndex += 1
+		root.CFrame =
+			block.CFrame
+			* CFrame.new(getOffset(i))
 
-		if enemyIndex > #enemies then
-			enemyIndex = 1
+		root.AssemblyLinearVelocity = Vector3.zero
+		root.AssemblyAngularVelocity = Vector3.zero
+	end
+end
+
+local function releaseEnemies()
+
+	for npc,cf in pairs(frozen) do
+
+		if npc and npc.Parent then
+
+			local root =
+				npc:FindFirstChild("HumanoidRootPart")
+
+			if root then
+
+				root.CFrame = cf
+
+				root.AssemblyLinearVelocity = Vector3.zero
+				root.AssemblyAngularVelocity = Vector3.zero
+			end
 		end
 	end
+
+	table.clear(frozen)
 end
 
 auraBtn.MouseButton1Click:Connect(function()
@@ -1127,33 +1215,31 @@ auraBtn.MouseButton1Click:Connect(function()
 
 	if auraEnabled then
 
+		createBlock()
+
 		auraConnection =
 			RunService.Heartbeat:Connect(function()
 
-				local enemies = getAliveEnemies()
-
-				if #enemies <= 0 then
-					return
-				end
-
-				local teapots = getTeapots()
-
-				if #teapots <= 0 then
-					return
-				end
-
-				moveTeapotsToEnemies(teapots, enemies)
+				teleportTeapots()
+				gatherEnemies()
 			end)
 
 	else
+
+		releaseEnemies()
 
 		if auraConnection then
 			auraConnection:Disconnect()
 			auraConnection = nil
 		end
+
+		if block and block.Parent then
+			block:Destroy()
+			block = nil
+		end
 	end
 end)
-
+	
 	-- TABS Switching
 	tabEditor.MouseButton1Click:Connect(function()
 
