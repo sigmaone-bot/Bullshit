@@ -910,269 +910,249 @@ do
 			or Color3.fromRGB(45, 45, 45)
 	end)
 
-	-- PROJECTILE AURA (Solo una versión)
-	local auraEnabled = false
-	local auraConnection
+					-- PROJECTILE AURA
 
-	local AuraIgnore = {
-		Enabled = true,
-		List = {
-			Punishment = true,
-			Bloodhorn = true
-		}
+local auraEnabled = false
+local auraConnection
+
+local AuraIgnore = {
+	Enabled = true,
+	List = {
+		Punishment = true,
+		Bloodhorn = true
 	}
+}
 
-	local auraBtn = makeButton(
-		antis,
-		"Projectile Aura: OFF",
-		UDim2.new(0.37,0,0.25,0)
-	)
+local auraBtn = makeButton(
+	antis,
+	"Projectile Aura: OFF",
+	UDim2.new(0.37,0,0.25,0)
+)
 
-	local auraIgnoreToggle = makeButton(
-		antis,
-		"Ignore List: ON",
-		UDim2.new(0.69,0,0.25,0)
-	)
+local auraIgnoreToggle = makeButton(
+	antis,
+	"Ignore List: ON",
+	UDim2.new(0.69,0,0.25,0)
+)
 
-	local auraIgnoreBox = Instance.new("TextBox")
-	auraIgnoreBox.Size = UDim2.new(0.3,0,0,40)
-	auraIgnoreBox.Position = UDim2.new(0.37,0,0.38,0)
-	auraIgnoreBox.PlaceholderText = "Add ignored enemy..."
-	auraIgnoreBox.BackgroundColor3 = Color3.fromRGB(40,40,40)
-	auraIgnoreBox.TextColor3 = Color3.new(1,1,1)
-	auraIgnoreBox.Font = Enum.Font.Gotham
-	auraIgnoreBox.TextSize = 14
-	auraIgnoreBox.Parent = antis
+local auraIgnoreBox = Instance.new("TextBox")
+auraIgnoreBox.Size = UDim2.new(0.3,0,0,40)
+auraIgnoreBox.Position = UDim2.new(0.37,0,0.38,0)
+auraIgnoreBox.PlaceholderText = "Add ignored enemy..."
+auraIgnoreBox.BackgroundColor3 = Color3.fromRGB(40,40,40)
+auraIgnoreBox.TextColor3 = Color3.new(1,1,1)
+auraIgnoreBox.Font = Enum.Font.Gotham
+auraIgnoreBox.TextSize = 14
+auraIgnoreBox.Parent = antis
 
-	Instance.new("UICorner", auraIgnoreBox)
+Instance.new("UICorner", auraIgnoreBox)
 
-	local ignoreListFrame = Instance.new("ScrollingFrame")
-	ignoreListFrame.Size = UDim2.new(0.3,0,0,120)
-	ignoreListFrame.Position = UDim2.new(0.37,0,0.5,0)
-	ignoreListFrame.BackgroundColor3 = Color3.fromRGB(35,35,35)
-	ignoreListFrame.ScrollBarThickness = 4
-	ignoreListFrame.Parent = antis
+local ignoreListFrame = Instance.new("ScrollingFrame")
+ignoreListFrame.Size = UDim2.new(0.3,0,0,120)
+ignoreListFrame.Position = UDim2.new(0.37,0,0.5,0)
+ignoreListFrame.BackgroundColor3 = Color3.fromRGB(35,35,35)
+ignoreListFrame.ScrollBarThickness = 4
+ignoreListFrame.Parent = antis
 
-	Instance.new("UICorner", ignoreListFrame)
+Instance.new("UICorner", ignoreListFrame)
 
-	local ignoreLayout = Instance.new("UIListLayout")
-	ignoreLayout.Padding = UDim.new(0,4)
-	ignoreLayout.Parent = ignoreListFrame
+local ignoreLayout = Instance.new("UIListLayout")
+ignoreLayout.Padding = UDim.new(0,4)
+ignoreLayout.Parent = ignoreListFrame
 
-	ignoreLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-		ignoreListFrame.CanvasSize =
-			UDim2.new(0,0,0,ignoreLayout.AbsoluteContentSize.Y + 5)
-	end)
+ignoreLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+	ignoreListFrame.CanvasSize =
+		UDim2.new(0,0,0,ignoreLayout.AbsoluteContentSize.Y + 5)
+end)
 
-	local function refreshIgnoreList()
+local function refreshIgnoreList()
 
-		for _,v in ipairs(ignoreListFrame:GetChildren()) do
-			if v:IsA("Frame") then
-				v:Destroy()
-			end
-		end
-
-		for name,_ in pairs(AuraIgnore.List) do
-
-			local holder = Instance.new("Frame")
-			holder.Size = UDim2.new(1,-5,0,30)
-			holder.BackgroundColor3 = Color3.fromRGB(50,50,50)
-			holder.Parent = ignoreListFrame
-
-			Instance.new("UICorner", holder)
-
-			local label = Instance.new("TextLabel")
-			label.Size = UDim2.new(0.75,0,1,0)
-			label.BackgroundTransparency = 1
-			label.Text = name
-			label.TextColor3 = Color3.new(1,1,1)
-			label.Font = Enum.Font.Gotham
-			label.TextSize = 13
-			label.Parent = holder
-
-			local removeBtn = Instance.new("TextButton")
-			removeBtn.Size = UDim2.new(0.2,0,0.8,0)
-			removeBtn.Position = UDim2.new(0.78,0,0.1,0)
-			removeBtn.Text = "X"
-			removeBtn.BackgroundColor3 = Color3.fromRGB(200,60,60)
-			removeBtn.TextColor3 = Color3.new(1,1,1)
-			removeBtn.Font = Enum.Font.GothamBold
-			removeBtn.TextSize = 14
-			removeBtn.Parent = holder
-
-			Instance.new("UICorner", removeBtn)
-
-			removeBtn.MouseButton1Click:Connect(function()
-				AuraIgnore.List[name] = nil
-				refreshIgnoreList()
-			end)
+	for _,v in ipairs(ignoreListFrame:GetChildren()) do
+		if v:IsA("Frame") then
+			v:Destroy()
 		end
 	end
 
-	refreshIgnoreList()
+	for name,_ in pairs(AuraIgnore.List) do
 
-	auraIgnoreBox.FocusLost:Connect(function()
+		local holder = Instance.new("Frame")
+		holder.Size = UDim2.new(1,-5,0,30)
+		holder.BackgroundColor3 = Color3.fromRGB(50,50,50)
+		holder.Parent = ignoreListFrame
 
-		local txt = auraIgnoreBox.Text
+		Instance.new("UICorner", holder)
 
-		if txt ~= "" then
-			AuraIgnore.List[txt] = true
-			auraIgnoreBox.Text = ""
+		local label = Instance.new("TextLabel")
+		label.Size = UDim2.new(0.75,0,1,0)
+		label.BackgroundTransparency = 1
+		label.Text = name
+		label.TextColor3 = Color3.new(1,1,1)
+		label.Font = Enum.Font.Gotham
+		label.TextSize = 13
+		label.Parent = holder
+
+		local removeBtn = Instance.new("TextButton")
+		removeBtn.Size = UDim2.new(0.2,0,0.8,0)
+		removeBtn.Position = UDim2.new(0.78,0,0.1,0)
+		removeBtn.Text = "X"
+		removeBtn.BackgroundColor3 = Color3.fromRGB(200,60,60)
+		removeBtn.TextColor3 = Color3.new(1,1,1)
+		removeBtn.Font = Enum.Font.GothamBold
+		removeBtn.TextSize = 14
+		removeBtn.Parent = holder
+
+		Instance.new("UICorner", removeBtn)
+
+		removeBtn.MouseButton1Click:Connect(function()
+			AuraIgnore.List[name] = nil
 			refreshIgnoreList()
-		end
-	end)
+		end)
+	end
+end
 
-	local function shouldIgnore(enemy)
-		if not AuraIgnore.Enabled then
-			return false
-		end
+refreshIgnoreList()
 
-		return AuraIgnore.List[enemy.Name]
+auraIgnoreBox.FocusLost:Connect(function()
+
+	local txt = auraIgnoreBox.Text
+
+	if txt ~= "" then
+		AuraIgnore.List[txt] = true
+		auraIgnoreBox.Text = ""
+		refreshIgnoreList()
+	end
+end)
+
+auraIgnoreToggle.MouseButton1Click:Connect(function()
+
+	AuraIgnore.Enabled = not AuraIgnore.Enabled
+
+	auraIgnoreToggle.Text =
+		AuraIgnore.Enabled
+		and "Ignore List: ON"
+		or "Ignore List: OFF"
+
+	auraIgnoreToggle.BackgroundColor3 =
+		AuraIgnore.Enabled
+		and Color3.fromRGB(0,170,255)
+		or Color3.fromRGB(45,45,45)
+end)
+
+local function shouldIgnore(enemy)
+
+	if not AuraIgnore.Enabled then
+		return false
 	end
 
-	local function getTeapots()
-		local teapots = {}
+	return AuraIgnore.List[enemy.Name]
+end
 
-		for _, obj in ipairs(projectileFolder:GetChildren()) do
-			if obj:IsA("BasePart") then
-				if obj.Name == "Teapot" or obj.Name == "FireTeapot" then
-					table.insert(teapots, obj)
-				end
-			end
-		end
+local function getAliveEnemies()
 
-		return teapots
-	end
+	local enemies = {}
 
-	local function freezeTeapots(teapots)
-		for _, obj in ipairs(teapots) do
-			obj.Anchored = true
-			obj.CFrame = obj.CFrame + Vector3.new(0,150,0)
-		end
-	end
+	for _, enemy in ipairs(enemyFolder:GetChildren()) do
 
-	local function tpEnemies(enemies, cf)
-		for _, enemy in ipairs(enemies) do
+		if not shouldIgnore(enemy) then
+
+			local hum = enemy:FindFirstChild("Humanoid")
 			local root = enemy:FindFirstChild("HumanoidRootPart")
 
-			if root then
-				root.CFrame = cf
+			if hum and root and hum.Health > 0 then
+				table.insert(enemies, root)
 			end
 		end
 	end
 
-	local function tpTeapots(teapots, enemies)
-		local index = 1
+	return enemies
+end
 
-		for _, obj in ipairs(teapots) do
-			if index > #enemies then
-				index = 1
+local function getTeapots()
+
+	local teapots = {}
+
+	for _, obj in ipairs(projectileFolder:GetChildren()) do
+
+		if obj:IsA("BasePart") then
+
+			if obj.Name == "Teapot"
+			or obj.Name == "FireTeapot" then
+
+				table.insert(teapots, obj)
 			end
-
-			local root = enemies[index]:FindFirstChild("HumanoidRootPart")
-
-			if root then
-				obj.CFrame = root.CFrame
-			end
-
-			index += 1
 		end
 	end
 
-	auraBtn.MouseButton1Click:Connect(function()
+	return teapots
+end
 
-		auraEnabled = not auraEnabled
+local function moveTeapotsToEnemies(teapots, enemies)
 
-		auraBtn.Text =
-			auraEnabled
-			and "Projectile Aura: ON"
-			or "Projectile Aura: OFF"
+	local enemyIndex = 1
 
-		auraBtn.BackgroundColor3 =
-			auraEnabled
-			and Color3.fromRGB(120,80,255)
-			or Color3.fromRGB(45,45,45)
+	for _, teapot in ipairs(teapots) do
 
-		if auraEnabled then
+		if not teapot or not teapot.Parent then
+			continue
+		end
 
-			auraConnection =
-				RunService.Heartbeat:Connect(function()
+		local target = enemies[enemyIndex]
 
-					local teapots = getTeapots()
+		if target and target.Parent then
+			teapot.Anchored = true
+			teapot.CFrame = target.CFrame
+		end
 
-					if #teapots <= 0 then
-						return
-					end
+		enemyIndex += 1
 
-					local baseFolder =
-						npcFolders:FindFirstChild("BaseFolder")
-
-					if not baseFolder then
-						return
-					end
-
-					local redBase =
-						baseFolder:FindFirstChild("Red Base")
-
-					if not redBase then
-						return
-					end
-
-					local spawn =
-						redBase:FindFirstChild("Spawn")
-
-					if not spawn then
-						return
-					end
-
-					local enemies = {}
-
-					for _, enemy in ipairs(enemyFolder:GetChildren()) do
-
-						if not shouldIgnore(enemy) then
-
-							local hum = enemy:FindFirstChild("Humanoid")
-
-							if hum and hum.Health > 0 then
-								table.insert(enemies, enemy)
-							end
-						end
-					end
-
-					if #enemies <= 0 then
-						return
-					end
-
-					freezeTeapots(teapots)
-
-tpEnemies(enemies, spawn.CFrame)
-
-task.wait(1)
-
-local aliveEnemies = {}
-
-for _, enemy in ipairs(enemies) do
-	local root = enemy:FindFirstChild("HumanoidRootPart")
-	local hum = enemy:FindFirstChild("Humanoid")
-
-	if root and hum and hum.Health > 0 then
-		table.insert(aliveEnemies, enemy)
+		if enemyIndex > #enemies then
+			enemyIndex = 1
+		end
 	end
 end
 
-if #aliveEnemies > 0 then
-	tpTeapots(teapots, aliveEnemies)
-end
-				end)
+auraBtn.MouseButton1Click:Connect(function()
 
-		else
+	auraEnabled = not auraEnabled
 
-			if auraConnection then
-				auraConnection:Disconnect()
-				auraConnection = nil
-			end
+	auraBtn.Text =
+		auraEnabled
+		and "Projectile Aura: ON"
+		or "Projectile Aura: OFF"
+
+	auraBtn.BackgroundColor3 =
+		auraEnabled
+		and Color3.fromRGB(120,80,255)
+		or Color3.fromRGB(45,45,45)
+
+	if auraEnabled then
+
+		auraConnection =
+			RunService.Heartbeat:Connect(function()
+
+				local enemies = getAliveEnemies()
+
+				if #enemies <= 0 then
+					return
+				end
+
+				local teapots = getTeapots()
+
+				if #teapots <= 0 then
+					return
+				end
+
+				moveTeapotsToEnemies(teapots, enemies)
+			end)
+
+	else
+
+		if auraConnection then
+			auraConnection:Disconnect()
+			auraConnection = nil
 		end
-	end)
+	end
+end)
 
 	-- TABS Switching
 	tabEditor.MouseButton1Click:Connect(function()
