@@ -535,8 +535,8 @@ do
 			end
 		elseif superballTargetEnabled and not superballBaseTargetEnabled then
 
-			if obj.Name == "Superball"
-			or obj.Name == "Soccerball" then
+			if obj.Name == "BigStunPellet"
+			or obj.Name == "BigStar" then
 
 				task.defer(function()
 					followSuperball(obj)
@@ -544,8 +544,8 @@ do
 			end
 		elseif superballBaseTargetEnabled and not superballTargetEnabled then
 
-			if obj.Name == "Superball"
-			or obj.Name == "Soccerball" then
+			if obj.Name == "BigStunPellet"
+			or obj.Name == "SuperStar" then
 
 				task.defer(function()
 					followSuperballBase(obj)
